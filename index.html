@@ -1049,10 +1049,13 @@ function setProgress(pct, label) {
 }
 
 function resetProgress(msg = '', isError = false) {
-  document.getElementById('pmu-progress-wrap').style.display = 'none';
+  const wrap = document.getElementById('pmu-progress-wrap');
+  if (wrap) wrap.style.display = 'none';
   const msgEl = document.getElementById('pmu-msg');
-  msgEl.textContent = msg;
-  msgEl.style.color = isError ? 'var(--red)' : 'var(--text-dim)';
+  if (msgEl) {
+    msgEl.textContent = msg;
+    msgEl.style.color = isError ? 'var(--red)' : 'var(--text-dim)';
+  }
 }
 
 async function chargerNotesPMU() {
@@ -1136,7 +1139,8 @@ async function chargerNotesPMU() {
 
     // 100% — Terminé
     setProgress(100, `✓ ${data.chevaux.length} chevaux chargés`);
-    setTimeout(() => resetProgress(`✓ ${data.chevaux.length} chevaux · R${reunVal}C${coursVal}`), 1200);
+    const _nb = data.chevaux.length;
+    setTimeout(() => resetProgress(`✓ ${_nb} chevaux · R${reunVal}C${coursVal}`), 1500);
     toast(`Notes PMU chargées — ${data.chevaux.length} chevaux`, "success");
 
   } catch(e) {

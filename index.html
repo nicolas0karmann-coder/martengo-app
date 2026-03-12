@@ -472,156 +472,7 @@
   .chip.active-gold { border-color: var(--gold); color: var(--gold-lite); background: rgba(201,149,42,.1); }
   .chip.active-cop  { border-color: var(--copper); color: var(--copper); background: rgba(181,98,58,.1); }
 
-  /* ── Score cards V6 ── */
-  .score-card {
-    background: var(--bg2);
-    border: 1px solid var(--border);
-    border-radius: var(--r);
-    padding: 14px;
-    margin-bottom: 10px;
-    transition: border-color .2s;
-  }
-  .score-card.top1 { border-color: var(--gold); }
-  .score-card.top2 { border-color: #777; }
-  .score-card.top3 { border-color: var(--copper); }
-
-  .score-card-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 12px;
-  }
-  .score-avatar {
-    width: 40px; height: 40px;
-    border-radius: 50%;
-    background: var(--bg3);
-    border: 2px solid var(--border);
-    display: flex; align-items: center; justify-content: center;
-    font-family: 'DM Mono', monospace;
-    font-size: 16px; font-weight: 700;
-    flex-shrink: 0;
-  }
-  .score-card.top1 .score-avatar { border-color: var(--gold); color: var(--gold); }
-  .score-card.top2 .score-avatar { border-color: #999; color: #ccc; }
-  .score-card.top3 .score-avatar { border-color: var(--copper); color: var(--copper); }
-
-  .score-card-meta { flex: 1; }
-  .score-card-name {
-    font-family: 'DM Mono', monospace;
-    font-size: 12px;
-    color: var(--text);
-    margin-bottom: 2px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  .score-card-sub {
-    font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    color: var(--text-dim);
-  }
-  .score-card-note {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 28px;
-    line-height: 1;
-    flex-shrink: 0;
-  }
-  .score-card.top1 .score-card-note { color: var(--gold); }
-  .score-card.top2 .score-card-note { color: #aaa; }
-  .score-card.top3 .score-card-note { color: var(--copper); }
-  .score-card:not(.top1):not(.top2):not(.top3) .score-card-note { color: var(--text-dim); }
-
-  .score-dims {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-  }
-  .score-dim {
-    background: var(--bg3);
-    border-radius: 6px;
-    padding: 7px 8px;
-  }
-  .score-dim-label {
-    font-family: 'DM Mono', monospace;
-    font-size: 9px;
-    color: var(--text-dim);
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    margin-bottom: 4px;
-  }
-  .score-dim-bar-wrap {
-    height: 4px;
-    background: var(--bg2);
-    border-radius: 2px;
-    overflow: hidden;
-    margin-bottom: 3px;
-  }
-  .score-dim-bar { height: 100%; border-radius: 2px; transition: width .6s ease; }
-  .score-dim-val {
-    font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    text-align: right;
-  }
-
-  /* couleurs par dimension */
-  .dim-forme     .score-dim-bar { background: var(--gold); }
-  .dim-duo       .score-dim-bar { background: var(--copper); }
-  .dim-historique .score-dim-bar { background: var(--green-lit, #4dbb79); }
-  .dim-gains     .score-dim-bar { background: #7a9cd4; }
-  .dim-adequation .score-dim-bar { background: #9a7cbc; }
-  .dim-cote      .score-dim-bar { background: #5c8c7a; }
-
-  .dim-forme      .score-dim-val { color: var(--gold); }
-  .dim-duo        .score-dim-val { color: var(--copper); }
-  .dim-historique .score-dim-val { color: #4dbb79; }
-  .dim-gains      .score-dim-val { color: #7a9cd4; }
-  .dim-adequation .score-dim-val { color: #9a7cbc; }
-  .dim-cote       .score-dim-val { color: #5c8c7a; }
-
-  .score-legend {
-    display: flex; flex-wrap: wrap; gap: 10px;
-    margin-bottom: 16px;
-    font-family: 'DM Mono', monospace;
-    font-size: 9px; color: var(--text-dim);
-    letter-spacing: 1px; text-transform: uppercase;
-  }
-  .score-legend-item { display: flex; align-items: center; gap: 5px; }
-  .score-legend-dot { width: 8px; height: 8px; border-radius: 2px; }
-
-  /* Résumé radar horizontal */
-  .score-radar {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 4px;
-    margin: 10px 0 4px;
-  }
-  .score-radar-col { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-  .score-radar-bar-wrap {
-    width: 100%;
-    height: 40px;
-    background: var(--bg3);
-    border-radius: 3px;
-    display: flex; align-items: flex-end; overflow: hidden;
-  }
-  .score-radar-bar { width: 100%; border-radius: 3px 3px 0 0; transition: height .6s ease; }
-  .score-radar-label {
-    font-family: 'DM Mono', monospace;
-    font-size: 8px; color: var(--text-dim);
-    text-align: center; letter-spacing: 0.5px;
-  }
-
-  .analyse-version-tag {
-    display: inline-block;
-    font-family: 'DM Mono', monospace;
-    font-size: 9px;
-    color: var(--gold);
-    border: 1px solid var(--gold);
-    border-radius: 4px;
-    padding: 2px 6px;
-    letter-spacing: 1px;
-    margin-left: 8px;
-    vertical-align: middle;
-    opacity: 0.7;
-  }
-
+  /* ── Scrollbar ── */
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
@@ -759,17 +610,18 @@
             Notes PMU →
           </button>
         </div>
-        <div id="pmu-status" style="margin-top:8px;min-height:32px;">
+        <div id="pmu-status" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text-dim);margin-top:8px;min-height:20px;">
+          <!-- barre de progression cold start -->
           <div id="pmu-progress-wrap" style="display:none;">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
               <span id="pmu-progress-label" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px;"></span>
-              <span id="pmu-progress-pct" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);font-weight:500;">0%</span>
+              <span id="pmu-progress-pct" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);font-weight:500;"></span>
             </div>
             <div style="height:3px;background:var(--bg3);border-radius:2px;overflow:hidden;">
-              <div id="pmu-progress-bar" style="height:100%;width:0%;background:var(--gold);border-radius:2px;transition:width 0.3s ease;"></div>
+              <div id="pmu-progress-bar" style="height:100%;width:0%;background:var(--gold);border-radius:2px;transition:width 0.4s ease;"></div>
             </div>
           </div>
-          <div id="pmu-msg" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text-dim);"></div>
+          <span id="pmu-msg"></span>
         </div>
       </div>
 
@@ -802,7 +654,7 @@
   </div>
 
   <!-- ══════════════════════════════════════════
-       ÉCRAN 3 — ANALYSE V6 (scores métier)
+       ÉCRAN 3 — ANALYSE V6
   ══════════════════════════════════════════ -->
   <div class="screen" id="screen-analyse">
     <div class="section-title">Analyse V6</div>
@@ -815,7 +667,7 @@
   </div>
 
   <!-- ══════════════════════════════════════════
-       ÉCRAN 6 — RÉSULTATS
+       ÉCRAN 4 — RÉSULTATS
   ══════════════════════════════════════════ -->
   <div class="screen" id="screen-resultats">
     <div class="section-title">Enregistrer les rangs</div>
@@ -904,101 +756,8 @@ function resetTotal() {
 }
 
 // ============================================================
-// ANALYSE V6 — scores métier par dimension
+// INIT
 // ============================================================
-function renderAnalyse(data) {
-  const chevaux = [...data.chevaux].sort((a, b) => b.note_pmu - a.note_pmu);
-  const version = data.version || 'v5';
-
-  const DIMS = [
-    { key: 'forme',      label: 'Forme',    cls: 'dim-forme',      icon: '🎵' },
-    { key: 'duo',        label: 'Duo',      cls: 'dim-duo',        icon: '🤝' },
-    { key: 'historique', label: 'Palmarès', cls: 'dim-historique', icon: '📈' },
-    { key: 'gains',      label: 'Gains',    cls: 'dim-gains',      icon: '💰' },
-    { key: 'adequation', label: 'Adéquat.', cls: 'dim-adequation', icon: '🎯' },
-    { key: 'cote',       label: 'Cote',     cls: 'dim-cote',       icon: '📊' },
-  ];
-
-  const legend = DIMS.map(d => `
-    <div class="score-legend-item">
-      <div class="score-legend-dot" style="background:${_dimColor(d.cls)}"></div>
-      ${d.icon} ${d.label}
-    </div>`).join('');
-
-  const cards = chevaux.map((h, i) => {
-    const rankClass = i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : '';
-    const medal     = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
-    const scores    = h.scores || {};
-
-    // mini barres verticales (radar horizontal)
-    const radarBars = DIMS.map(d => {
-      const val = scores[d.key] ?? 0;
-      return `
-        <div class="score-radar-col">
-          <div class="score-radar-bar-wrap">
-            <div class="score-radar-bar ${d.cls}" style="height:${val}%;background:${_dimColor(d.cls)};"></div>
-          </div>
-          <div class="score-radar-label">${d.label}</div>
-        </div>`;
-    }).join('');
-
-    // grille 6 dimensions
-    const dimCells = DIMS.map(d => {
-      const val = scores[d.key] ?? 0;
-      const color = _scoreColor(val);
-      return `
-        <div class="score-dim ${d.cls}">
-          <div class="score-dim-label">${d.icon} ${d.label}</div>
-          <div class="score-dim-bar-wrap">
-            <div class="score-dim-bar" style="width:${val}%;"></div>
-          </div>
-          <div class="score-dim-val">${val}</div>
-        </div>`;
-    }).join('');
-
-    return `
-      <div class="score-card ${rankClass}">
-        <div class="score-card-header">
-          <div class="score-avatar">${h.numero}</div>
-          <div class="score-card-meta">
-            <div class="score-card-name">${medal} ${h.nom || 'Cheval ' + h.numero}</div>
-            <div class="score-card-sub">cote ${h.cote ?? '—'} · driver ${h.driver || '—'}</div>
-            <div class="score-radar">${radarBars}</div>
-          </div>
-          <div class="score-card-note">${h.note_pmu}<span style="font-size:12px;color:var(--text-dim);">/20</span></div>
-        </div>
-        <div class="score-dims">${dimCells}</div>
-      </div>`;
-  }).join('');
-
-  document.getElementById('analyse-content').innerHTML = `
-    <div class="pred-meta">
-      ${chevaux.length} chevaux · ${data.date || currentDate || 'Aujourd\'hui'}
-      <span class="analyse-version-tag">${version}</span>
-    </div>
-    <div class="score-legend">${legend}</div>
-    ${cards}`;
-}
-
-function _dimColor(cls) {
-  const map = {
-    'dim-forme':      'var(--gold)',
-    'dim-duo':        'var(--copper)',
-    'dim-historique': '#4dbb79',
-    'dim-gains':      '#7a9cd4',
-    'dim-adequation': '#9a7cbc',
-    'dim-cote':       '#5c8c7a',
-  };
-  return map[cls] || 'var(--border)';
-}
-
-function _scoreColor(val) {
-  if (val >= 75) return 'var(--gold)';
-  if (val >= 50) return 'var(--copper)';
-  return 'var(--text-dim)';
-}
-
-
 document.addEventListener('DOMContentLoaded', () => {
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('course-date').value = today;
@@ -1034,77 +793,46 @@ function goTo(screen) {
 // ============================================================
 // NOTES PMU
 // ============================================================
-
-// Barre de progression — appelée à chaque étape
-function setProgress(pct, label) {
-  document.getElementById('pmu-progress-wrap').style.display = 'block';
-  document.getElementById('pmu-msg').textContent = '';
-  document.getElementById('pmu-progress-pct').textContent   = `${pct}%`;
-  document.getElementById('pmu-progress-label').textContent = label;
-  document.getElementById('pmu-progress-bar').style.width   = `${pct}%`;
-  // Couleur finale verte
-  const barColor = pct === 100 ? 'var(--green-lit, #4dbb79)' : 'var(--gold)';
-  document.getElementById('pmu-progress-bar').style.background = barColor;
-  document.getElementById('pmu-progress-pct').style.color = barColor;
-}
-
-function resetProgress(msg = '', isError = false) {
-  const wrap = document.getElementById('pmu-progress-wrap');
-  if (wrap) wrap.style.display = 'none';
-  const msgEl = document.getElementById('pmu-msg');
-  if (msgEl) {
-    msgEl.textContent = msg;
-    msgEl.style.color = isError ? 'var(--red)' : 'var(--text-dim)';
-  }
-}
-
 async function chargerNotesPMU() {
   const btn = document.getElementById('btn-pmu');
 
   try {
-    // 10% — Lecture des champs
-    setProgress(10, 'Lecture des paramètres…');
     const dateVal  = document.getElementById('course-date').value;
     const reunVal  = document.getElementById('pmu-reunion').value;
     const coursVal = document.getElementById('pmu-course').value;
 
     if (!dateVal || !reunVal || !coursVal) {
-      resetProgress(); toast("Remplissez date, réunion et course", "error"); return;
+      toast("Remplissez date, réunion et course", "error"); return;
     }
+
     const parts = dateVal.split('-');
     if (parts.length !== 3 || parts[0].length !== 4) {
-      resetProgress(); toast("Format de date invalide", "error"); return;
+      toast("Format de date invalide", "error"); return;
     }
     const datePMU = parts[2] + parts[1] + parts[0];
 
-    // 25% — Envoi requête
-    setProgress(25, 'Connexion à l\'API…');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span>';
+    setPmuMsg('Chargement en cours…');
     const urlFetch = `${API_URL}/notes_pmu?date=${datePMU}&reunion=${reunVal}&course=${coursVal}`;
 
-    // 40% — Requête en cours (la plus longue — scraping PMU + prédiction)
-    setProgress(40, 'Scraping PMU + calcul notes…');
     let resp;
     try {
       resp = await fetch(urlFetch);
     } catch(fetchErr) {
       throw new Error(`fetch échoué : ${fetchErr.name} — ${fetchErr.message}`);
     }
-
-    // 70% — Réponse reçue
-    setProgress(70, 'Réponse reçue, lecture JSON…');
     if (!resp.ok) {
       const err = await resp.json();
       throw new Error(err.error || `HTTP ${resp.status}`);
     }
     const data = await resp.json();
 
-    // 85% — Traitement des données
-    setProgress(85, 'Traitement des chevaux…');
+    // Stocker les notes PMU par numéro
     notesPMU = {};
     data.chevaux.forEach(c => { notesPMU[c.numero] = c; });
 
+    // Si la liste est vide, la peupler automatiquement
     if (chevaux.length === 0) {
       chevaux = [];
       horseCounter = 0;
@@ -1118,33 +846,29 @@ async function chargerNotesPMU() {
         });
       });
     } else {
+      // Sinon juste pré-remplir les champs manquants
       chevaux.forEach(c => {
         const pmu = notesPMU[c.numero];
         if (pmu) {
-          if (c.note === '' || c.note === 0)       c.note    = pmu.note_pmu;
+          if (c.note === '' || c.note === 0)    c.note    = pmu.note_pmu;
           if (c.rapport === '' || c.rapport === 0) c.rapport = pmu.cote !== null ? pmu.cote : c.rapport;
         }
       });
     }
 
-    // 95% — Rendu
-    setProgress(95, 'Affichage…');
     renderHorses();
     sauvegarderSaisie();
+    setPmuMsg(`✓ ${data.chevaux.length} chevaux chargés`);
 
-    // ✨ V6 — onglet Analyse
+    // Onglet Analyse V6
     if (data.chevaux[0] && data.chevaux[0].scores) {
       renderAnalyse(data);
     }
 
-    // 100% — Terminé
-    setProgress(100, `✓ ${data.chevaux.length} chevaux chargés`);
-    const _nb = data.chevaux.length;
-    setTimeout(() => resetProgress(`✓ ${_nb} chevaux · R${reunVal}C${coursVal}`), 1500);
     toast(`Notes PMU chargées — ${data.chevaux.length} chevaux`, "success");
 
   } catch(e) {
-    resetProgress(`Erreur : ${e.message}`, true);
+    setPmuMsg(`Erreur : ${e.message}`, true);
     toast("Impossible de charger les notes PMU", "error");
   } finally {
     btn.disabled = false;
@@ -1181,14 +905,15 @@ function viderCourse() {
   predictions = null;
   notesPMU = {};
   effacerSaisie();
-  document.getElementById('pmu-status').textContent = '';
+  clearPmuProgress();
+  document.getElementById('pmu-msg').textContent = '';
   renderHorses();
   document.getElementById('selections-content').innerHTML = `
     <div class="empty"><div class="empty-icon">🎯</div>Analysez une course<br>pour voir les sélections</div>`;
-  document.getElementById('result-content').innerHTML = `
-    <div class="empty"><div class="empty-icon">🏇</div>Saisissez une course<br>puis revenez ici après la course</div>`;
   document.getElementById('analyse-content').innerHTML = `
     <div class="empty"><div class="empty-icon">🔬</div>Chargez les notes PMU<br>pour voir l'analyse détaillée</div>`;
+  document.getElementById('result-content').innerHTML = `
+    <div class="empty"><div class="empty-icon">🏇</div>Saisissez une course<br>puis revenez ici après la course</div>`;
 }
 
 function renderHorses() {
@@ -1257,7 +982,6 @@ async function lancerPrediction() {
   const btn = document.getElementById('btn-predict');
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>';
-
   goTo('selections');
 
   try {
@@ -1478,23 +1202,151 @@ async function envoyerResultats() {
 }
 
 // ============================================================
-// HEALTH CHECK
+// HEALTH CHECK — avec barre de progression cold start
 // ============================================================
+let apiPrete = false;
+
+function setPmuProgress(pct, label, color) {
+  const c = color || 'var(--gold)';
+  document.getElementById('pmu-progress-wrap').style.display = 'block';
+  document.getElementById('pmu-msg').textContent = '';
+  document.getElementById('pmu-progress-pct').textContent   = pct < 100 ? `${pct}%` : '';
+  document.getElementById('pmu-progress-pct').style.color   = c;
+  document.getElementById('pmu-progress-label').textContent = label;
+  document.getElementById('pmu-progress-bar').style.width   = `${pct}%`;
+  document.getElementById('pmu-progress-bar').style.background = c;
+}
+
+function clearPmuProgress(msg) {
+  document.getElementById('pmu-progress-wrap').style.display = 'none';
+  document.getElementById('pmu-msg').textContent = msg || '';
+  document.getElementById('pmu-msg').style.color = 'var(--text-dim)';
+}
+
+function setPmuMsg(msg, isError) {
+  document.getElementById('pmu-progress-wrap').style.display = 'none';
+  const el = document.getElementById('pmu-msg');
+  el.textContent = msg;
+  el.style.color = isError ? 'var(--red)' : 'var(--text-dim)';
+}
+
 async function checkHealth() {
   const dot  = document.getElementById('status-dot');
   const text = document.getElementById('status-text');
-  try {
-    const resp = await fetch(`${API_URL}/health`);
-    if (!resp.ok) throw new Error();
-    const data = await resp.json();
-    dot.className    = 'dot online';
-    const nb = data.courses || 0;
-    text.textContent = `${nb.toLocaleString('fr')} courses`;
-  } catch {
-    dot.className    = 'dot error';
-    text.textContent = 'hors ligne';
+
+  // Première tentative — simuler une progression pendant le cold start
+  if (!apiPrete) {
+    dot.className    = 'dot';
+    text.textContent = 'démarrage…';
+    document.getElementById('btn-pmu').disabled = true;
+    setPmuProgress(10, 'Démarrage du serveur…');
+
+    // Animation de progression fictive pendant l'attente
+    let pct = 10;
+    const timer = setInterval(() => {
+      pct = Math.min(pct + 3, 85);
+      setPmuProgress(pct, 'Chargement des données…');
+    }, 1000);
+
+    try {
+      const resp = await fetch(`${API_URL}/health`);
+      clearInterval(timer);
+      if (!resp.ok) throw new Error();
+      const data = await resp.json();
+      apiPrete = true;
+      dot.className    = 'dot online';
+      const nb = (data.courses || 0).toLocaleString('fr');
+      text.textContent = `${nb} courses`;
+      document.getElementById('btn-pmu').disabled = false;
+      setPmuProgress(100, `✓ Prêt — ${nb} courses`, '#4dbb79');
+      setTimeout(() => clearPmuProgress(), 1500);
+    } catch {
+      clearInterval(timer);
+      dot.className    = 'dot error';
+      text.textContent = 'hors ligne';
+      setPmuMsg('Serveur hors ligne — réessayez dans 30s', true);
+    }
+  } else {
+    // Checks suivants (toutes les 30s) — silencieux
+    try {
+      const resp = await fetch(`${API_URL}/health`);
+      if (!resp.ok) throw new Error();
+      const data = await resp.json();
+      dot.className    = 'dot online';
+      text.textContent = `${(data.courses || 0).toLocaleString('fr')} courses`;
+    } catch {
+      dot.className    = 'dot error';
+      text.textContent = 'hors ligne';
+    }
   }
 }
+
+// ============================================================
+// ANALYSE V6
+// ============================================================
+function renderAnalyse(data) {
+  const liste = [...data.chevaux].sort((a, b) => b.note_pmu - a.note_pmu);
+  const version = data.version || 'v5';
+
+  const DIMS = [
+    { key: 'forme',       label: 'Forme',     icon: '🎵', color: 'var(--gold)' },
+    { key: 'duo',         label: 'Duo',        icon: '🤝', color: 'var(--copper)' },
+    { key: 'historique',  label: 'Palmarès',   icon: '📈', color: '#4dbb79' },
+    { key: 'gains',       label: 'Gains',      icon: '💰', color: '#7a9cd4' },
+    { key: 'adequation',  label: 'Adéquat.',   icon: '🎯', color: '#9a7cbc' },
+    { key: 'cote',        label: 'Cote',       icon: '📊', color: '#5c8c7a' },
+  ];
+
+  const cards = liste.map((h, i) => {
+    const scores = h.scores || {};
+    const rankColor = i === 0 ? 'var(--gold)' : i === 1 ? '#999' : i === 2 ? 'var(--copper)' : 'var(--border)';
+    const medal     = i === 0 ? '🥇 ' : i === 1 ? '🥈 ' : i === 2 ? '🥉 ' : '';
+
+    const dimBars = DIMS.map(d => {
+      const val = scores[d.key] ?? 0;
+      return `
+        <div style="background:var(--bg3);border-radius:6px;padding:7px 8px;">
+          <div style="font-family:'DM Mono',monospace;font-size:9px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;">${d.icon} ${d.label}</div>
+          <div style="height:4px;background:var(--bg2);border-radius:2px;overflow:hidden;margin-bottom:3px;">
+            <div style="height:100%;width:${val}%;background:${d.color};border-radius:2px;transition:width .6s ease;"></div>
+          </div>
+          <div style="font-family:'DM Mono',monospace;font-size:10px;text-align:right;color:${d.color};">${val}</div>
+        </div>`;
+    }).join('');
+
+    return `
+      <div style="background:var(--bg2);border:1px solid ${rankColor};border-radius:var(--r);padding:14px;margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+          <div style="width:40px;height:40px;border-radius:50%;background:var(--bg3);border:2px solid ${rankColor};
+                      display:flex;align-items:center;justify-content:center;
+                      font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:${rankColor};flex-shrink:0;">
+            ${h.numero}
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-family:'DM Mono',monospace;font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              ${medal}${h.nom || 'Cheval ' + h.numero}
+            </div>
+            <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text-dim);margin-top:2px;">
+              cote ${h.cote ?? '—'} · ${h.driver || '—'}
+            </div>
+          </div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;line-height:1;color:${rankColor};flex-shrink:0;">
+            ${h.note_pmu}<span style="font-size:12px;color:var(--text-dim);">/20</span>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">${dimBars}</div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('analyse-content').innerHTML = `
+    <div class="pred-meta">${liste.length} chevaux · ${data.date || currentDate || ''}
+      <span style="font-family:'DM Mono',monospace;font-size:9px;color:var(--gold);
+                   border:1px solid var(--gold);border-radius:4px;padding:2px 6px;
+                   letter-spacing:1px;margin-left:8px;opacity:0.7;">${version}</span>
+    </div>
+    ${cards}`;
+}
+
 
 // ============================================================
 // TOAST

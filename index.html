@@ -472,7 +472,156 @@
   .chip.active-gold { border-color: var(--gold); color: var(--gold-lite); background: rgba(201,149,42,.1); }
   .chip.active-cop  { border-color: var(--copper); color: var(--copper); background: rgba(181,98,58,.1); }
 
-  /* ── Scrollbar ── */
+  /* ── Score cards V6 ── */
+  .score-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 14px;
+    margin-bottom: 10px;
+    transition: border-color .2s;
+  }
+  .score-card.top1 { border-color: var(--gold); }
+  .score-card.top2 { border-color: #777; }
+  .score-card.top3 { border-color: var(--copper); }
+
+  .score-card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .score-avatar {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: var(--bg3);
+    border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 16px; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .score-card.top1 .score-avatar { border-color: var(--gold); color: var(--gold); }
+  .score-card.top2 .score-avatar { border-color: #999; color: #ccc; }
+  .score-card.top3 .score-avatar { border-color: var(--copper); color: var(--copper); }
+
+  .score-card-meta { flex: 1; }
+  .score-card-name {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    margin-bottom: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .score-card-sub {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+  .score-card-note {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    line-height: 1;
+    flex-shrink: 0;
+  }
+  .score-card.top1 .score-card-note { color: var(--gold); }
+  .score-card.top2 .score-card-note { color: #aaa; }
+  .score-card.top3 .score-card-note { color: var(--copper); }
+  .score-card:not(.top1):not(.top2):not(.top3) .score-card-note { color: var(--text-dim); }
+
+  .score-dims {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+  .score-dim {
+    background: var(--bg3);
+    border-radius: 6px;
+    padding: 7px 8px;
+  }
+  .score-dim-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .score-dim-bar-wrap {
+    height: 4px;
+    background: var(--bg2);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 3px;
+  }
+  .score-dim-bar { height: 100%; border-radius: 2px; transition: width .6s ease; }
+  .score-dim-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    text-align: right;
+  }
+
+  /* couleurs par dimension */
+  .dim-forme     .score-dim-bar { background: var(--gold); }
+  .dim-duo       .score-dim-bar { background: var(--copper); }
+  .dim-historique .score-dim-bar { background: var(--green-lit, #4dbb79); }
+  .dim-gains     .score-dim-bar { background: #7a9cd4; }
+  .dim-adequation .score-dim-bar { background: #9a7cbc; }
+  .dim-cote      .score-dim-bar { background: #5c8c7a; }
+
+  .dim-forme      .score-dim-val { color: var(--gold); }
+  .dim-duo        .score-dim-val { color: var(--copper); }
+  .dim-historique .score-dim-val { color: #4dbb79; }
+  .dim-gains      .score-dim-val { color: #7a9cd4; }
+  .dim-adequation .score-dim-val { color: #9a7cbc; }
+  .dim-cote       .score-dim-val { color: #5c8c7a; }
+
+  .score-legend {
+    display: flex; flex-wrap: wrap; gap: 10px;
+    margin-bottom: 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 9px; color: var(--text-dim);
+    letter-spacing: 1px; text-transform: uppercase;
+  }
+  .score-legend-item { display: flex; align-items: center; gap: 5px; }
+  .score-legend-dot { width: 8px; height: 8px; border-radius: 2px; }
+
+  /* Résumé radar horizontal */
+  .score-radar {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 4px;
+    margin: 10px 0 4px;
+  }
+  .score-radar-col { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  .score-radar-bar-wrap {
+    width: 100%;
+    height: 40px;
+    background: var(--bg3);
+    border-radius: 3px;
+    display: flex; align-items: flex-end; overflow: hidden;
+  }
+  .score-radar-bar { width: 100%; border-radius: 3px 3px 0 0; transition: height .6s ease; }
+  .score-radar-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 8px; color: var(--text-dim);
+    text-align: center; letter-spacing: 0.5px;
+  }
+
+  .analyse-version-tag {
+    display: inline-block;
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    color: var(--gold);
+    border: 1px solid var(--gold);
+    border-radius: 4px;
+    padding: 2px 6px;
+    letter-spacing: 1px;
+    margin-left: 8px;
+    vertical-align: middle;
+    opacity: 0.7;
+  }
+
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
@@ -560,18 +709,15 @@
   </div>
 
   <!-- Nav -->
-  <nav class="nav">
+  <nav class="nav" style="grid-template-columns: repeat(4, 1fr);">
     <button class="nav-btn active" onclick="goTo('saisie')" id="tab-saisie">
       <span class="nav-icon">✏️</span>Saisie
-    </button>
-    <button class="nav-btn" onclick="goTo('prediction')" id="tab-prediction">
-      <span class="nav-icon">🏆</span>Prédiction
     </button>
     <button class="nav-btn" onclick="goTo('selections')" id="tab-selections">
       <span class="nav-icon">🎯</span>Sélections
     </button>
-    <button class="nav-btn" onclick="goTo('facteurs')" id="tab-facteurs">
-      <span class="nav-icon">⚡</span>Facteurs
+    <button class="nav-btn" onclick="goTo('analyse')" id="tab-analyse">
+      <span class="nav-icon">🔬</span>Analyse
     </button>
     <button class="nav-btn" onclick="goTo('resultats')" id="tab-resultats">
       <span class="nav-icon">📋</span>Résultats
@@ -613,7 +759,18 @@
             Notes PMU →
           </button>
         </div>
-        <div id="pmu-status" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text-dim);margin-top:8px;min-height:14px;"></div>
+        <div id="pmu-status" style="margin-top:8px;min-height:32px;">
+          <div id="pmu-progress-wrap" style="display:none;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+              <span id="pmu-progress-label" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px;"></span>
+              <span id="pmu-progress-pct" style="font-family:'DM Mono',monospace;font-size:11px;color:var(--gold);font-weight:500;">0%</span>
+            </div>
+            <div style="height:3px;background:var(--bg3);border-radius:2px;overflow:hidden;">
+              <div id="pmu-progress-bar" style="height:100%;width:0%;background:var(--gold);border-radius:2px;transition:width 0.3s ease;"></div>
+            </div>
+          </div>
+          <div id="pmu-msg" style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text-dim);"></div>
+        </div>
       </div>
 
       <div class="horse-header">
@@ -632,21 +789,7 @@
   </div>
 
   <!-- ══════════════════════════════════════════
-       ÉCRAN 2 — PRÉDICTIONS
-  ══════════════════════════════════════════ -->
-  <div class="screen" id="screen-prediction">
-    <div class="section-title">Analyse</div>
-
-    <div id="pred-content">
-      <div class="empty">
-        <div class="empty-icon">🔮</div>
-        Saisissez une course<br>pour obtenir l'analyse
-      </div>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════════════════
-       ÉCRAN 3 — SÉLECTIONS
+       ÉCRAN 2 — SÉLECTIONS
   ══════════════════════════════════════════ -->
   <div class="screen" id="screen-selections">
     <div class="section-title">Sélections</div>
@@ -659,20 +802,20 @@
   </div>
 
   <!-- ══════════════════════════════════════════
-       ÉCRAN 4 — FACTEURS
+       ÉCRAN 3 — ANALYSE V6 (scores métier)
   ══════════════════════════════════════════ -->
-  <div class="screen" id="screen-facteurs">
-    <div class="section-title">Facteurs clés</div>
-    <div id="facteurs-content">
+  <div class="screen" id="screen-analyse">
+    <div class="section-title">Analyse V6</div>
+    <div id="analyse-content">
       <div class="empty">
-        <div class="empty-icon">⚡</div>
-        Analysez une course<br>pour voir les facteurs
+        <div class="empty-icon">🔬</div>
+        Chargez les notes PMU<br>pour voir l'analyse détaillée
       </div>
     </div>
   </div>
 
   <!-- ══════════════════════════════════════════
-       ÉCRAN 5 — RÉSULTATS
+       ÉCRAN 6 — RÉSULTATS
   ══════════════════════════════════════════ -->
   <div class="screen" id="screen-resultats">
     <div class="section-title">Enregistrer les rangs</div>
@@ -761,8 +904,101 @@ function resetTotal() {
 }
 
 // ============================================================
-// INIT
+// ANALYSE V6 — scores métier par dimension
 // ============================================================
+function renderAnalyse(data) {
+  const chevaux = [...data.chevaux].sort((a, b) => b.note_pmu - a.note_pmu);
+  const version = data.version || 'v5';
+
+  const DIMS = [
+    { key: 'forme',      label: 'Forme',    cls: 'dim-forme',      icon: '🎵' },
+    { key: 'duo',        label: 'Duo',      cls: 'dim-duo',        icon: '🤝' },
+    { key: 'historique', label: 'Palmarès', cls: 'dim-historique', icon: '📈' },
+    { key: 'gains',      label: 'Gains',    cls: 'dim-gains',      icon: '💰' },
+    { key: 'adequation', label: 'Adéquat.', cls: 'dim-adequation', icon: '🎯' },
+    { key: 'cote',       label: 'Cote',     cls: 'dim-cote',       icon: '📊' },
+  ];
+
+  const legend = DIMS.map(d => `
+    <div class="score-legend-item">
+      <div class="score-legend-dot" style="background:${_dimColor(d.cls)}"></div>
+      ${d.icon} ${d.label}
+    </div>`).join('');
+
+  const cards = chevaux.map((h, i) => {
+    const rankClass = i === 0 ? 'top1' : i === 1 ? 'top2' : i === 2 ? 'top3' : '';
+    const medal     = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
+    const scores    = h.scores || {};
+
+    // mini barres verticales (radar horizontal)
+    const radarBars = DIMS.map(d => {
+      const val = scores[d.key] ?? 0;
+      return `
+        <div class="score-radar-col">
+          <div class="score-radar-bar-wrap">
+            <div class="score-radar-bar ${d.cls}" style="height:${val}%;background:${_dimColor(d.cls)};"></div>
+          </div>
+          <div class="score-radar-label">${d.label}</div>
+        </div>`;
+    }).join('');
+
+    // grille 6 dimensions
+    const dimCells = DIMS.map(d => {
+      const val = scores[d.key] ?? 0;
+      const color = _scoreColor(val);
+      return `
+        <div class="score-dim ${d.cls}">
+          <div class="score-dim-label">${d.icon} ${d.label}</div>
+          <div class="score-dim-bar-wrap">
+            <div class="score-dim-bar" style="width:${val}%;"></div>
+          </div>
+          <div class="score-dim-val">${val}</div>
+        </div>`;
+    }).join('');
+
+    return `
+      <div class="score-card ${rankClass}">
+        <div class="score-card-header">
+          <div class="score-avatar">${h.numero}</div>
+          <div class="score-card-meta">
+            <div class="score-card-name">${medal} ${h.nom || 'Cheval ' + h.numero}</div>
+            <div class="score-card-sub">cote ${h.cote ?? '—'} · driver ${h.driver || '—'}</div>
+            <div class="score-radar">${radarBars}</div>
+          </div>
+          <div class="score-card-note">${h.note_pmu}<span style="font-size:12px;color:var(--text-dim);">/20</span></div>
+        </div>
+        <div class="score-dims">${dimCells}</div>
+      </div>`;
+  }).join('');
+
+  document.getElementById('analyse-content').innerHTML = `
+    <div class="pred-meta">
+      ${chevaux.length} chevaux · ${data.date || currentDate || 'Aujourd\'hui'}
+      <span class="analyse-version-tag">${version}</span>
+    </div>
+    <div class="score-legend">${legend}</div>
+    ${cards}`;
+}
+
+function _dimColor(cls) {
+  const map = {
+    'dim-forme':      'var(--gold)',
+    'dim-duo':        'var(--copper)',
+    'dim-historique': '#4dbb79',
+    'dim-gains':      '#7a9cd4',
+    'dim-adequation': '#9a7cbc',
+    'dim-cote':       '#5c8c7a',
+  };
+  return map[cls] || 'var(--border)';
+}
+
+function _scoreColor(val) {
+  if (val >= 75) return 'var(--gold)';
+  if (val >= 50) return 'var(--copper)';
+  return 'var(--text-dim)';
+}
+
+
 document.addEventListener('DOMContentLoaded', () => {
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('course-date').value = today;
@@ -798,54 +1034,74 @@ function goTo(screen) {
 // ============================================================
 // NOTES PMU
 // ============================================================
+
+// Barre de progression — appelée à chaque étape
+function setProgress(pct, label) {
+  document.getElementById('pmu-progress-wrap').style.display = 'block';
+  document.getElementById('pmu-msg').textContent = '';
+  document.getElementById('pmu-progress-pct').textContent   = `${pct}%`;
+  document.getElementById('pmu-progress-label').textContent = label;
+  document.getElementById('pmu-progress-bar').style.width   = `${pct}%`;
+  // Couleur finale verte
+  const barColor = pct === 100 ? 'var(--green-lit, #4dbb79)' : 'var(--gold)';
+  document.getElementById('pmu-progress-bar').style.background = barColor;
+  document.getElementById('pmu-progress-pct').style.color = barColor;
+}
+
+function resetProgress(msg = '', isError = false) {
+  document.getElementById('pmu-progress-wrap').style.display = 'none';
+  const msgEl = document.getElementById('pmu-msg');
+  msgEl.textContent = msg;
+  msgEl.style.color = isError ? 'var(--red)' : 'var(--text-dim)';
+}
+
 async function chargerNotesPMU() {
-  const status = document.getElementById('pmu-status');
-  const btn    = document.getElementById('btn-pmu');
+  const btn = document.getElementById('btn-pmu');
 
   try {
-    status.textContent = 'Etape 1 : lecture date…';
+    // 10% — Lecture des champs
+    setProgress(10, 'Lecture des paramètres…');
     const dateVal  = document.getElementById('course-date').value;
     const reunVal  = document.getElementById('pmu-reunion').value;
     const coursVal = document.getElementById('pmu-course').value;
-    status.textContent = `Etape 2 : date="${dateVal}" r="${reunVal}" c="${coursVal}"`;
 
     if (!dateVal || !reunVal || !coursVal) {
-      toast("Remplissez date, réunion et course", "error"); return;
+      resetProgress(); toast("Remplissez date, réunion et course", "error"); return;
     }
-
     const parts = dateVal.split('-');
-    status.textContent = `Etape 3 : parts=${JSON.stringify(parts)}`;
     if (parts.length !== 3 || parts[0].length !== 4) {
-      toast("Format de date invalide", "error"); return;
+      resetProgress(); toast("Format de date invalide", "error"); return;
     }
     const datePMU = parts[2] + parts[1] + parts[0];
-    status.textContent = `Etape 4 : datePMU=${datePMU}`;
 
+    // 25% — Envoi requête
+    setProgress(25, 'Connexion à l\'API…');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span>';
     const urlFetch = `${API_URL}/notes_pmu?date=${datePMU}&reunion=${reunVal}&course=${coursVal}`;
-    status.textContent = `Etape 5 : ${urlFetch}`;
 
+    // 40% — Requête en cours (la plus longue — scraping PMU + prédiction)
+    setProgress(40, 'Scraping PMU + calcul notes…');
     let resp;
     try {
       resp = await fetch(urlFetch);
     } catch(fetchErr) {
       throw new Error(`fetch échoué : ${fetchErr.name} — ${fetchErr.message}`);
     }
-    status.textContent = `Etape 6 : HTTP ${resp.status}`;
+
+    // 70% — Réponse reçue
+    setProgress(70, 'Réponse reçue, lecture JSON…');
     if (!resp.ok) {
       const err = await resp.json();
       throw new Error(err.error || `HTTP ${resp.status}`);
     }
-    status.textContent = 'Etape 7 : lecture JSON…';
     const data = await resp.json();
-    status.textContent = `Etape 8 : ${data.chevaux ? data.chevaux.length : '?'} chevaux reçus`;
 
-    // Stocker les notes PMU par numéro
+    // 85% — Traitement des données
+    setProgress(85, 'Traitement des chevaux…');
     notesPMU = {};
     data.chevaux.forEach(c => { notesPMU[c.numero] = c; });
 
-    // Si la liste est vide, la peupler automatiquement
     if (chevaux.length === 0) {
       chevaux = [];
       horseCounter = 0;
@@ -859,25 +1115,32 @@ async function chargerNotesPMU() {
         });
       });
     } else {
-      // Sinon juste pré-remplir les champs manquants
       chevaux.forEach(c => {
         const pmu = notesPMU[c.numero];
         if (pmu) {
-          if (c.note === '' || c.note === 0)    c.note    = pmu.note_pmu;
+          if (c.note === '' || c.note === 0)       c.note    = pmu.note_pmu;
           if (c.rapport === '' || c.rapport === 0) c.rapport = pmu.cote !== null ? pmu.cote : c.rapport;
         }
       });
     }
 
+    // 95% — Rendu
+    setProgress(95, 'Affichage…');
     renderHorses();
     sauvegarderSaisie();
-    status.textContent = `✓ ${data.chevaux.length} chevaux chargés`;
-    status.style.color = 'var(--green)';
+
+    // ✨ V6 — onglet Analyse
+    if (data.chevaux[0] && data.chevaux[0].scores) {
+      renderAnalyse(data);
+    }
+
+    // 100% — Terminé
+    setProgress(100, `✓ ${data.chevaux.length} chevaux chargés`);
+    setTimeout(() => resetProgress(`✓ ${data.chevaux.length} chevaux · R${reunVal}C${coursVal}`), 1200);
     toast(`Notes PMU chargées — ${data.chevaux.length} chevaux`, "success");
 
   } catch(e) {
-    status.textContent = `Erreur : ${e.message}`;
-    status.style.color = 'var(--red)';
+    resetProgress(`Erreur : ${e.message}`, true);
     toast("Impossible de charger les notes PMU", "error");
   } finally {
     btn.disabled = false;
@@ -916,12 +1179,12 @@ function viderCourse() {
   effacerSaisie();
   document.getElementById('pmu-status').textContent = '';
   renderHorses();
-  document.getElementById('pred-content').innerHTML = `
-    <div class="empty"><div class="empty-icon">🔮</div>Saisissez une course<br>pour obtenir l'analyse</div>`;
-  document.getElementById('facteurs-content').innerHTML = `
-    <div class="empty"><div class="empty-icon">⚡</div>Analysez une course<br>pour voir les facteurs</div>`;
+  document.getElementById('selections-content').innerHTML = `
+    <div class="empty"><div class="empty-icon">🎯</div>Analysez une course<br>pour voir les sélections</div>`;
   document.getElementById('result-content').innerHTML = `
     <div class="empty"><div class="empty-icon">🏇</div>Saisissez une course<br>puis revenez ici après la course</div>`;
+  document.getElementById('analyse-content').innerHTML = `
+    <div class="empty"><div class="empty-icon">🔬</div>Chargez les notes PMU<br>pour voir l'analyse détaillée</div>`;
 }
 
 function renderHorses() {
@@ -975,12 +1238,8 @@ function updateCheval(id, field, val) {
 // PRÉDICTION
 // ============================================================
 async function lancerPrediction() {
-  // Récupérer les valeurs actuelles des inputs
-  const rows = document.querySelectorAll('.horse-row');
   const payload = [];
-
-  chevaux.forEach((c, i) => {
-    // Ignorer les chevaux incomplets (non-partants ou non saisis)
+  chevaux.forEach((c) => {
     if (!c.numero) return;
     if (c.note === '' || c.note === null || c.note === undefined) return;
     if (c.rapport === '' || c.rapport === null || c.rapport === undefined) return;
@@ -995,9 +1254,7 @@ async function lancerPrediction() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>';
 
-  goTo('prediction');
-  document.getElementById('pred-content').innerHTML = `
-    <div class="loading-block"><span class="spinner"></span>Analyse en cours…</div>`;
+  goTo('selections');
 
   try {
     const resp = await fetch(`${API_URL}/predict`, {
@@ -1007,187 +1264,15 @@ async function lancerPrediction() {
     });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     predictions = await resp.json();
-    renderPredictions(predictions);
     renderSelections(predictions);
-    renderFacteurs(predictions);
     renderResultForm(payload);
     currentDate = document.getElementById('course-date').value;
   } catch(e) {
-    document.getElementById('pred-content').innerHTML = `
-      <div class="empty"><div class="empty-icon">⚠️</div>
-      Impossible de contacter l'API<br><small style="font-size:10px">${e.message}</small></div>`;
     toast("Erreur de connexion à l'API", "error");
   } finally {
     btn.disabled = false;
     btn.innerHTML = 'Analyser la course →';
   }
-}
-
-function renderPredictions(data) {
-  const absolu   = data.top3_absolu;
-  const principal = data.top3_principal;
-  const tous     = data.tous;
-
-  // Podium absolu
-  const podiumHTML = absolu.slice(0,3).map((num, i) => {
-    const h = tous.find(x => x.numero === num);
-    const medals = ['🥇','🥈','🥉'];
-    const rankClass = ['rank-1','rank-2','rank-3'][i];
-    return `
-      <div class="podium-item ${rankClass}">
-        <div class="podium-rank">${medals[i]} TOP ${i+1}</div>
-        <div class="podium-num">${num}</div>
-        <div class="podium-proba">${h ? h.proba_absolu : '—'}%</div>
-        <div class="podium-note">${h ? 'note '+h.note : ''}</div>
-      </div>`;
-  }).join('');
-
-  // Tableau complet
-  const tableRows = tous.map(h => {
-    const isAbs  = absolu.includes(h.numero);
-    const isPrinc = principal.includes(h.numero) && !isAbs;
-    const rowClass = isAbs ? 'top3-abs' : (isPrinc ? 'top3-princ' : '');
-    const badgeClass = isAbs ? 'badge-top' : '';
-    const barW = Math.round(h.proba_absolu * 0.8);
-    return `
-      <tr class="${rowClass}">
-        <td><span class="horse-badge ${badgeClass}">${h.numero}</span></td>
-        <td>${h.note}</td>
-        <td>${h.rapport}</td>
-        <td>
-          <div class="proba-bar-wrap">
-            <div class="proba-bar"><div class="proba-bar-fill" style="width:${barW}%"></div></div>
-            ${h.proba_absolu}%
-          </div>
-        </td>
-        <td>${h.proba_principal}%</td>
-      </tr>`;
-  }).join('');
-
-  document.getElementById('pred-content').innerHTML = `
-    <div class="pred-meta">
-      ${tous.length} participants · ${currentDate || 'Aujourd\'hui'}
-    </div>
-
-    <div class="section-title">Top 3 Absolu</div>
-    <div class="podium">${podiumHTML}</div>
-
-    ${principal.length > 0 ? `
-    <div class="section-title">Top 3 Cote &gt;10</div>
-    <div class="chips">
-      ${principal.map((n,i) => `<div class="chip active-cop">N°${n} — #${i+1}</div>`).join('')}
-    </div>` : `
-    <div class="card" style="color:var(--text-dim);font-size:12px;font-family:'DM Mono',monospace;text-align:center;padding:12px;">
-      Aucun cheval avec cote &gt; 10
-    </div>`}
-
-    <div class="section-title" style="margin-top:16px;">Classement complet</div>
-    <div class="card" style="padding:10px;">
-      <table class="pred-table">
-        <thead>
-          <tr>
-            <th>N°</th><th>Note</th><th>Cote</th>
-            <th>Proba abs.</th><th>Proba&gt;10</th>
-          </tr>
-        </thead>
-        <tbody>${tableRows}</tbody>
-      </table>
-      <div class="legend">
-        <div class="legend-item">
-          <div class="legend-bar" style="background:var(--gold)"></div>Top 3 absolu
-        </div>
-        <div class="legend-item">
-          <div class="legend-bar" style="background:var(--copper)"></div>Top 3 cote&gt;10
-        </div>
-      </div>
-    </div>`;
-}
-
-// ============================================================
-// FACTEURS
-// ============================================================
-function renderFacteurs(data) {
-  const tous = [...data.tous].sort((a, b) => b.note - a.note);
-
-  const cardsHTML = tous.map((h) => {
-    const isTop3  = data.top3_absolu.includes(h.numero);
-    const isPrinc = data.top3_principal.includes(h.numero);
-    const accent  = isTop3 ? 'var(--gold)' : isPrinc ? 'var(--copper)' : 'var(--border)';
-    const badge   = isTop3 ? '🥇' : isPrinc ? '🎯' : '';
-
-    const features = h.top_features || [];
-
-    const featRows = features.map((f) => {
-      // score = percentile 0-100 (100 = meilleur du peloton)
-      const barW = f.score;
-      // Couleur selon percentile
-      const barColor = f.score >= 80 ? 'var(--gold)'
-                     : f.score >= 50 ? 'var(--copper)'
-                     : 'var(--text-dim)';
-      // Formater la valeur
-      const valDisplay = f.feature === 'Favori (cote)'
-        ? `${f.valeur}`
-        : f.valeur % 1 === 0 ? f.valeur : f.valeur.toFixed(2);
-
-      // Label rang
-      const rangLabel = f.rang && f.total
-        ? `<span style="font-family:'DM Mono',monospace;font-size:9px;
-                        color:var(--text-dim);margin-left:4px;">rang ${f.rang}/${f.total}</span>`
-        : '';
-
-      return `
-        <div style="margin-bottom:9px;">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
-            <div style="display:flex;align-items:center;">
-              <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text-mid);">${f.feature}</span>
-              ${rangLabel}
-            </div>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text-dim);">${valDisplay}</span>
-              <span style="font-family:'DM Mono',monospace;font-size:11px;color:${barColor};font-weight:700;min-width:34px;text-align:right;">${f.score}%</span>
-            </div>
-          </div>
-          <div style="height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;">
-            <div style="height:100%;width:${barW}%;background:${barColor};
-                        border-radius:2px;transition:width 0.7s ease;"></div>
-          </div>
-        </div>`;
-    }).join('');
-
-    return `
-      <div class="card" style="border-color:${accent};margin-bottom:10px;">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-          <div style="width:38px;height:38px;border-radius:50%;background:var(--bg3);
-                      border:2px solid ${accent};display:flex;align-items:center;
-                      justify-content:center;font-family:'DM Mono',monospace;
-                      font-size:15px;color:${accent};font-weight:700;flex-shrink:0;">
-            ${h.numero}
-          </div>
-          <div style="flex:1;">
-            <div style="display:flex;align-items:center;gap:6px;">
-              <span style="font-family:'DM Mono',monospace;font-size:13px;color:${accent};font-weight:700;">
-                note ${h.note}/20
-              </span>
-              ${badge ? `<span style="font-size:13px;">${badge}</span>` : ''}
-            </div>
-            <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text-dim);margin-top:2px;">
-              cote ${h.rapport} · proba ${h.proba_absolu}%
-            </div>
-          </div>
-        </div>
-        ${featRows || `<div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text-dim);text-align:center;padding:8px 0;">—</div>`}
-      </div>`;
-  }).join('');
-
-  document.getElementById('facteurs-content').innerHTML = `
-    <div class="pred-meta">${tous.length} chevaux · ${currentDate || 'Aujourd\'hui'}</div>
-    <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text-dim);
-                margin-bottom:16px;padding:10px 12px;background:var(--bg2);
-                border:1px solid var(--border);border-radius:8px;line-height:1.7;">
-      Rang de chaque cheval dans le peloton sur 4 dimensions clés.
-      100% = meilleur du peloton sur ce critère.
-    </div>
-    ${cardsHTML}`;
 }
 
 // ============================================================
@@ -1398,10 +1483,11 @@ async function checkHealth() {
     const resp = await fetch(`${API_URL}/health`);
     if (!resp.ok) throw new Error();
     const data = await resp.json();
-    dot.className  = 'dot online';
-    text.textContent = `${data.courses} courses`;
+    dot.className    = 'dot online';
+    const nb = data.courses || 0;
+    text.textContent = `${nb.toLocaleString('fr')} courses`;
   } catch {
-    dot.className  = 'dot error';
+    dot.className    = 'dot error';
     text.textContent = 'hors ligne';
   }
 }

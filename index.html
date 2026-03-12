@@ -802,7 +802,7 @@ async function chargerNotesPMU() {
     const coursVal = document.getElementById('pmu-course').value;
 
     if (!dateVal || !reunVal || !coursVal) {
-      toast("Remplissez date, réunion et course", "error"); return;
+      toast(`Manquant — date:"${dateVal}" r:"${reunVal}" c:"${coursVal}"`, "error"); return;
     }
 
     // Parsing robuste de la date (YYYY-MM-DD)
@@ -879,8 +879,8 @@ async function chargerNotesPMU() {
     toast(`Notes PMU chargées — ${data.chevaux.length} chevaux`, "success");
 
   } catch(e) {
-    setPmuMsg(`Erreur : ${e.message}`, true);
-    toast("Impossible de charger les notes PMU", "error");
+    setPmuMsg(`Erreur [${e.name}] : ${e.message}`, true);
+    toast(`${e.name}: ${e.message}`, "error");
   } finally {
     btn.disabled = false;
     btn.innerHTML = 'Notes PMU →';

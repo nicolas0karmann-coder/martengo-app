@@ -585,11 +585,7 @@
       <div class="field-row" style="grid-template-columns:1fr auto; gap:10px; margin-bottom:14px;">
         <div class="field-group">
           <div class="field-label">Date de la course</div>
-          <div style="display:grid;grid-template-columns:2fr 2fr 3fr;gap:6px;">
-            <select id="date-jour" onchange="updateDate()" style="font-family:'DM Mono',monospace;font-size:13px;"></select>
-            <select id="date-mois" onchange="updateDate()" style="font-family:'DM Mono',monospace;font-size:13px;"></select>
-            <select id="date-annee" onchange="updateDate()" style="font-family:'DM Mono',monospace;font-size:13px;"></select>
-          </div>
+          <input type="date" id="course-date">
         </div>
         <div style="display:flex;align-items:flex-end;">
           <button class="btn secondary" onclick="viderCourse()">Vider</button>
@@ -713,7 +709,7 @@ const LS_KEY = 'martengo_saisie';
 function sauvegarderSaisie() {
   try {
     const data = {
-      date:    getDateValue(),
+      date:    document.getElementById('course-date').value,
       reunion: document.getElementById('pmu-reunion').value,
       course:  document.getElementById('pmu-course').value,
       chevaux: chevaux,
@@ -721,6 +717,32 @@ function sauvegarderSaisie() {
     };
     localStorage.setItem(LS_KEY, JSON.stringify(data));
   } catch(e) {}
+}
+
+function restaurerSaisie() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (data.date) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(data.date)) {
+        try {
+          document.getElementById('course-date').value = data.date;
+          currentDate = data.date;
+        } catch(e) {}
+      }
+    }
+    if (data.reunion) document.getElementById('pmu-reunion').value = data.reunion;
+    if (data.course)  document.getElementById('pmu-course').value  = data.course;
+    if (data.notesPMU) notesPMU = data.notesPMU;
+    if (data.chevaux && data.chevaux.length > 0) {
+      chevaux = data.chevaux;
+      horseCounter = Math.max(...chevaux.map(c => c.id), 0);
+      renderHorses();
+      return true;
+    }
+  } catch(e) {}
+  return false;
 }
 
 function effacerSaisie() {
@@ -733,85 +755,27 @@ function resetTotal() {
 }
 
 // ============================================================
-// DATE — selects jour/mois/année (compatible Safari iOS)
-// ============================================================
-function initDateSelects(dateStr) {
-  const MOIS = ['Jan','Fév','Mar','Avr','Mai','Jun','Jul','Aoû','Sep','Oct','Nov','Déc'];
-  const now  = dateStr ? new Date(dateStr.replace(/-/g,'/')) : new Date();
-  const jourSel  = document.getElementById('date-jour');
-  const moisSel  = document.getElementById('date-mois');
-  const anneeSel = document.getElementById('date-annee');
-
-  // Jours 1-31
-  jourSel.innerHTML = '';
-  for (let d = 1; d <= 31; d++) {
-    const o = document.createElement('option');
-    o.value = String(d).padStart(2,'0');
-    o.textContent = String(d).padStart(2,'0');
-    if (d === now.getDate()) o.selected = true;
-    jourSel.appendChild(o);
-  }
-  // Mois
-  moisSel.innerHTML = '';
-  MOIS.forEach((m, i) => {
-    const o = document.createElement('option');
-    o.value = String(i+1).padStart(2,'0');
-    o.textContent = m;
-    if (i === now.getMonth()) o.selected = true;
-    moisSel.appendChild(o);
-  });
-  // Années 2024-2027
-  anneeSel.innerHTML = '';
-  for (let y = 2024; y <= 2027; y++) {
-    const o = document.createElement('option');
-    o.value = String(y);
-    o.textContent = String(y);
-    if (y === now.getFullYear()) o.selected = true;
-    anneeSel.appendChild(o);
-  }
-  updateDate();
-}
-
-function getDateValue() {
-  const j = document.getElementById('date-jour').value;
-  const m = document.getElementById('date-mois').value;
-  const a = document.getElementById('date-annee').value;
-  return `${a}-${m}-${j}`; // YYYY-MM-DD
-}
-
-function updateDate() {
-  currentDate = getDateValue();
-  sauvegarderSaisie();
-}
-
-// ============================================================
 // INIT
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
-  // Restaurer depuis localStorage ou initialiser à aujourd'hui
-  const saved = (() => {
-    try {
-      const raw = localStorage.getItem(LS_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch(e) { return null; }
-  })();
+  const today = new Date().toISOString().split('T')[0];
+  try { document.getElementById('course-date').value = today; } catch(e) {}
+  currentDate = today;
 
-  initDateSelects(saved?.date || null);
-  if (saved?.reunion) document.getElementById('pmu-reunion').value = saved.reunion;
-  if (saved?.course)  document.getElementById('pmu-course').value  = saved.course;
-  if (saved?.notesPMU) notesPMU = saved.notesPMU;
-
-  if (saved?.chevaux && saved.chevaux.length > 0) {
-    chevaux = saved.chevaux;
-    horseCounter = Math.max(...chevaux.map(c => c.id), 0);
-    renderHorses();
-    toast('Course restaurée depuis la dernière session', 'success');
-  } else {
+  const restored = restaurerSaisie();
+  if (!restored) {
     for (let i = 0; i < 3; i++) ajouterCheval();
+  } else {
+    toast('Course restaurée depuis la dernière session', 'success');
   }
 
   checkHealth();
   setInterval(checkHealth, 30000);
+});
+
+document.getElementById('course-date').addEventListener('change', e => {
+  currentDate = e.target.value;
+  sauvegarderSaisie();
 });
 
 // ============================================================
@@ -831,12 +795,12 @@ async function chargerNotesPMU() {
   const btn = document.getElementById('btn-pmu');
 
   try {
-    const dateVal  = getDateValue();
+    const dateVal  = document.getElementById('course-date').value;
     const reunVal  = document.getElementById('pmu-reunion').value;
     const coursVal = document.getElementById('pmu-course').value;
 
     if (!reunVal || !coursVal) {
-      toast(`Remplissez réunion et course`, "error"); return;
+      toast("Remplissez réunion et course", "error"); return;
     }
 
     // Parsing robuste de la date (YYYY-MM-DD)
@@ -1051,7 +1015,7 @@ async function lancerPrediction() {
     predictions = await resp.json();
     renderSelections(predictions);
     renderResultForm(payload);
-    currentDate = getDateValue();
+    currentDate = document.getElementById('course-date').value;
   } catch(e) {
     toast("Erreur de connexion à l'API", "error");
   } finally {

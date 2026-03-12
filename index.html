@@ -805,11 +805,22 @@ async function chargerNotesPMU() {
       toast("Remplissez date, réunion et course", "error"); return;
     }
 
+    // Parsing robuste de la date (YYYY-MM-DD)
+    let datePMU;
     const parts = dateVal.split('-');
-    if (parts.length !== 3 || parts[0].length !== 4) {
-      toast("Format de date invalide", "error"); return;
+    if (parts.length === 3 && parts[0].length === 4) {
+      datePMU = parts[2] + parts[1] + parts[0]; // → DDMMYYYY
+    } else {
+      // Fallback : essayer via Date object
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) {
+        toast(`Format de date invalide : "${dateVal}"`, "error"); return;
+      }
+      const dd = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const yyyy = d.getFullYear();
+      datePMU = `${dd}${mm}${yyyy}`;
     }
-    const datePMU = parts[2] + parts[1] + parts[0];
 
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span>';
@@ -820,7 +831,7 @@ async function chargerNotesPMU() {
     try {
       resp = await fetch(urlFetch);
     } catch(fetchErr) {
-      throw new Error(`fetch échoué : ${fetchErr.name} — ${fetchErr.message}`);
+      throw new Error(`URL="${urlFetch}" — ${fetchErr.message}`);
     }
     if (!resp.ok) {
       const err = await resp.json();

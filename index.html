@@ -1029,7 +1029,6 @@ async function lancerPrediction() {
 // ============================================================
 function renderSelections(data) {
   const tous = data.tous;
-  alert('DEBUG: ' + JSON.stringify(tous[0]).substring(0, 200));
 
   // Trier par note décroissante
   const parNote = [...tous].sort((a, b) => b.note - a.note);

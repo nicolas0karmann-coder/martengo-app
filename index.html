@@ -1036,7 +1036,7 @@ function renderSelections(data) {
 
   // Softmax sur proba_pmu avec température T=2 pour accentuer les écarts
   const T = 2;
-  const expProba = parNote.map(h => Math.exp((h.proba_pmu || 0) * T));
+  const expProba = parNote.map(h => Math.exp(((h.proba_pmu || 0) / 100) * T));
   const sumExp   = expProba.reduce((s, v) => s + v, 0);
   const parNoteAvecConf = parNote.map((h, i) => ({
     ...h,

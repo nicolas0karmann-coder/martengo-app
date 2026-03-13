@@ -1034,13 +1034,13 @@ function renderSelections(data) {
   const parNote = [...tous].sort((a, b) => b.note - a.note);
   const total   = parNote.length;
 
-  // Softmax sur les notes avec température T=0.5
-  const T = 0.5;
-  const expNotes = parNote.map(h => Math.exp(h.note * T));
-  const sumExp   = expNotes.reduce((s, v) => s + v, 0);
+  // Confiance basée sur proba_pmu (score_metier normalisé par le peloton)
+  const sumProba = parNote.reduce((s, h) => s + (h.proba_pmu || 0), 0);
   const parNoteAvecConf = parNote.map((h, i) => ({
     ...h,
-    confiance: Math.round(expNotes[i] / sumExp * 100 * 10) / 10
+    confiance: sumProba > 0
+      ? Math.round(((h.proba_pmu || 0) / sumProba) * 100 * 10) / 10
+      : Math.round(100 / parNote.length * 10) / 10
   }));
 
   function carteCheval(h, index, label, highlight) {

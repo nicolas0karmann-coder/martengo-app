@@ -1035,7 +1035,7 @@ function renderSelections(data) {
   const total   = parNote.length;
 
   // Softmax sur proba_absolu avec température T=2 pour accentuer les écarts
-  const T = 2;
+  const T = 4;
   const expProba = parNote.map(h => Math.exp(((h.proba_absolu || 0) / 100) * T));
   const sumExp   = expProba.reduce((s, v) => s + v, 0);
   const parNoteAvecConf = parNote.map((h, i) => ({

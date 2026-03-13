@@ -1034,13 +1034,13 @@ function renderSelections(data) {
   const parNote = [...tous].sort((a, b) => b.note - a.note);
   const total   = parNote.length;
 
-  // Confiance basée sur proba_pmu (score_metier normalisé par le peloton)
-  const sumProba = parNote.reduce((s, h) => s + (h.proba_pmu || 0), 0);
+  // Softmax sur proba_pmu avec température T=2 pour accentuer les écarts
+  const T = 2;
+  const expProba = parNote.map(h => Math.exp((h.proba_pmu || 0) * T));
+  const sumExp   = expProba.reduce((s, v) => s + v, 0);
   const parNoteAvecConf = parNote.map((h, i) => ({
     ...h,
-    confiance: sumProba > 0
-      ? Math.round(((h.proba_pmu || 0) / sumProba) * 100 * 10) / 10
-      : Math.round(100 / parNote.length * 10) / 10
+    confiance: Math.round(expProba[i] / sumExp * 100 * 10) / 10
   }));
 
   function carteCheval(h, index, label, highlight) {
@@ -1349,6 +1349,7 @@ function renderAnalyse(data) {
             </div>
             <div style="font-family:'DM Mono',monospace;font-size:10px;color:var(--text-dim);margin-top:2px;">
               cote ${h.cote ?? '—'} · ${h.driver || '—'}
+              <span style="margin-left:6px;">${h.avis === 1 ? '🟢' : h.avis === -1 ? '🔴' : '🟡'}</span>
             </div>
           </div>
           <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;line-height:1;color:${rankColor};flex-shrink:0;">
@@ -1356,6 +1357,12 @@ function renderAnalyse(data) {
           </div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">${dimBars}</div>
+        <div style="margin-top:8px;font-family:'DM Mono',monospace;font-size:10px;color:var(--text-dim);display:flex;align-items:center;gap:6px;">
+          <span>⚠️ Taux disqualif. (musique)</span>
+          <span style="color:${(h.taux_disq||0) > 20 ? '#e05c5c' : (h.taux_disq||0) > 10 ? 'var(--copper)' : '#4dbb79'};font-weight:700;">
+            ${(h.taux_disq||0)}%
+          </span>
+        </div>
       </div>`;
   }).join('');
 

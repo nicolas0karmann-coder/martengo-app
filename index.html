@@ -11,925 +11,198 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
-/* ── Reset ── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080808;--bg2:#101010;--bg3:#181818;--bg4:#202020;
+  --border:#282828;--border2:#333;
+  --gold:#c8942a;--gold-lite:#e8b84b;--gold-dim:rgba(200,148,42,.12);
+  --copper:#b5603a;--copper-dim:rgba(181,96,58,.12);
+  --green:#3a9162;--green-dim:rgba(58,145,98,.15);
+  --red:#8c3a3a;--red-dim:rgba(140,58,58,.15);
+  --text:#e4dccb;--text-dim:#6a6255;--text-mid:#9a8e7c;
+  --r:10px;
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bot:env(safe-area-inset-bottom,0px);
+}
+html,body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;font-size:15px;min-height:100dvh;overflow-x:hidden;-webkit-tap-highlight-color:transparent}
+#app{max-width:480px;margin:0 auto;padding-top:var(--safe-top);padding-bottom:calc(var(--safe-bot) + 76px)}
+#app::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:.6}
 
-:root {
-  --bg:        #080808;
-  --bg2:       #101010;
-  --bg3:       #181818;
-  --bg4:       #202020;
-  --border:    #282828;
-  --border2:   #333;
-  --gold:      #c8942a;
-  --gold-lite: #e8b84b;
-  --gold-dim:  rgba(200,148,42,.12);
-  --copper:    #b5603a;
-  --copper-dim:rgba(181,96,58,.12);
-  --green:     #3a9162;
-  --green-dim: rgba(58,145,98,.15);
-  --red:       #8c3a3a;
-  --red-dim:   rgba(140,58,58,.15);
-  --blue:      #3a6c8c;
-  --blue-dim:  rgba(58,108,140,.12);
-  --text:      #e4dccb;
-  --text-dim:  #6a6255;
-  --text-mid:  #9a8e7c;
-  --r:         10px;
-  --safe-top:  env(safe-area-inset-top, 0px);
-  --safe-bot:  env(safe-area-inset-bottom, 0px);
-}
+.header{display:flex;align-items:flex-end;justify-content:space-between;padding:20px 20px 14px;border-bottom:1px solid var(--border);position:relative}
+.header::after{content:'';position:absolute;bottom:0;left:20px;right:20px;height:1px;background:linear-gradient(90deg,var(--gold) 0%,transparent 60%);opacity:.4}
+.header-brand{display:flex;flex-direction:column;gap:2px}
+.header-title{font-family:'Bebas Neue',sans-serif;font-size:34px;letter-spacing:4px;color:var(--gold);line-height:1}
+.header-sub{font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);letter-spacing:2px;text-transform:uppercase}
+.header-status{display:flex;align-items:center;gap:8px;font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);padding:6px 10px;border:1px solid var(--border);border-radius:20px;background:var(--bg2)}
+.dot{width:6px;height:6px;border-radius:50%;background:var(--text-dim);transition:background .4s,box-shadow .4s;flex-shrink:0}
+.dot.online{background:var(--green);box-shadow:0 0 8px var(--green)}
+.dot.error{background:var(--red);box-shadow:0 0 8px var(--red)}
+.dot.loading{background:var(--gold);animation:pulse-dot 1s ease-in-out infinite}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}
 
-html, body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'Syne', sans-serif;
-  font-size: 15px;
-  min-height: 100dvh;
-  overflow-x: hidden;
-  -webkit-tap-highlight-color: transparent;
-}
+.nav{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:10}
+.nav-btn{background:none;border:none;color:var(--text-dim);font-family:'Space Mono',monospace;font-size:8px;letter-spacing:1px;text-transform:uppercase;padding:12px 0 10px;cursor:pointer;position:relative;transition:color .2s;display:flex;flex-direction:column;align-items:center;gap:4px}
+.nav-icon{font-size:15px;line-height:1;transition:transform .2s}
+.nav-btn.active{color:var(--gold)}
+.nav-btn.active .nav-icon{transform:translateY(-1px)}
+.nav-btn.active::after{content:'';position:absolute;bottom:0;left:25%;right:25%;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);border-radius:2px}
+.nav-badge{position:absolute;top:8px;right:calc(25% - 4px);width:7px;height:7px;border-radius:50%;background:var(--gold);border:1.5px solid var(--bg);display:none}
+.nav-badge.show{display:block}
 
-/* ── Layout ── */
-#app {
-  max-width: 480px;
-  margin: 0 auto;
-  padding-top: var(--safe-top);
-  padding-bottom: calc(var(--safe-bot) + 76px);
-}
+.screen{display:none;padding:18px}
+.screen.active{display:block}
+#screens-wrapper{overflow:hidden;touch-action:pan-y}
 
-/* ── Grain overlay ── */
-#app::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
-  pointer-events: none;
-  z-index: 0;
-  opacity: .6;
-}
+.section-title{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:2.5px;color:var(--gold-lite);margin-bottom:14px;display:flex;align-items:center;gap:10px}
+.section-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,var(--border2) 0%,transparent 100%)}
 
-/* ── Header ── */
-.header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding: 20px 20px 14px;
-  border-bottom: 1px solid var(--border);
-  position: relative;
-}
-.header::after {
-  content: '';
-  position: absolute;
-  bottom: 0; left: 20px; right: 20px;
-  height: 1px;
-  background: linear-gradient(90deg, var(--gold) 0%, transparent 60%);
-  opacity: .4;
-}
-.header-brand { display: flex; flex-direction: column; gap: 2px; }
-.header-title {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 34px;
-  letter-spacing: 4px;
-  color: var(--gold);
-  line-height: 1;
-}
-.header-sub {
-  font-family: 'Space Mono', monospace;
-  font-size: 9px;
-  color: var(--text-dim);
-  letter-spacing: 2px;
-  text-transform: uppercase;
-}
-.header-status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-family: 'Space Mono', monospace;
-  font-size: 10px;
-  color: var(--text-dim);
-  padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  background: var(--bg2);
-}
-.dot {
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--text-dim);
-  transition: background .4s, box-shadow .4s;
-  flex-shrink: 0;
-}
-.dot.online { background: var(--green); box-shadow: 0 0 8px var(--green); }
-.dot.error  { background: var(--red); box-shadow: 0 0 8px var(--red); }
-.dot.loading { background: var(--gold); animation: pulse-dot 1s ease-in-out infinite; }
-@keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.3} }
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px;position:relative}
 
-/* ── Nav ── */
-.nav {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  border-bottom: 1px solid var(--border);
-  background: var(--bg);
-  position: sticky;
-  top: 0;
-  z-index: 10;
-}
-.nav-btn {
-  background: none;
-  border: none;
-  color: var(--text-dim);
-  font-family: 'Space Mono', monospace;
-  font-size: 8px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  padding: 12px 0 10px;
-  cursor: pointer;
-  position: relative;
-  transition: color .2s;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-}
-.nav-icon {
-  font-size: 15px;
-  line-height: 1;
-  transition: transform .2s;
-}
-.nav-btn.active { color: var(--gold); }
-.nav-btn.active .nav-icon { transform: translateY(-1px); }
-.nav-btn.active::after {
-  content: '';
-  position: absolute;
-  bottom: 0; left: 25%; right: 25%;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, var(--gold), transparent);
-  border-radius: 2px;
-}
+.field-label{font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:5px}
+.field-group{display:flex;flex-direction:column}
+input[type="text"],input[type="number"],input[type="date"]{background:var(--bg3);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Space Mono',monospace;font-size:14px;padding:10px 12px;width:100%;outline:none;transition:border-color .2s,background .2s;-webkit-appearance:none;appearance:none}
+input:focus{border-color:var(--gold);background:var(--bg4)}
+input::placeholder{color:var(--text-dim)}
+input[readonly]{opacity:.5;cursor:default}
 
-/* ── Screens ── */
-.screen { display: none; padding: 18px; }
-.screen.active { display: block; }
+.btn{background:var(--gold);color:#080808;border:none;border-radius:8px;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:12px 18px;cursor:pointer;transition:opacity .15s,transform .1s,box-shadow .2s;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:42px}
+.btn:hover{box-shadow:0 4px 20px rgba(200,148,42,.3)}
+.btn:active{opacity:.75;transform:scale(.97);box-shadow:none}
+.btn.full{width:100%;padding:15px;font-size:12px;margin-top:6px}
+.btn.secondary{background:var(--bg3);color:var(--text-mid);border:1px solid var(--border);box-shadow:none}
+.btn.secondary:hover{border-color:var(--border2);box-shadow:none}
+.btn:disabled{opacity:.3;cursor:not-allowed;pointer-events:none}
+.btn-icon{background:var(--bg3);border:1px solid var(--border);color:var(--text-dim);border-radius:8px;width:38px;height:38px;display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;transition:border-color .2s,color .2s;flex-shrink:0}
+.btn-icon:hover{border-color:var(--border2);color:var(--text)}
+.btn-icon:active{opacity:.6}
 
-/* ── Section titles ── */
-.section-title {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 18px;
-  letter-spacing: 2.5px;
-  color: var(--gold-lite);
-  margin-bottom: 14px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.section-title::after {
-  content: '';
-  flex: 1;
-  height: 1px;
-  background: linear-gradient(90deg, var(--border2) 0%, transparent 100%);
-}
+.pmu-block{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:14px}
+.pmu-block-label{font-family:'Space Mono',monospace;font-size:9px;color:var(--gold);letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.pmu-block-label::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--gold);opacity:.5;flex-shrink:0}
+.pmu-grid{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:flex-end}
+.progress-wrap{margin-top:10px;display:none}
+.progress-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.progress-label{font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);letter-spacing:1px}
+.progress-pct{font-family:'Space Mono',monospace;font-size:11px;color:var(--gold);font-weight:700}
+.progress-track{height:2px;background:var(--border);border-radius:2px;overflow:hidden}
+.progress-fill{height:100%;border-radius:2px;background:var(--gold);transition:width .5s ease,background .3s}
+.pmu-msg{font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);margin-top:8px;min-height:14px;letter-spacing:.5px}
+.pmu-msg.error{color:#e05c5c}
 
-/* ── Cards ── */
-.card {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  padding: 16px;
-  margin-bottom: 12px;
-  position: relative;
-}
-.card-gold {
-  border-color: rgba(200,148,42,.4);
-  background: linear-gradient(135deg, rgba(200,148,42,.06) 0%, var(--bg2) 40%);
-}
+.retry-banner{display:none;align-items:center;justify-content:space-between;gap:10px;background:var(--red-dim);border:1px solid rgba(140,58,58,.4);border-radius:8px;padding:10px 14px;margin-top:10px}
+.retry-banner.show{display:flex}
+.retry-banner-text{font-family:'Space Mono',monospace;font-size:9px;color:#e05c5c;letter-spacing:.5px;flex:1}
+.retry-btn{background:rgba(140,58,58,.3);border:1px solid rgba(140,58,58,.5);border-radius:6px;color:#e05c5c;font-family:'Space Mono',monospace;font-size:9px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:6px 12px;cursor:pointer;transition:background .2s;white-space:nowrap;flex-shrink:0}
+.retry-btn:hover{background:rgba(140,58,58,.5)}
 
-/* ── Inputs ── */
-.field-label {
-  font-family: 'Space Mono', monospace;
-  font-size: 9px;
-  color: var(--text-dim);
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  margin-bottom: 5px;
-}
-.field-group { display: flex; flex-direction: column; }
-input[type="text"], input[type="number"], input[type="date"] {
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
-  font-family: 'Space Mono', monospace;
-  font-size: 14px;
-  padding: 10px 12px;
-  width: 100%;
-  outline: none;
-  transition: border-color .2s, background .2s;
-  -webkit-appearance: none;
-  appearance: none;
-}
-input:focus { border-color: var(--gold); background: var(--bg4); }
-input::placeholder { color: var(--text-dim); }
-input[readonly] { opacity: .5; cursor: default; }
+.horse-header{display:grid;grid-template-columns:54px 1fr 90px 38px;gap:6px;padding:0 2px 8px;font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border);margin-bottom:10px}
+#horse-list{display:flex;flex-direction:column;gap:8px}
+.horse-row{display:grid;grid-template-columns:54px 1fr 90px 38px;gap:6px;align-items:center}
+.horse-num-input{text-align:center !important;font-family:'Bebas Neue',sans-serif !important;font-size:20px !important;color:var(--gold) !important;padding:8px 4px !important}
+.horse-note-wrap{display:flex;flex-direction:column;gap:3px}
+.pmu-badge{display:inline-flex;align-items:center;gap:4px;font-family:'Space Mono',monospace;font-size:9px;color:var(--gold);cursor:pointer;border:1px solid rgba(200,148,42,.3);border-radius:4px;padding:2px 6px;background:var(--gold-dim);transition:background .15s;width:fit-content}
+.pmu-badge:hover{background:rgba(200,148,42,.2)}
+.pmu-badge.applied{background:rgba(200,148,42,.25);border-color:rgba(200,148,42,.6)}
+.note-diff-warn{display:inline-flex;align-items:center;gap:4px;font-family:'Space Mono',monospace;font-size:8px;color:var(--copper);background:var(--copper-dim);border:1px solid rgba(181,96,58,.3);border-radius:4px;padding:2px 6px;margin-top:2px}
 
-/* ── Buttons ── */
-.btn {
-  background: var(--gold);
-  color: #080808;
-  border: none;
-  border-radius: 8px;
-  font-family: 'Space Mono', monospace;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  padding: 12px 18px;
-  cursor: pointer;
-  transition: opacity .15s, transform .1s, box-shadow .2s;
-  white-space: nowrap;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-height: 42px;
-}
-.btn:hover { box-shadow: 0 4px 20px rgba(200,148,42,.3); }
-.btn:active { opacity: .75; transform: scale(.97); box-shadow: none; }
-.btn.full { width: 100%; padding: 15px; font-size: 12px; margin-top: 6px; }
-.btn.secondary {
-  background: var(--bg3);
-  color: var(--text-mid);
-  border: 1px solid var(--border);
-  box-shadow: none;
-}
-.btn.secondary:hover { border-color: var(--border2); box-shadow: none; }
-.btn.danger { background: var(--red-dim); color: #e05c5c; border: 1px solid rgba(140,58,58,.4); box-shadow: none; }
-.btn:disabled { opacity: .3; cursor: not-allowed; pointer-events: none; }
-.btn-icon {
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  color: var(--text-dim);
-  border-radius: 8px;
-  width: 38px; height: 38px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 14px;
-  cursor: pointer;
-  transition: border-color .2s, color .2s;
-  flex-shrink: 0;
-}
-.btn-icon:hover { border-color: var(--border2); color: var(--text); }
-.btn-icon:active { opacity: .6; }
+.pred-meta{font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);margin-bottom:16px;letter-spacing:1px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.version-badge{font-family:'Space Mono',monospace;font-size:8px;color:var(--gold);border:1px solid rgba(200,148,42,.4);border-radius:4px;padding:2px 6px;letter-spacing:1px}
+.winner-card{background:linear-gradient(135deg,rgba(200,148,42,.1) 0%,var(--bg2) 50%);border:1px solid rgba(200,148,42,.4);border-radius:var(--r);padding:20px 18px;margin-bottom:16px;display:flex;align-items:center;gap:16px}
+.winner-num{font-family:'Bebas Neue',sans-serif;font-size:64px;line-height:1;color:var(--gold);min-width:56px;text-align:center}
+.winner-info{flex:1;min-width:0}
+.winner-label{font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);letter-spacing:2px;text-transform:uppercase;margin-bottom:4px}
+.winner-name{font-family:'Syne',sans-serif;font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+.winner-note{font-family:'Space Mono',monospace;font-size:11px;color:var(--text-mid)}
+.winner-conf{text-align:right;flex-shrink:0}
+.winner-conf-val{font-family:'Bebas Neue',sans-serif;font-size:36px;line-height:1;color:var(--gold-lite)}
+.winner-conf-label{font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase}
+.sel-row{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid var(--border)}
+.sel-row:last-child{border-bottom:none}
+.sel-rank{font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);width:50px;flex-shrink:0;text-align:center;line-height:1.4}
+.sel-circle{width:38px;height:38px;border-radius:50%;background:var(--bg3);border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;flex-shrink:0}
+.sel-circle.highlight{border-color:var(--gold);color:var(--gold)}
+.sel-circle.joker{border-color:var(--copper);color:var(--copper);border-style:dashed}
+.sel-body{flex:1;min-width:0}
+.sel-name{font-family:'Syne',sans-serif;font-size:11px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px}
+.sel-cote{font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);margin-bottom:5px}
+.sel-bar-track{height:3px;background:var(--bg3);border-radius:2px;overflow:hidden}
+.sel-bar-fill{height:100%;border-radius:2px;background:var(--gold);transition:width .6s cubic-bezier(.4,0,.2,1)}
+.sel-bar-fill.dim{background:var(--border2)}
+.sel-conf{text-align:right;min-width:50px;flex-shrink:0}
+.sel-conf-val{font-family:'Space Mono',monospace;font-size:15px;font-weight:700;color:var(--gold)}
+.sel-conf-val.dim{color:var(--text-mid)}
+.sel-conf-label{font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);letter-spacing:.5px;margin-top:2px}
 
-/* ── PMU block ── */
-.pmu-block {
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  padding: 14px;
-  margin-bottom: 14px;
-}
-.pmu-block-label {
-  font-family: 'Space Mono', monospace;
-  font-size: 9px;
-  color: var(--gold);
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  margin-bottom: 12px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.pmu-block-label::before {
-  content: '';
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--gold);
-  opacity: .5;
-  flex-shrink: 0;
-}
-.pmu-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr auto;
-  gap: 8px;
-  align-items: flex-end;
-}
+.analyse-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px}
+.analyse-card.rank-1{border-color:rgba(200,148,42,.5)}
+.analyse-card.rank-2{border-color:rgba(120,120,120,.4)}
+.analyse-card.rank-3{border-color:rgba(181,96,58,.4)}
+.analyse-header{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.analyse-avatar{width:40px;height:40px;border-radius:50%;background:var(--bg3);border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-size:14px;font-weight:700;flex-shrink:0}
+.analyse-info{flex:1;min-width:0}
+.analyse-name{font-family:'Syne',sans-serif;font-size:13px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.analyse-sub{font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);margin-top:2px}
+.analyse-note{font-family:'Bebas Neue',sans-serif;font-size:30px;line-height:1;flex-shrink:0}
+.analyse-note span{font-size:12px;color:var(--text-dim);font-family:'Space Mono',monospace}
+.dim-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.dim-cell{background:var(--bg3);border-radius:6px;padding:8px}
+.dim-label{font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;margin-bottom:5px}
+.dim-bar-track{height:3px;background:var(--bg2);border-radius:2px;overflow:hidden;margin-bottom:3px}
+.dim-bar-fill{height:100%;border-radius:2px;transition:width .7s cubic-bezier(.4,0,.2,1)}
+.dim-val{font-family:'Space Mono',monospace;font-size:10px;text-align:right;font-weight:700}
+.analyse-footer{margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)}
 
-/* ── Progress bar ── */
-.progress-wrap {
-  margin-top: 10px;
-  display: none;
-}
-.progress-top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-}
-.progress-label {
-  font-family: 'Space Mono', monospace;
-  font-size: 9px;
-  color: var(--text-dim);
-  letter-spacing: 1px;
-}
-.progress-pct {
-  font-family: 'Space Mono', monospace;
-  font-size: 11px;
-  color: var(--gold);
-  font-weight: 700;
-}
-.progress-track {
-  height: 2px;
-  background: var(--border);
-  border-radius: 2px;
-  overflow: hidden;
-}
-.progress-fill {
-  height: 100%;
-  border-radius: 2px;
-  background: var(--gold);
-  transition: width .5s ease, background .3s;
-}
-.pmu-msg {
-  font-family: 'Space Mono', monospace;
-  font-size: 9px;
-  color: var(--text-dim);
-  margin-top: 8px;
-  min-height: 14px;
-  letter-spacing: .5px;
-}
-.pmu-msg.error { color: #e05c5c; }
+.kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.kpi{background:var(--bg3);border-radius:8px;padding:12px 14px;border:1px solid var(--border)}
+.kpi-val{font-family:'Bebas Neue',sans-serif;font-size:28px;line-height:1;color:var(--gold);margin-bottom:2px}
+.kpi-label{font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase}
+.kpi.accent{background:var(--gold-dim);border-color:rgba(200,148,42,.3)}
+.kpi.accent .kpi-val{color:var(--gold-lite)}
+.stat-block{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:10px}
+.stat-block-title{font-family:'Space Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim);margin-bottom:14px}
+.acc-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.acc-label{font-family:'Space Mono',monospace;font-size:9px;color:var(--text-mid);width:80px;flex-shrink:0}
+.acc-track{flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden}
+.acc-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--gold) 0%,var(--gold-lite) 100%);transition:width .8s cubic-bezier(.4,0,.2,1)}
+.acc-pct{font-family:'Space Mono',monospace;font-size:11px;font-weight:700;color:var(--gold);min-width:38px;text-align:right}
+.dist-row{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.dist-label{font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);width:48px;flex-shrink:0;text-align:right}
+.dist-track{flex:1;height:4px;background:var(--bg3);border-radius:2px;overflow:hidden}
+.dist-fill{height:100%;border-radius:2px;transition:width .6s ease}
+.dist-count{font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);min-width:32px;text-align:right}
 
-/* ── Retry banner ── */
-.retry-banner {
-  display: none;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  background: var(--red-dim);
-  border: 1px solid rgba(140,58,58,.4);
-  border-radius: 8px;
-  padding: 10px 14px;
-  margin-top: 10px;
-}
-.retry-banner.show { display: flex; }
-.retry-banner-text {
-  font-family: 'Space Mono', monospace;
-  font-size: 9px;
-  color: #e05c5c;
-  letter-spacing: .5px;
-  flex: 1;
-}
-.retry-btn {
-  background: rgba(140,58,58,.3);
-  border: 1px solid rgba(140,58,58,.5);
-  border-radius: 6px;
-  color: #e05c5c;
-  font-family: 'Space Mono', monospace;
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  padding: 6px 12px;
-  cursor: pointer;
-  transition: background .2s;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-.retry-btn:hover { background: rgba(140,58,58,.5); }
+.result-horse{display:grid;grid-template-columns:46px 1fr auto;gap:8px;align-items:center;margin-bottom:8px}
+.result-num{background:var(--bg3);border:1px solid var(--border);border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:20px;color:var(--gold);text-align:center;padding:6px 0;line-height:1}
+.rang-input{width:70px !important;text-align:center !important}
+.result-pred{font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)}
+.result-pred.top{color:var(--gold)}
 
-/* ── Horse list ── */
-.horse-header {
-  display: grid;
-  grid-template-columns: 54px 1fr 90px 38px;
-  gap: 6px;
-  padding: 0 2px 8px;
-  font-family: 'Space Mono', monospace;
-  font-size: 9px;
-  color: var(--text-dim);
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 10px;
-}
-#horse-list { display: flex; flex-direction: column; gap: 8px; }
-.horse-row {
-  display: grid;
-  grid-template-columns: 54px 1fr 90px 38px;
-  gap: 6px;
-  align-items: center;
-}
-.horse-num-input {
-  text-align: center !important;
-  font-family: 'Bebas Neue', sans-serif !important;
-  font-size: 20px !important;
-  color: var(--gold) !important;
-  padding: 8px 4px !important;
-}
-.horse-note-wrap { display: flex; flex-direction: column; gap: 3px; }
-.pmu-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-family: 'Space Mono', monospace;
-  font-size: 9px;
-  color: var(--gold);
-  cursor: pointer;
-  border: 1px solid rgba(200,148,42,.3);
-  border-radius: 4px;
-  padding: 2px 6px;
-  background: var(--gold-dim);
-  transition: background .15s;
-  width: fit-content;
-}
-.pmu-badge:hover { background: rgba(200,148,42,.2); }
+#toast{position:fixed;bottom:calc(var(--safe-bot) + 88px);left:50%;transform:translateX(-50%) translateY(16px);background:var(--bg3);border:1px solid var(--border2);color:var(--text);font-family:'Space Mono',monospace;font-size:11px;padding:12px 20px;border-radius:30px;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;white-space:nowrap;z-index:100;letter-spacing:.5px}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.success{border-color:rgba(58,145,98,.5);color:#5fcd8a}
+#toast.error{border-color:rgba(140,58,58,.5);color:#e05c5c}
 
-/* ── Sélections ── */
-.pred-meta {
-  font-family: 'Space Mono', monospace;
-  font-size: 9px;
-  color: var(--text-dim);
-  margin-bottom: 16px;
-  letter-spacing: 1px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.version-badge {
-  font-family: 'Space Mono', monospace;
-  font-size: 8px;
-  color: var(--gold);
-  border: 1px solid rgba(200,148,42,.4);
-  border-radius: 4px;
-  padding: 2px 6px;
-  letter-spacing: 1px;
-}
+.spinner{width:14px;height:14px;border:2px solid rgba(8,8,8,.3);border-top-color:#080808;border-radius:50%;animation:spin .6s linear infinite;display:inline-block}
+.spinner-gold{border-color:var(--border2);border-top-color:var(--gold)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-block{display:flex;align-items:center;justify-content:center;gap:12px;padding:48px 20px;color:var(--text-dim);font-family:'Space Mono',monospace;font-size:10px;letter-spacing:1px}
+.empty{text-align:center;padding:52px 20px;color:var(--text-dim);font-family:'Space Mono',monospace;font-size:10px;letter-spacing:1px;line-height:1.8}
+.empty-icon{font-size:36px;margin-bottom:14px;opacity:.6}
 
-/* Gagnant estimé */
-.winner-card {
-  background: linear-gradient(135deg, rgba(200,148,42,.1) 0%, var(--bg2) 50%);
-  border: 1px solid rgba(200,148,42,.4);
-  border-radius: var(--r);
-  padding: 20px 18px;
-  margin-bottom: 16px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.winner-num {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 64px;
-  line-height: 1;
-  color: var(--gold);
-  min-width: 56px;
-  text-align: center;
-}
-.winner-info { flex: 1; }
-.winner-label {
-  font-family: 'Space Mono', monospace;
-  font-size: 9px;
-  color: var(--text-dim);
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  margin-bottom: 4px;
-}
-.winner-note {
-  font-family: 'Space Mono', monospace;
-  font-size: 13px;
-  color: var(--text);
-}
-.winner-conf {
-  text-align: right;
-}
-.winner-conf-val {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 36px;
-  line-height: 1;
-  color: var(--gold-lite);
-}
-.winner-conf-label {
-  font-family: 'Space Mono', monospace;
-  font-size: 8px;
-  color: var(--text-dim);
-  letter-spacing: 1px;
-  text-transform: uppercase;
-}
-.winner-cote {
-  font-family: 'Space Mono', monospace;
-  font-size: 11px;
-  color: var(--text-mid);
-  margin-top: 6px;
-}
-
-/* Horse row in selections */
-.sel-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border);
-}
-.sel-row:last-child { border-bottom: none; }
-.sel-rank {
-  font-family: 'Space Mono', monospace;
-  font-size: 9px;
-  color: var(--text-dim);
-  width: 50px;
-  flex-shrink: 0;
-  text-align: center;
-  line-height: 1.4;
-}
-.sel-circle {
-  width: 38px; height: 38px;
-  border-radius: 50%;
-  background: var(--bg3);
-  border: 2px solid var(--border2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: 'Space Mono', monospace;
-  font-size: 14px;
-  font-weight: 700;
-  flex-shrink: 0;
-  transition: border-color .2s;
-}
-.sel-circle.highlight { border-color: var(--gold); color: var(--gold); }
-.sel-circle.joker { border-color: var(--copper); color: var(--copper); border-style: dashed; }
-.sel-body { flex: 1; min-width: 0; }
-.sel-cote {
-  font-family: 'Space Mono', monospace;
-  font-size: 10px;
-  color: var(--text-dim);
-  margin-bottom: 5px;
-}
-.sel-bar-track {
-  height: 3px;
-  background: var(--bg3);
-  border-radius: 2px;
-  overflow: hidden;
-}
-.sel-bar-fill {
-  height: 100%;
-  border-radius: 2px;
-  background: var(--gold);
-  transition: width .6s cubic-bezier(.4,0,.2,1);
-}
-.sel-bar-fill.dim { background: var(--border2); }
-.sel-conf {
-  text-align: right;
-  min-width: 50px;
-  flex-shrink: 0;
-}
-.sel-conf-val {
-  font-family: 'Space Mono', monospace;
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--gold);
-}
-.sel-conf-val.dim { color: var(--text-mid); }
-.sel-conf-label {
-  font-family: 'Space Mono', monospace;
-  font-size: 8px;
-  color: var(--text-dim);
-  letter-spacing: .5px;
-  margin-top: 2px;
-}
-.sel-note {
-  font-family: 'Space Mono', monospace;
-  font-size: 10px;
-  color: var(--text-mid);
-}
-
-/* ── Analyse V6 ── */
-.analyse-card {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  padding: 14px;
-  margin-bottom: 10px;
-  transition: border-color .2s;
-}
-.analyse-card.rank-1 { border-color: rgba(200,148,42,.5); }
-.analyse-card.rank-2 { border-color: rgba(120,120,120,.4); }
-.analyse-card.rank-3 { border-color: rgba(181,96,58,.4); }
-.analyse-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-.analyse-avatar {
-  width: 40px; height: 40px;
-  border-radius: 50%;
-  background: var(--bg3);
-  border: 2px solid var(--border2);
-  display: flex; align-items: center; justify-content: center;
-  font-family: 'Space Mono', monospace;
-  font-size: 14px;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-.analyse-info { flex: 1; min-width: 0; }
-.analyse-name {
-  font-family: 'Syne', sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.analyse-sub {
-  font-family: 'Space Mono', monospace;
-  font-size: 9px;
-  color: var(--text-dim);
-  margin-top: 2px;
-}
-.analyse-note {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 30px;
-  line-height: 1;
-  flex-shrink: 0;
-}
-.analyse-note span { font-size: 12px; color: var(--text-dim); font-family: 'Space Mono', monospace; }
-.dim-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
-.dim-cell {
-  background: var(--bg3);
-  border-radius: 6px;
-  padding: 8px;
-}
-.dim-label {
-  font-family: 'Space Mono', monospace;
-  font-size: 8px;
-  color: var(--text-dim);
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  margin-bottom: 5px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-.dim-bar-track {
-  height: 3px;
-  background: var(--bg2);
-  border-radius: 2px;
-  overflow: hidden;
-  margin-bottom: 3px;
-}
-.dim-bar-fill {
-  height: 100%;
-  border-radius: 2px;
-  transition: width .7s cubic-bezier(.4,0,.2,1);
-}
-.dim-val {
-  font-family: 'Space Mono', monospace;
-  font-size: 10px;
-  text-align: right;
-  font-weight: 700;
-}
-.analyse-footer {
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-family: 'Space Mono', monospace;
-  font-size: 9px;
-  color: var(--text-dim);
-}
-.disq-val { font-weight: 700; }
-
-/* ── Stats ── */
-.stat-block {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: var(--r);
-  padding: 16px;
-  margin-bottom: 10px;
-}
-.stat-block-title {
-  font-family: 'Space Mono', monospace;
-  font-size: 9px;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  color: var(--text-dim);
-  margin-bottom: 14px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.kpi-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-.kpi {
-  background: var(--bg3);
-  border-radius: 8px;
-  padding: 12px 14px;
-  border: 1px solid var(--border);
-}
-.kpi-val {
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 28px;
-  line-height: 1;
-  color: var(--gold);
-  margin-bottom: 2px;
-}
-.kpi-label {
-  font-family: 'Space Mono', monospace;
-  font-size: 8px;
-  color: var(--text-dim);
-  letter-spacing: 1px;
-  text-transform: uppercase;
-}
-.kpi.accent { background: var(--gold-dim); border-color: rgba(200,148,42,.3); }
-.kpi.accent .kpi-val { color: var(--gold-lite); }
-
-/* Accuracy bar */
-.acc-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
-}
-.acc-label {
-  font-family: 'Space Mono', monospace;
-  font-size: 9px;
-  color: var(--text-mid);
-  width: 80px;
-  flex-shrink: 0;
-}
-.acc-track {
-  flex: 1;
-  height: 6px;
-  background: var(--bg3);
-  border-radius: 3px;
-  overflow: hidden;
-}
-.acc-fill {
-  height: 100%;
-  border-radius: 3px;
-  background: linear-gradient(90deg, var(--gold) 0%, var(--gold-lite) 100%);
-  transition: width .8s cubic-bezier(.4,0,.2,1);
-}
-.acc-pct {
-  font-family: 'Space Mono', monospace;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--gold);
-  min-width: 38px;
-  text-align: right;
-}
-
-/* Notes distribution */
-.dist-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 5px;
-}
-.dist-label {
-  font-family: 'Space Mono', monospace;
-  font-size: 9px;
-  color: var(--text-dim);
-  width: 48px;
-  flex-shrink: 0;
-  text-align: right;
-}
-.dist-track {
-  flex: 1;
-  height: 4px;
-  background: var(--bg3);
-  border-radius: 2px;
-  overflow: hidden;
-}
-.dist-fill {
-  height: 100%;
-  border-radius: 2px;
-  background: var(--copper);
-  transition: width .6s ease;
-}
-.dist-count {
-  font-family: 'Space Mono', monospace;
-  font-size: 9px;
-  color: var(--text-dim);
-  min-width: 32px;
-  text-align: right;
-}
-
-/* ── Résultats ── */
-.result-horse {
-  display: grid;
-  grid-template-columns: 46px 1fr auto;
-  gap: 8px;
-  align-items: center;
-  margin-bottom: 8px;
-}
-.result-num {
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  font-family: 'Bebas Neue', sans-serif;
-  font-size: 20px;
-  color: var(--gold);
-  text-align: center;
-  padding: 6px 0;
-  line-height: 1;
-}
-.rang-input {
-  width: 70px !important;
-  text-align: center !important;
-}
-
-/* ── Toast ── */
-#toast {
-  position: fixed;
-  bottom: calc(var(--safe-bot) + 88px);
-  left: 50%; transform: translateX(-50%) translateY(16px);
-  background: var(--bg3);
-  border: 1px solid var(--border2);
-  color: var(--text);
-  font-family: 'Space Mono', monospace;
-  font-size: 11px;
-  padding: 12px 20px;
-  border-radius: 30px;
-  opacity: 0;
-  transition: opacity .3s, transform .3s;
-  pointer-events: none;
-  white-space: nowrap;
-  z-index: 100;
-  letter-spacing: .5px;
-}
-#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-#toast.success { border-color: rgba(58,145,98,.5); color: #5fcd8a; }
-#toast.error   { border-color: rgba(140,58,58,.5);  color: #e05c5c; }
-
-/* ── Spinner ── */
-.spinner {
-  width: 14px; height: 14px;
-  border: 2px solid rgba(8,8,8,.3);
-  border-top-color: #080808;
-  border-radius: 50%;
-  animation: spin .6s linear infinite;
-  display: inline-block;
-}
-.spinner-gold {
-  border-color: var(--border2);
-  border-top-color: var(--gold);
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* ── Loading block ── */
-.loading-block {
-  display: flex; align-items: center; justify-content: center;
-  gap: 12px; padding: 48px 20px;
-  color: var(--text-dim);
-  font-family: 'Space Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 1px;
-}
-
-/* ── Empty state ── */
-.empty {
-  text-align: center;
-  padding: 52px 20px;
-  color: var(--text-dim);
-  font-family: 'Space Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 1px;
-  line-height: 1.8;
-}
-.empty-icon { font-size: 36px; margin-bottom: 14px; opacity: .6; }
-
-/* ── Scrollbar ── */
-::-webkit-scrollbar { width: 3px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-
-/* ── Animations ── */
-@keyframes fadeIn { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: none; } }
-.fade-in { animation: fadeIn .35s ease forwards; }
-.fade-in-delay-1 { animation-delay: .05s; opacity: 0; }
-.fade-in-delay-2 { animation-delay: .1s;  opacity: 0; }
-.fade-in-delay-3 { animation-delay: .15s; opacity: 0; }
-.fade-in-delay-4 { animation-delay: .2s;  opacity: 0; }
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.fade-in{animation:fadeIn .35s ease forwards}
+.fd1{animation-delay:.05s;opacity:0}.fd2{animation-delay:.1s;opacity:0}.fd3{animation-delay:.15s;opacity:0}.fd4{animation-delay:.2s;opacity:0}
 </style>
 </head>
 <body>
 <div id="app">
-
-  <!-- Header -->
   <div class="header">
     <div class="header-brand">
       <div class="header-title">Martengo</div>
-      <div class="header-sub">Système de prédiction trot attelé</div>
+      <div class="header-sub">Prédiction trot attelé</div>
     </div>
     <div class="header-status">
       <div class="dot loading" id="status-dot"></div>
@@ -937,983 +210,538 @@ input[readonly] { opacity: .5; cursor: default; }
     </div>
   </div>
 
-  <!-- Nav -->
   <nav class="nav">
-    <button class="nav-btn active" onclick="goTo('saisie')" id="tab-saisie">
-      <span class="nav-icon">✏️</span>Saisie
-    </button>
-    <button class="nav-btn" onclick="goTo('selections')" id="tab-selections">
-      <span class="nav-icon">🎯</span>Sélections
-    </button>
-    <button class="nav-btn" onclick="goTo('analyse')" id="tab-analyse">
-      <span class="nav-icon">🔬</span>Analyse
-    </button>
+    <button class="nav-btn active" onclick="goTo('saisie')" id="tab-saisie"><span class="nav-icon">✏️</span>Saisie</button>
+    <button class="nav-btn" onclick="goTo('selections')" id="tab-selections"><span class="nav-icon">🎯</span>Sélections</button>
+    <button class="nav-btn" onclick="goTo('analyse')" id="tab-analyse"><span class="nav-icon">🔬</span>Analyse</button>
     <button class="nav-btn" onclick="goTo('stats')" id="tab-stats">
       <span class="nav-icon">📊</span>Stats
+      <span class="nav-badge" id="badge-stats"></span>
     </button>
   </nav>
 
-  <!-- ══════════════════════════════════════════
-       ÉCRAN 1 — SAISIE
-  ══════════════════════════════════════════ -->
-  <div class="screen active" id="screen-saisie">
+  <div id="screens-wrapper">
 
-    <div class="card">
-      <!-- Date + Vider -->
-      <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:flex-end;margin-bottom:14px;">
-        <div class="field-group">
-          <div class="field-label">Date de la course</div>
-          <input type="date" id="course-date">
-        </div>
-        <button class="btn secondary" onclick="viderCourse()">Vider</button>
-      </div>
-
-      <!-- Bloc PMU -->
-      <div class="pmu-block">
-        <div class="pmu-block-label">Notes PMU automatiques</div>
-        <div class="pmu-grid">
+    <!-- SAISIE -->
+    <div class="screen active" id="screen-saisie">
+      <div class="card">
+        <div style="display:grid;grid-template-columns:1fr auto;gap:10px;align-items:flex-end;margin-bottom:14px;">
           <div class="field-group">
-            <div class="field-label">Réunion</div>
-            <input type="number" id="pmu-reunion" placeholder="1" min="1" max="9" value="1">
+            <div class="field-label">Date de la course</div>
+            <input type="date" id="course-date">
           </div>
-          <div class="field-group">
-            <div class="field-label">Course</div>
-            <input type="number" id="pmu-course" placeholder="5" min="1" max="20">
-          </div>
-          <button class="btn secondary" id="btn-pmu" onclick="chargerNotesPMU()" style="font-size:10px;">
-            Charger →
-          </button>
+          <button class="btn secondary" onclick="viderCourse()">Vider</button>
         </div>
 
-        <!-- Progress bar -->
-        <div class="progress-wrap" id="pmu-progress-wrap">
-          <div class="progress-top">
-            <span class="progress-label" id="pmu-progress-label"></span>
-            <span class="progress-pct" id="pmu-progress-pct"></span>
+        <div class="pmu-block">
+          <div class="pmu-block-label">Notes PMU automatiques</div>
+          <div class="pmu-grid">
+            <div class="field-group">
+              <div class="field-label">Réunion</div>
+              <input type="number" id="pmu-reunion" placeholder="1" min="1" max="9" value="1">
+            </div>
+            <div class="field-group">
+              <div class="field-label">Course</div>
+              <input type="number" id="pmu-course" placeholder="5" min="1" max="20">
+            </div>
+            <button class="btn secondary" id="btn-pmu" onclick="chargerEtAnalyser()" style="font-size:10px;">Charger →</button>
           </div>
-          <div class="progress-track">
-            <div class="progress-fill" id="pmu-progress-bar" style="width:0%"></div>
+          <div class="progress-wrap" id="pmu-progress-wrap">
+            <div class="progress-top">
+              <span class="progress-label" id="pmu-progress-label"></span>
+              <span class="progress-pct" id="pmu-progress-pct"></span>
+            </div>
+            <div class="progress-track"><div class="progress-fill" id="pmu-progress-bar" style="width:0%"></div></div>
+          </div>
+          <div class="pmu-msg" id="pmu-msg"></div>
+          <div class="retry-banner" id="pmu-retry-banner">
+            <span class="retry-banner-text" id="pmu-retry-text">Erreur</span>
+            <button class="retry-btn" onclick="chargerEtAnalyser()">↺ Réessayer</button>
           </div>
         </div>
 
-        <!-- Message -->
-        <div class="pmu-msg" id="pmu-msg"></div>
-
-        <!-- Retry banner -->
-        <div class="retry-banner" id="pmu-retry-banner">
-          <span class="retry-banner-text" id="pmu-retry-text">Serveur hors ligne</span>
-          <button class="retry-btn" onclick="chargerNotesPMU()">↺ Réessayer</button>
-        </div>
+        <div class="horse-header"><div>N°</div><div>Note</div><div>Cote</div><div></div></div>
+        <div id="horse-list"></div>
+        <button class="btn secondary full" onclick="ajouterCheval()" style="margin-top:10px;">+ Ajouter un cheval</button>
       </div>
 
-      <!-- Horse list -->
-      <div class="horse-header">
-        <div>N°</div><div>Note</div><div>Cote</div><div></div>
+      <div class="retry-banner" id="api-retry-banner">
+        <span class="retry-banner-text">API hors ligne — redémarre en ~30s</span>
+        <button class="retry-btn" onclick="checkHealth(true)">↺ Réessayer</button>
       </div>
-      <div id="horse-list"></div>
 
-      <button class="btn secondary full" onclick="ajouterCheval()" style="margin-top:10px;">
-        + Ajouter un cheval
-      </button>
+      <button class="btn full" onclick="lancerPrediction()" id="btn-predict" style="margin-top:10px;">Analyser la course →</button>
     </div>
 
-    <!-- Retry banner API hors ligne -->
-    <div class="retry-banner" id="api-retry-banner">
-      <span class="retry-banner-text">API Martengo hors ligne — le serveur redémarre (≈30s)</span>
-      <button class="retry-btn" onclick="checkHealth(true)">↺ Réessayer</button>
+    <!-- SÉLECTIONS -->
+    <div class="screen" id="screen-selections">
+      <div id="selections-content">
+        <div class="empty"><div class="empty-icon">🎯</div>Analysez une course<br>pour voir les sélections</div>
+      </div>
     </div>
 
-    <button class="btn full" onclick="lancerPrediction()" id="btn-predict" style="margin-top:10px;">
-      Analyser la course →
-    </button>
+    <!-- ANALYSE -->
+    <div class="screen" id="screen-analyse">
+      <div id="analyse-content">
+        <div class="empty"><div class="empty-icon">🔬</div>Chargez les notes PMU<br>pour voir l'analyse détaillée</div>
+      </div>
+    </div>
+
+    <!-- STATS + RÉSULTATS -->
+    <div class="screen" id="screen-stats">
+      <div id="stats-content">
+        <div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement…</span></div>
+      </div>
+      <div id="result-section" style="display:none;">
+        <div class="section-title" style="margin-top:16px;">Enregistrer résultats</div>
+        <div id="result-content"></div>
+      </div>
+    </div>
+
   </div>
-
-  <!-- ══════════════════════════════════════════
-       ÉCRAN 2 — SÉLECTIONS
-  ══════════════════════════════════════════ -->
-  <div class="screen" id="screen-selections">
-    <div id="selections-content">
-      <div class="empty">
-        <div class="empty-icon">🎯</div>
-        Analysez une course<br>pour voir les sélections
-      </div>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════════════════
-       ÉCRAN 3 — ANALYSE V6
-  ══════════════════════════════════════════ -->
-  <div class="screen" id="screen-analyse">
-    <div id="analyse-content">
-      <div class="empty">
-        <div class="empty-icon">🔬</div>
-        Chargez les notes PMU<br>pour voir l'analyse détaillée
-      </div>
-    </div>
-  </div>
-
-  <!-- ══════════════════════════════════════════
-       ÉCRAN 4 — STATS
-  ══════════════════════════════════════════ -->
-  <div class="screen" id="screen-stats">
-    <div id="stats-content">
-      <div class="loading-block">
-        <div class="spinner spinner-gold"></div>
-        <span>Chargement des statistiques…</span>
-      </div>
-    </div>
-
-    <!-- Résultats -->
-    <div id="result-section" style="display:none;">
-      <div class="section-title" style="margin-top:16px;">Enregistrer résultats</div>
-      <div id="result-content"></div>
-    </div>
-  </div>
-
-</div><!-- #app -->
-
+</div>
 <div id="toast"></div>
-
 <script>
-// ============================================================
-// CONFIG
-// ============================================================
 const API_URL = "https://martengo-api-v5.onrender.com";
+const LS_SAISIE = 'martengo_v3', LS_HIST = 'martengo_hist';
+const SCREENS = ['saisie','selections','analyse','stats'];
 
-// ============================================================
-// ÉTAT
-// ============================================================
-let chevaux     = [];
-let predictions = null;
-let currentDate = '';
-let notesPMU    = {};
-let horseCounter = 0;
-let apiPrete    = false;
+let chevaux = [], predictions = null, notesPMU = {}, notesPMUData = null;
+let currentDate = '', horseCounter = 0, apiPrete = false, currentScreen = 'saisie';
 
-// ============================================================
-// LOCALSTORAGE
-// ============================================================
-const LS_KEY = 'martengo_v2';
-
-function sauvegarderSaisie() {
-  try {
-    localStorage.setItem(LS_KEY, JSON.stringify({
-      date:    document.getElementById('course-date').value,
-      reunion: document.getElementById('pmu-reunion').value,
-      course:  document.getElementById('pmu-course').value,
-      chevaux, notesPMU,
-    }));
-  } catch(e) {}
+// ── LocalStorage ──
+function sauvegarder() {
+  try { localStorage.setItem(LS_SAISIE, JSON.stringify({ date: document.getElementById('course-date').value, reunion: document.getElementById('pmu-reunion').value, course: document.getElementById('pmu-course').value, chevaux, notesPMU })); } catch(e) {}
 }
-
-function restaurerSaisie() {
+function restaurer() {
   try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return false;
-    const data = JSON.parse(raw);
-    if (data.date && /^\d{4}-\d{2}-\d{2}$/.test(data.date)) {
-      document.getElementById('course-date').value = data.date;
-      currentDate = data.date;
-    }
-    if (data.reunion) document.getElementById('pmu-reunion').value = data.reunion;
-    if (data.course)  document.getElementById('pmu-course').value  = data.course;
-    if (data.notesPMU) notesPMU = data.notesPMU;
-    if (data.chevaux && data.chevaux.length > 0) {
-      chevaux = data.chevaux;
-      horseCounter = Math.max(...chevaux.map(c => c.id), 0);
-      renderHorses();
-      return true;
-    }
+    const d = JSON.parse(localStorage.getItem(LS_SAISIE)||'null');
+    if (!d) return false;
+    if (d.date && /^\d{4}-\d{2}-\d{2}$/.test(d.date)) { document.getElementById('course-date').value = d.date; currentDate = d.date; }
+    if (d.reunion) document.getElementById('pmu-reunion').value = d.reunion;
+    if (d.course)  document.getElementById('pmu-course').value  = d.course;
+    if (d.notesPMU) notesPMU = d.notesPMU;
+    if (d.chevaux && d.chevaux.length > 0) { chevaux = d.chevaux; horseCounter = Math.max(...chevaux.map(c=>c.id),0); renderHorses(); return true; }
   } catch(e) {}
   return false;
 }
+function effacer() { try { localStorage.removeItem(LS_SAISIE); } catch(e) {} }
 
-function effacerSaisie() {
-  try { localStorage.removeItem(LS_KEY); } catch(e) {}
-}
-
-// ============================================================
-// INIT
-// ============================================================
+// ── Init ──
 document.addEventListener('DOMContentLoaded', () => {
   const today = new Date().toISOString().split('T')[0];
-  document.getElementById('course-date').value = today;
-  currentDate = today;
-
-  const restored = restaurerSaisie();
-  if (!restored) {
-    for (let i = 0; i < 3; i++) ajouterCheval();
-  } else {
-    toast('Course restaurée', 'success');
-  }
-
-  checkHealth(true);
-  setInterval(() => checkHealth(false), 30000);
-
+  document.getElementById('course-date').value = today; currentDate = today;
+  if (!restaurer()) for (let i=0;i<3;i++) ajouterCheval();
+  else toast('Course restaurée', 'success');
   document.getElementById('course-date').addEventListener('change', e => {
     currentDate = e.target.value;
-    sauvegarderSaisie();
+    if (Object.keys(notesPMU).length > 0) setPmuMsg('⚠ Date modifiée — rechargez les notes PMU');
+    sauvegarder();
   });
+  checkHealth(true);
+  setInterval(() => checkHealth(false), 30000);
+  initSwipe();
 });
 
-// ============================================================
-// NAVIGATION
-// ============================================================
+// ── Navigation ──
 function goTo(screen) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
-  document.getElementById('screen-' + screen).classList.add('active');
-  document.getElementById('tab-' + screen).classList.add('active');
+  document.getElementById('screen-'+screen).classList.add('active');
+  document.getElementById('tab-'+screen).classList.add('active');
+  currentScreen = screen;
+  if (screen === 'stats') { chargerStats(); document.getElementById('badge-stats').classList.remove('show'); }
+}
+function setBadge(show) { document.getElementById('badge-stats').classList.toggle('show', show && currentScreen !== 'stats'); }
 
-  if (screen === 'stats') chargerStats();
+// ── Swipe ──
+function initSwipe() {
+  const w = document.getElementById('screens-wrapper');
+  let sx=0, sy=0, moved=false;
+  w.addEventListener('touchstart', e => { sx=e.touches[0].clientX; sy=e.touches[0].clientY; moved=false; }, {passive:true});
+  w.addEventListener('touchmove',  e => { const dx=e.touches[0].clientX-sx, dy=e.touches[0].clientY-sy; if (!moved && Math.abs(dx)>Math.abs(dy) && Math.abs(dx)>20) moved=true; }, {passive:true});
+  w.addEventListener('touchend',   e => {
+    if (!moved) return;
+    const dx = e.changedTouches[0].clientX - sx;
+    const idx = SCREENS.indexOf(currentScreen);
+    if (dx < -40 && idx < SCREENS.length-1) goTo(SCREENS[idx+1]);
+    else if (dx > 40 && idx > 0) goTo(SCREENS[idx-1]);
+  });
 }
 
-// ============================================================
-// HEALTH CHECK
-// ============================================================
-let _healthTimer = null;
-let _healthPct   = 10;
-
+// ── Health ──
+let _hTimer=null, _hPct=10;
 async function checkHealth(isFirst) {
-  const dot  = document.getElementById('status-dot');
-  const text = document.getElementById('status-text');
-  const apiBanner = document.getElementById('api-retry-banner');
-
+  const dot=document.getElementById('status-dot'), text=document.getElementById('status-text'), banner=document.getElementById('api-retry-banner');
   if (isFirst && !apiPrete) {
-    dot.className    = 'dot loading';
-    text.textContent = 'démarrage…';
-    document.getElementById('btn-pmu').disabled = true;
-    setPmuProgress(10, 'Démarrage du serveur…');
-
-    _healthPct = 10;
-    clearInterval(_healthTimer);
-    _healthTimer = setInterval(() => {
-      _healthPct = Math.min(_healthPct + 2, 85);
-      setPmuProgress(_healthPct, 'Chargement des données…');
-    }, 1200);
-
+    dot.className='dot loading'; text.textContent='démarrage…';
+    document.getElementById('btn-pmu').disabled=true;
+    setPmuProgress(10,'Démarrage du serveur…'); _hPct=10;
+    clearInterval(_hTimer);
+    _hTimer=setInterval(()=>{ _hPct=Math.min(_hPct+2,85); setPmuProgress(_hPct,'Chargement des données…'); },1200);
     try {
-      const resp = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(45000) });
-      clearInterval(_healthTimer);
+      const resp=await fetch(`${API_URL}/health`,{signal:AbortSignal.timeout(50000)});
+      clearInterval(_hTimer);
       if (!resp.ok) throw new Error();
-      const data = await resp.json();
-      apiPrete = true;
-      dot.className    = 'dot online';
-      const nb = (data.courses || 0).toLocaleString('fr');
-      text.textContent = `${nb} courses`;
-      document.getElementById('btn-pmu').disabled = false;
-      apiBanner.classList.remove('show');
-      setPmuProgress(100, `✓ Prêt — ${nb} courses`, '#5fcd8a');
-      setTimeout(() => clearPmuProgress(), 1500);
-    } catch {
-      clearInterval(_healthTimer);
-      dot.className    = 'dot error';
-      text.textContent = 'hors ligne';
-      clearPmuProgress('');
-      apiBanner.classList.add('show');
-      showPmuRetry('Serveur en démarrage — peut prendre jusqu\'à 45s sur Render Free');
-    }
+      const data=await resp.json(); apiPrete=true;
+      dot.className='dot online'; text.textContent=`${(data.courses||0).toLocaleString('fr')} courses`;
+      document.getElementById('btn-pmu').disabled=false;
+      banner.classList.remove('show');
+      setPmuProgress(100,`✓ Prêt — ${(data.courses||0).toLocaleString('fr')} courses`,'#5fcd8a');
+      setTimeout(()=>clearPmuProgress(),1500);
+    } catch { clearInterval(_hTimer); dot.className='dot error'; text.textContent='hors ligne'; clearPmuProgress(''); banner.classList.add('show'); showPmuRetry('Serveur en démarrage — jusqu\'à 50s sur Render Free'); }
   } else {
-    // Pings silencieux
     try {
-      const resp = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(10000) });
+      const resp=await fetch(`${API_URL}/health`,{signal:AbortSignal.timeout(10000)});
       if (!resp.ok) throw new Error();
-      const data = await resp.json();
-      const nb = (data.courses || 0).toLocaleString('fr');
-      if (!apiPrete) {
-        apiPrete = true;
-        document.getElementById('btn-pmu').disabled = false;
-        apiBanner.classList.remove('show');
-        clearPmuProgress('');
-      }
-      dot.className    = 'dot online';
-      text.textContent = `${nb} courses`;
-    } catch {
-      dot.className    = 'dot error';
-      text.textContent = 'hors ligne';
-      if (apiPrete) {
-        apiPrete = false;
-        apiBanner.classList.add('show');
-      }
-    }
+      const data=await resp.json();
+      if (!apiPrete) { apiPrete=true; document.getElementById('btn-pmu').disabled=false; banner.classList.remove('show'); clearPmuProgress(''); }
+      dot.className='dot online'; text.textContent=`${(data.courses||0).toLocaleString('fr')} courses`;
+    } catch { dot.className='dot error'; text.textContent='hors ligne'; if (apiPrete) { apiPrete=false; banner.classList.add('show'); } }
   }
 }
 
+// ── Progress helpers ──
 function setPmuProgress(pct, label, color) {
-  const c = color || 'var(--gold)';
-  document.getElementById('pmu-progress-wrap').style.display = 'block';
-  document.getElementById('pmu-msg').textContent = '';
+  const c=color||'var(--gold)';
+  document.getElementById('pmu-progress-wrap').style.display='block';
+  document.getElementById('pmu-msg').textContent='';
   document.getElementById('pmu-retry-banner').classList.remove('show');
-  document.getElementById('pmu-progress-pct').textContent   = pct < 100 ? `${Math.round(pct)}%` : '';
-  document.getElementById('pmu-progress-pct').style.color   = c;
-  document.getElementById('pmu-progress-label').textContent = label;
-  document.getElementById('pmu-progress-bar').style.width   = `${pct}%`;
-  document.getElementById('pmu-progress-bar').style.background = c;
+  document.getElementById('pmu-progress-pct').textContent=pct<100?`${Math.round(pct)}%`:'';
+  document.getElementById('pmu-progress-pct').style.color=c;
+  document.getElementById('pmu-progress-label').textContent=label;
+  document.getElementById('pmu-progress-bar').style.width=`${pct}%`;
+  document.getElementById('pmu-progress-bar').style.background=c;
 }
+function clearPmuProgress(msg) { document.getElementById('pmu-progress-wrap').style.display='none'; document.getElementById('pmu-msg').textContent=msg!==undefined?msg:''; document.getElementById('pmu-msg').className='pmu-msg'; }
+function setPmuMsg(msg, isError) { document.getElementById('pmu-progress-wrap').style.display='none'; const el=document.getElementById('pmu-msg'); el.textContent=msg; el.className='pmu-msg'+(isError?' error':''); }
+function showPmuRetry(msg) { document.getElementById('pmu-retry-text').textContent=msg; document.getElementById('pmu-retry-banner').classList.add('show'); }
 
-function clearPmuProgress(msg) {
-  document.getElementById('pmu-progress-wrap').style.display = 'none';
-  document.getElementById('pmu-msg').textContent = msg !== undefined ? msg : '';
-  document.getElementById('pmu-msg').className = 'pmu-msg';
-}
-
-function setPmuMsg(msg, isError) {
-  document.getElementById('pmu-progress-wrap').style.display = 'none';
-  const el = document.getElementById('pmu-msg');
-  el.textContent = msg;
-  el.className   = 'pmu-msg' + (isError ? ' error' : '');
-}
-
-function showPmuRetry(msg) {
-  document.getElementById('pmu-retry-text').textContent = msg;
-  document.getElementById('pmu-retry-banner').classList.add('show');
-}
-
-// ============================================================
-// NOTES PMU
-// ============================================================
+// ── Charger notes PMU (retourne data ou lance exception) ──
 async function chargerNotesPMU() {
-  const btn = document.getElementById('btn-pmu');
+  const dateVal=document.getElementById('course-date').value, reunVal=document.getElementById('pmu-reunion').value, coursVal=document.getElementById('pmu-course').value;
+  if (!reunVal||!coursVal) { toast('Remplissez réunion et course','error'); return null; }
+  const p=dateVal.split('-');
+  const datePMU = (p.length===3&&p[0].length===4) ? p[2]+p[1]+p[0] : (() => { const d=new Date(dateVal); if(isNaN(d.getTime())){toast('Format de date invalide','error');return null;} return String(d.getDate()).padStart(2,'0')+String(d.getMonth()+1).padStart(2,'0')+d.getFullYear(); })();
+  if (!datePMU) return null;
+
+  const btn=document.getElementById('btn-pmu');
+  btn.disabled=true; btn.innerHTML='<div class="spinner"></div>';
   document.getElementById('pmu-retry-banner').classList.remove('show');
-
+  setPmuProgress(15,'Connexion API PMU…');
+  let pt=setInterval(()=>{ const b=document.getElementById('pmu-progress-bar'); if(b){const c=parseFloat(b.style.width)||15; if(c<70) setPmuProgress(c+3,'Récupération des participants…');} },700);
   try {
-    const dateVal  = document.getElementById('course-date').value;
-    const reunVal  = document.getElementById('pmu-reunion').value;
-    const coursVal = document.getElementById('pmu-course').value;
+    const resp=await fetch(`${API_URL}/notes_pmu?date=${datePMU}&reunion=${reunVal}&course=${coursVal}`,{signal:AbortSignal.timeout(30000)});
+    clearInterval(pt);
+    if (!resp.ok) { const t=await resp.text(); let m=`HTTP ${resp.status}`; try{m=JSON.parse(t).error||m;}catch(_){} throw new Error(m); }
+    const data=JSON.parse(await resp.text());
+    notesPMUData=data; notesPMU={};
+    data.chevaux.forEach(c=>{ notesPMU[c.numero]=c; });
+    return data;
+  } catch(e) { clearInterval(pt); throw e; }
+  finally { btn.disabled=false; btn.innerHTML='Charger →'; }
+}
 
-    if (!reunVal || !coursVal) {
-      toast('Remplissez réunion et course', 'error'); return;
-    }
+// ── Action principale : PMU + predict en parallèle ──
+async function chargerEtAnalyser() {
+  try {
+    const pmuData=await chargerNotesPMU();
+    if (!pmuData) return;
 
-    const parts = dateVal.split('-');
-    let datePMU;
-    if (parts.length === 3 && parts[0].length === 4) {
-      datePMU = parts[2] + parts[1] + parts[0];
+    // Peupler ou compléter la liste
+    if (chevaux.length===0) {
+      chevaux=[]; horseCounter=0;
+      pmuData.chevaux.sort((a,b)=>a.numero-b.numero).forEach(c=>{ horseCounter++; chevaux.push({id:horseCounter,numero:c.numero,note:c.note_pmu,rapport:c.cote!==null?c.cote:''}); });
     } else {
-      const d = new Date(dateVal);
-      if (isNaN(d.getTime())) { toast('Format de date invalide', 'error'); return; }
-      datePMU = String(d.getDate()).padStart(2,'0') + String(d.getMonth()+1).padStart(2,'0') + d.getFullYear();
+      chevaux.forEach(c=>{ const p=notesPMU[c.numero]; if(p){ if(c.note===''||c.note===0)c.note=p.note_pmu; if((c.rapport===''||c.rapport===0)&&p.cote!==null)c.rapport=p.cote; } });
     }
+    renderHorses(); sauvegarder();
 
-    btn.disabled = true;
-    btn.innerHTML = '<div class="spinner"></div>';
-    setPmuProgress(15, 'Connexion à l\'API PMU…');
+    // Analyse V6 immédiate
+    if (pmuData.chevaux[0]?.scores) renderAnalyse(pmuData);
+    setPmuProgress(75,`${pmuData.chevaux.length} chevaux — calcul prédictions…`);
 
-    let progTimer = setInterval(() => {
-      const bar = document.getElementById('pmu-progress-bar');
-      if (bar) {
-        const cur = parseFloat(bar.style.width) || 15;
-        if (cur < 75) {
-          setPmuProgress(cur + 4, 'Récupération des participants…');
-        }
-      }
-    }, 600);
-
-    let resp;
-    try {
-      resp = await fetch(`${API_URL}/notes_pmu?date=${datePMU}&reunion=${reunVal}&course=${coursVal}`,
-        { signal: AbortSignal.timeout(30000) });
-    } catch(fetchErr) {
-      throw new Error(`Réseau: ${fetchErr.message}`);
-    } finally {
-      clearInterval(progTimer);
+    // /predict avec les notes courantes (manuelles si modifiées)
+    const payload=chevaux.filter(c=>c.numero&&c.note!==''&&c.rapport!=='').map(c=>({numero:c.numero,note:c.note,rapport:c.rapport}));
+    if (payload.length>=2) {
+      try {
+        const resp2=await fetch(`${API_URL}/predict`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chevaux:payload}),signal:AbortSignal.timeout(30000)});
+        if (resp2.ok) { predictions=await resp2.json(); renderSelections(predictions,notesPMU); renderResultForm(payload); setBadge(true); }
+      } catch(_) { /* predict optionnel */ }
     }
+    setPmuProgress(100,`✓ ${pmuData.chevaux.length} chevaux · analyse complète`,'#5fcd8a');
+    setTimeout(()=>clearPmuProgress(''),1200);
+    toast(`Prêt — ${pmuData.chevaux.length} chevaux`,'success');
 
-    if (!resp.ok) {
-      const errText = await resp.text();
-      let errMsg = `HTTP ${resp.status}`;
-      try { errMsg = JSON.parse(errText).error || errMsg; } catch(_) {}
-      throw new Error(errMsg);
-    }
+    // Vibration
+    if (navigator.vibrate) navigator.vibrate(40);
 
-    const rawText = await resp.text();
-    let data;
-    try { data = JSON.parse(rawText); }
-    catch(_) { throw new Error('Réponse invalide (non-JSON)'); }
+  } catch(e) { setPmuMsg(e.message,true); showPmuRetry(e.message); toast(e.message,'error'); }
+}
 
-    notesPMU = {};
-    data.chevaux.forEach(c => { notesPMU[c.numero] = c; });
-
-    if (chevaux.length === 0) {
-      chevaux = [];
-      horseCounter = 0;
-      data.chevaux.sort((a,b) => a.numero - b.numero).forEach(c => {
-        horseCounter++;
-        chevaux.push({ id: horseCounter, numero: c.numero, note: c.note_pmu, rapport: c.cote !== null ? c.cote : '' });
-      });
-    } else {
-      chevaux.forEach(c => {
-        const pmu = notesPMU[c.numero];
-        if (pmu) {
-          if (c.note === '' || c.note === 0) c.note = pmu.note_pmu;
-          if ((c.rapport === '' || c.rapport === 0) && pmu.cote !== null) c.rapport = pmu.cote;
-        }
-      });
-    }
-
-    renderHorses();
-    sauvegarderSaisie();
-    setPmuProgress(100, `✓ ${data.chevaux.length} chevaux chargés`, '#5fcd8a');
-    setTimeout(() => clearPmuProgress(''), 1200);
-
-    if (data.chevaux[0] && data.chevaux[0].scores) {
-      renderAnalyse(data);
-    }
-
-    toast(`Notes PMU chargées — ${data.chevaux.length} chevaux`, 'success');
-
+// ── /predict seul ──
+async function lancerPrediction() {
+  const payload=chevaux.filter(c=>c.numero&&c.note!==''&&c.rapport!=='').map(c=>({numero:c.numero,note:c.note,rapport:c.rapport}));
+  if (payload.length<2){toast('Remplissez au moins 2 chevaux','error');return;}
+  const btn=document.getElementById('btn-predict');
+  btn.disabled=true; btn.innerHTML='<div class="spinner"></div> Analyse…';
+  goTo('selections');
+  document.getElementById('selections-content').innerHTML='<div class="loading-block"><div class="spinner spinner-gold"></div><span>Calcul en cours…</span></div>';
+  try {
+    const resp=await fetch(`${API_URL}/predict`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chevaux:payload}),signal:AbortSignal.timeout(30000)});
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    predictions=await resp.json();
+    renderSelections(predictions,notesPMU);
+    renderResultForm(payload);
+    currentDate=document.getElementById('course-date').value;
+    setBadge(true);
+    if (navigator.vibrate) navigator.vibrate(40);
   } catch(e) {
-    setPmuMsg(`${e.message}`, true);
-    showPmuRetry(e.message);
-    toast(e.message, 'error');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = 'Charger →';
-  }
+    document.getElementById('selections-content').innerHTML=`<div class="empty"><div class="empty-icon">⚠️</div>Erreur de connexion<br><div style="margin-top:12px;"><button class="btn secondary" onclick="lancerPrediction()" style="font-size:10px;">↺ Réessayer</button></div></div>`;
+    toast('Erreur de connexion','error');
+  } finally { btn.disabled=false; btn.innerHTML='Analyser la course →'; }
 }
 
-// ============================================================
-// GESTION DES CHEVAUX
-// ============================================================
-function ajouterCheval() {
-  horseCounter++;
-  chevaux.push({ id: horseCounter, numero: horseCounter, note: '', rapport: '' });
-  renderHorses();
-  sauvegarderSaisie();
-}
-
-function supprimerCheval(id) {
-  chevaux = chevaux.filter(c => c.id !== id);
-  renderHorses();
-  sauvegarderSaisie();
-}
-
+// ── Chevaux — onchange (pas oninput) pour ne pas rebuilder le DOM à chaque frappe ──
+let _sv=null;
+function ajouterCheval() { horseCounter++; chevaux.push({id:horseCounter,numero:horseCounter,note:'',rapport:''}); renderHorses(); sauvegarder(); }
+function supprimerCheval(id) { chevaux=chevaux.filter(c=>c.id!==id); renderHorses(); sauvegarder(); }
 function utiliserNotePMU(id, note) {
-  const c = chevaux.find(x => x.id === id);
-  if (c) { c.note = note; renderHorses(); sauvegarderSaisie(); }
+  const c=chevaux.find(x=>x.id===id); if (!c) return;
+  c.note=note;
+  const badge=document.getElementById(`badge-${id}`); if(badge) badge.classList.add('applied');
+  // Rafraîchir l'avertissement divergence
+  const wrap=document.getElementById(`warn-${id}`);
+  if (wrap) wrap.innerHTML=''; // note acceptée, plus de warning
+  sauvegarder();
+}
+function updateCheval(id, field, val) {
+  const c=chevaux.find(x=>x.id===id); if (!c) return;
+  c[field]=field==='numero'?parseInt(val)||0:parseFloat(val)||0;
+  clearTimeout(_sv); _sv=setTimeout(()=>{ sauvegarder(); if(field==='numero') refreshBadge(id); if(field==='note') refreshWarn(id); },400);
+}
+function refreshBadge(id) {
+  const c=chevaux.find(x=>x.id===id); if(!c) return;
+  const pmu=notesPMU[c.numero], wrap=document.getElementById(`badge-wrap-${id}`); if(!wrap) return;
+  const avis=pmu?(pmu.avis===1?'🟢':pmu.avis===-1?'🔴':'⚪'):'';
+  wrap.innerHTML=pmu?`<div id="badge-${id}" class="pmu-badge${c.note===pmu.note_pmu?' applied':''}" onclick="utiliserNotePMU(${id},${pmu.note_pmu})">${avis} PMU:${pmu.note_pmu}</div>`:'';
+}
+function refreshWarn(id) {
+  const c=chevaux.find(x=>x.id===id); if(!c) return;
+  const pmu=notesPMU[c.numero], wrap=document.getElementById(`warn-${id}`); if(!wrap) return;
+  wrap.innerHTML=(pmu&&c.note!==''&&c.note!==pmu.note_pmu)?`<div class="note-diff-warn">⚡ Manuel:${c.note} vs PMU:${pmu.note_pmu}</div>`:'';
 }
 
 function viderCourse() {
-  chevaux = []; horseCounter = 0; predictions = null; notesPMU = {};
-  effacerSaisie();
+  chevaux=[]; horseCounter=0; predictions=null; notesPMU={}; notesPMUData=null; effacer();
   clearPmuProgress('');
   document.getElementById('pmu-retry-banner').classList.remove('show');
   renderHorses();
-  document.getElementById('selections-content').innerHTML = `<div class="empty"><div class="empty-icon">🎯</div>Analysez une course<br>pour voir les sélections</div>`;
-  document.getElementById('analyse-content').innerHTML    = `<div class="empty"><div class="empty-icon">🔬</div>Chargez les notes PMU<br>pour voir l'analyse détaillée</div>`;
-  document.getElementById('result-section').style.display = 'none';
-  document.getElementById('result-content').innerHTML     = '';
+  document.getElementById('selections-content').innerHTML='<div class="empty"><div class="empty-icon">🎯</div>Analysez une course<br>pour voir les sélections</div>';
+  document.getElementById('analyse-content').innerHTML='<div class="empty"><div class="empty-icon">🔬</div>Chargez les notes PMU<br>pour voir l\'analyse détaillée</div>';
+  document.getElementById('result-section').style.display='none';
+  document.getElementById('result-content').innerHTML='';
+  setBadge(false);
 }
 
 function renderHorses() {
-  const list = document.getElementById('horse-list');
-  if (chevaux.length === 0) {
-    list.innerHTML = `<div style="text-align:center;padding:24px;color:var(--text-dim);font-family:'Space Mono',monospace;font-size:10px;letter-spacing:1px;">Aucun cheval — cliquez sur + pour ajouter</div>`;
-    return;
-  }
-  list.innerHTML = chevaux.map(c => {
-    const pmu = notesPMU[c.numero];
-    const avisEmoji = pmu ? (pmu.avis === 1 ? '🟢' : pmu.avis === -1 ? '🔴' : '⚪') : '';
-    const pmuBadge = pmu
-      ? `<div class="pmu-badge" onclick="utiliserNotePMU(${c.id},${pmu.note_pmu})" title="${pmu.nom||''} · proba ${pmu.proba_pmu}% · cote ${pmu.cote}">
-           ${avisEmoji} PMU:${pmu.note_pmu}
-         </div>`
-      : '';
-    return `
-    <div class="horse-row">
-      <input type="number" class="horse-num-input" value="${c.numero}"
-        oninput="updateCheval(${c.id},'numero',this.value)"
-        min="1" max="99" step="1">
+  const list=document.getElementById('horse-list');
+  if (!chevaux.length){list.innerHTML='<div style="text-align:center;padding:24px;color:var(--text-dim);font-family:\'Space Mono\',monospace;font-size:10px;letter-spacing:1px;">Aucun cheval — + pour ajouter</div>';return;}
+  list.innerHTML=chevaux.map(c=>{
+    const pmu=notesPMU[c.numero], avis=pmu?(pmu.avis===1?'🟢':pmu.avis===-1?'🔴':'⚪'):'';
+    const badge=pmu?`<div id="badge-${c.id}" class="pmu-badge${c.note===pmu.note_pmu?' applied':''}" onclick="utiliserNotePMU(${c.id},${pmu.note_pmu})" title="${pmu.nom||''} · ${pmu.proba_pmu}% · cote ${pmu.cote}">${avis} PMU:${pmu.note_pmu}</div>`:'';
+    const warn=(pmu&&c.note!==''&&c.note!==pmu.note_pmu)?`<div class="note-diff-warn">⚡ Manuel:${c.note} vs PMU:${pmu.note_pmu}</div>`:'';
+    return `<div class="horse-row">
+      <input type="number" class="horse-num-input" value="${c.numero}" onchange="updateCheval(${c.id},'numero',this.value)" min="1" max="99" step="1">
       <div class="horse-note-wrap">
-        <input type="number" placeholder="Note" value="${c.note}"
-          oninput="updateCheval(${c.id},'note',this.value)"
-          min="0" max="20" step="1">
-        ${pmuBadge}
+        <input type="number" placeholder="Note" value="${c.note}" onchange="updateCheval(${c.id},'note',this.value)" min="0" max="20" step="1">
+        <div id="badge-wrap-${c.id}">${badge}</div>
+        <div id="warn-${c.id}">${warn}</div>
       </div>
-      <input type="number" placeholder="Cote" value="${c.rapport}"
-        oninput="updateCheval(${c.id},'rapport',this.value)"
-        min="0" step="0.1">
+      <input type="number" placeholder="Cote" value="${c.rapport}" onchange="updateCheval(${c.id},'rapport',this.value)" min="0" step="0.1">
       <div class="btn-icon" onclick="supprimerCheval(${c.id})">✕</div>
     </div>`;
   }).join('');
 }
 
-function updateCheval(id, field, val) {
-  const c = chevaux.find(x => x.id === id);
-  if (c) {
-    c[field] = field === 'numero' ? parseInt(val)||0 : parseFloat(val)||0;
-    sauvegarderSaisie();
+// ── Sélections ──
+function renderSelections(data, pmuMap) {
+  pmuMap=pmuMap||{};
+  const sorted=[...data.tous].sort((a,b)=>b.proba_absolu-a.proba_absolu);
+  const T=3, exps=sorted.map(h=>Math.exp((h.proba_absolu/100)*T)), sum=exps.reduce((s,v)=>s+v,0);
+  const wc=sorted.map((h,i)=>({...h, nom:pmuMap[h.numero]?.nom||'', confiance:Math.round(exps[i]/sum*1000)/10, barW:Math.round(exps[i]/exps[0]*100)}));
+  const g=wc[0];
+  const LABELS=['🥇 Gagnant','🥈 2ème','🥉 3ème','4ème','5ème','🃏 Joker 1','🃏 Joker 2'];
+  function row(h,i){
+    const hl=i<5, jk=i>=5, cls=i<3?'sel-circle highlight':jk?'sel-circle joker':'sel-circle';
+    return `<div class="sel-row fade-in fd${Math.min(i+1,4)}" style="opacity:${hl?'1':'.5'}">
+      <div class="sel-rank">${LABELS[i]||(i+1)+'ème'}</div>
+      <div class="${cls}">${h.numero}</div>
+      <div class="sel-body">
+        ${h.nom?`<div class="sel-name">${h.nom}</div>`:''}
+        <div class="sel-cote">cote ${h.rapport} · note ${h.note}/20</div>
+        <div class="sel-bar-track"><div class="${hl?'sel-bar-fill':'sel-bar-fill dim'}" style="width:${h.barW}%"></div></div>
+      </div>
+      <div class="sel-conf" style="opacity:${hl?'1':'.4'}">
+        <div class="${hl?'sel-conf-val':'sel-conf-val dim'}">${h.confiance}%</div>
+        <div class="sel-conf-label">confiance</div>
+      </div>
+    </div>`;
   }
-}
-
-// ============================================================
-// PRÉDICTION
-// ============================================================
-async function lancerPrediction() {
-  const payload = chevaux.filter(c => c.numero && c.note !== '' && c.rapport !== '')
-    .map(c => ({ numero: c.numero, note: c.note, rapport: c.rapport }));
-
-  if (payload.length < 2) {
-    toast('Remplissez au moins 2 chevaux (note + cote)', 'error'); return;
-  }
-
-  const btn = document.getElementById('btn-predict');
-  btn.disabled = true;
-  btn.innerHTML = '<div class="spinner"></div> Analyse…';
-  goTo('selections');
-  document.getElementById('selections-content').innerHTML = `<div class="loading-block"><div class="spinner spinner-gold"></div><span>Calcul en cours…</span></div>`;
-
-  try {
-    const resp = await fetch(`${API_URL}/predict`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chevaux: payload }),
-      signal: AbortSignal.timeout(30000),
-    });
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    predictions = await resp.json();
-    renderSelections(predictions);
-    renderResultForm(payload);
-    currentDate = document.getElementById('course-date').value;
-  } catch(e) {
-    document.getElementById('selections-content').innerHTML = `
-      <div class="empty">
-        <div class="empty-icon">⚠️</div>
-        Erreur de connexion<br>
-        <div style="margin-top:12px;">
-          <button class="btn secondary" onclick="lancerPrediction()" style="font-size:10px;">↺ Réessayer</button>
-        </div>
-      </div>`;
-    toast('Erreur de connexion à l\'API', 'error');
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = 'Analyser la course →';
-  }
-}
-
-// ============================================================
-// SÉLECTIONS — rendu amélioré avec confiance corrigée
-// ============================================================
-function renderSelections(data) {
-  const tous  = data.tous;
-
-  // Tri par proba_absolu (le plus pertinent)
-  const sorted = [...tous].sort((a, b) => b.proba_absolu - a.proba_absolu);
-  const total  = sorted.length;
-
-  // ── Confiance corrigée : softmax T=3 → barre basée sur la confiance normalisée ──
-  const T = 3;
-  const exps    = sorted.map(h => Math.exp((h.proba_absolu / 100) * T));
-  const sumExps = exps.reduce((s,v) => s+v, 0);
-  const withConf = sorted.map((h, i) => ({
-    ...h,
-    // confiance en % (somme = 100%)
-    confiance: Math.round(exps[i] / sumExps * 1000) / 10,
-    // barre = % de la confiance max (toujours 100% pour le premier)
-    barW: Math.round(exps[i] / exps[0] * 100),
-  }));
-
-  // Gagnant estimé
-  const g = withConf[0];
-  const gagnantHTML = `
+  document.getElementById('selections-content').innerHTML=`
+    <div class="pred-meta fade-in">${sorted.length} partants · ${currentDate||"Aujourd'hui"}</div>
     <div class="winner-card fade-in">
       <div class="winner-num">${g.numero}</div>
       <div class="winner-info">
         <div class="winner-label">Gagnant estimé</div>
-        <div class="winner-note">Note ${g.note}/20</div>
-        <div class="winner-cote">Cote ${g.rapport}</div>
+        ${g.nom?`<div class="winner-name">${g.nom}</div>`:''}
+        <div class="winner-note">Note ${g.note}/20 · Cote ${g.rapport}</div>
       </div>
-      <div class="winner-conf">
-        <div class="winner-conf-val">${g.confiance}%</div>
-        <div class="winner-conf-label">confiance</div>
-      </div>
-    </div>`;
-
-  // Helper ligne
-  const labels = ['🥇 Gagnant','🥈 2ème','🥉 3ème','4ème','5ème','🃏 Joker 1','🃏 Joker 2'];
-  function rowHTML(h, i) {
-    const isHighlight = i < 5;
-    const isJoker     = i >= 5;
-    const circleClass = i < 3 ? 'sel-circle highlight' : isJoker ? 'sel-circle joker' : 'sel-circle';
-    return `
-      <div class="sel-row fade-in fade-in-delay-${Math.min(i+1,4)}">
-        <div class="sel-rank">${labels[i] || (i+1)+'ème'}</div>
-        <div class="${circleClass}">${h.numero}</div>
-        <div class="sel-body" style="opacity:${isHighlight ? '1' : '.5'};">
-          <div class="sel-cote">cote ${h.rapport} · note ${h.note}/20</div>
-          <div class="sel-bar-track">
-            <div class="${isHighlight ? 'sel-bar-fill' : 'sel-bar-fill dim'}" style="width:${h.barW}%"></div>
-          </div>
-        </div>
-        <div class="sel-conf" style="opacity:${isHighlight ? '1' : '.4'};">
-          <div class="${isHighlight ? 'sel-conf-val' : 'sel-conf-val dim'}">${h.confiance}%</div>
-          <div class="sel-conf-label">confiance</div>
-        </div>
-      </div>`;
-  }
-
-  const top3HTML  = withConf.slice(0,3).map((h,i) => rowHTML(h,i)).join('');
-  const champHTML = withConf.slice(0,7).map((h,i) => rowHTML(h,i)).join('');
-
-  document.getElementById('selections-content').innerHTML = `
-    <div class="pred-meta fade-in">
-      ${total} partants · ${currentDate || 'Aujourd\'hui'}
+      <div class="winner-conf"><div class="winner-conf-val">${g.confiance}%</div><div class="winner-conf-label">confiance</div></div>
     </div>
-
-    ${gagnantHTML}
-
     <div class="section-title">Top 3</div>
-    <div class="card">${top3HTML}</div>
-
-    <div class="section-title">Champ réduit
-      <span style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;">top 5 + 2 jokers</span>
-    </div>
-    <div class="card">${champHTML}</div>`;
+    <div class="card">${wc.slice(0,3).map((h,i)=>row(h,i)).join('')}</div>
+    <div class="section-title">Champ réduit <span style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace">top 5 + 2 jokers</span></div>
+    <div class="card">${wc.slice(0,7).map((h,i)=>row(h,i)).join('')}</div>`;
 }
 
-// ============================================================
-// ANALYSE V6
-// ============================================================
+// ── Analyse V6 ──
 function renderAnalyse(data) {
-  const liste = [...data.chevaux].sort((a,b) => b.note_pmu - a.note_pmu);
-  const version = data.version || 'v6';
-
-  const DIMS = [
-    { key: 'forme',      label: 'Forme',     icon: '🎵', color: '#c8942a' },
-    { key: 'duo',        label: 'Duo',        icon: '🤝', color: '#b5603a' },
-    { key: 'historique', label: 'Palmarès',   icon: '📈', color: '#3a9162' },
-    { key: 'gains',      label: 'Gains',      icon: '💰', color: '#5c8cbf' },
-    { key: 'adequation', label: 'Adéquati.',  icon: '🎯', color: '#8a6cbf' },
-    { key: 'cote',       label: 'Cote',       icon: '📊', color: '#5c8c7a' },
-  ];
-
-  const cards = liste.map((h, i) => {
-    const scores     = h.scores || {};
-    const rankClass  = i === 0 ? 'rank-1' : i === 1 ? 'rank-2' : i === 2 ? 'rank-3' : '';
-    const rankColor  = i === 0 ? 'var(--gold)' : i === 1 ? '#888' : i === 2 ? 'var(--copper)' : 'var(--border2)';
-    const medal      = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : '';
-
-    const dimBars = DIMS.map(d => {
-      const val = scores[d.key] ?? 0;
-      return `
-        <div class="dim-cell">
-          <div class="dim-label">${d.icon} ${d.label}</div>
-          <div class="dim-bar-track">
-            <div class="dim-bar-fill" style="width:${val}%;background:${d.color};"></div>
-          </div>
-          <div class="dim-val" style="color:${d.color};">${val}</div>
-        </div>`;
-    }).join('');
-
-    const disqColor = (h.taux_disq||0) > 20 ? '#e05c5c' : (h.taux_disq||0) > 10 ? 'var(--copper)' : '#5fcd8a';
-
-    return `
-      <div class="analyse-card ${rankClass} fade-in fade-in-delay-${Math.min(i+1,4)}">
-        <div class="analyse-header">
-          <div class="analyse-avatar" style="border-color:${rankColor};color:${rankColor};">${h.numero}</div>
-          <div class="analyse-info">
-            <div class="analyse-name">${medal} ${h.nom || 'Cheval '+h.numero}</div>
-            <div class="analyse-sub">
-              cote ${h.cote ?? '—'} · ${h.driver || '—'}
-              <span style="margin-left:5px;">${h.avis===1?'🟢':h.avis===-1?'🔴':'🟡'}</span>
-            </div>
-          </div>
-          <div class="analyse-note" style="color:${rankColor};">
-            ${h.note_pmu}<span>/20</span>
-          </div>
+  const liste=[...data.chevaux].sort((a,b)=>b.note_pmu-a.note_pmu);
+  const version=data.version||'v6';
+  const DIMS=[{k:'forme',l:'Forme',i:'🎵',c:'#c8942a'},{k:'duo',l:'Duo',i:'🤝',c:'#b5603a'},{k:'historique',l:'Palmarès',i:'📈',c:'#3a9162'},{k:'gains',l:'Gains',i:'💰',c:'#5c8cbf'},{k:'adequation',l:'Adéquat.',i:'🎯',c:'#8a6cbf'},{k:'cote',l:'Cote',i:'📊',c:'#5c8c7a'}];
+  const notesM={}; chevaux.forEach(c=>{notesM[c.numero]=c.note;});
+  const cards=liste.map((h,i)=>{
+    const sc=h.scores||{}, rc=i===0?'var(--gold)':i===1?'#888':i===2?'var(--copper)':'var(--border2)';
+    const med=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
+    const dc=(h.taux_disq||0)>20?'#e05c5c':(h.taux_disq||0)>10?'var(--copper)':'#5fcd8a';
+    const nm=notesM[h.numero]; const dw=(nm!==undefined&&nm!==''&&nm!==h.note_pmu)?`<div class="note-diff-warn">⚡ Note utilisée: ${nm} (PMU: ${h.note_pmu})</div>`:'';
+    return `<div class="analyse-card ${i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':''} fade-in fd${Math.min(i+1,4)}">
+      <div class="analyse-header">
+        <div class="analyse-avatar" style="border-color:${rc};color:${rc}">${h.numero}</div>
+        <div class="analyse-info">
+          <div class="analyse-name">${med} ${h.nom||'Cheval '+h.numero}</div>
+          <div class="analyse-sub">cote ${h.cote??'—'} · ${h.driver||'—'} <span style="margin-left:4px">${h.avis===1?'🟢':h.avis===-1?'🔴':'🟡'}</span></div>
+          ${dw}
         </div>
-        <div class="dim-grid">${dimBars}</div>
-        <div class="analyse-footer">
-          <span>⚠️ Taux disq.</span>
-          <span class="disq-val" style="color:${disqColor};">${(h.taux_disq||0)}%</span>
-          <span style="margin-left:auto;font-size:8px;color:var(--text-dim);">${version}</span>
-        </div>
-      </div>`;
+        <div class="analyse-note" style="color:${rc}">${h.note_pmu}<span>/20</span></div>
+      </div>
+      <div class="dim-grid">${DIMS.map(d=>{const v=sc[d.k]??0;return `<div class="dim-cell"><div class="dim-label">${d.i} ${d.l}</div><div class="dim-bar-track"><div class="dim-bar-fill" style="width:${v}%;background:${d.c}"></div></div><div class="dim-val" style="color:${d.c}">${v}</div></div>`;}).join('')}</div>
+      <div class="analyse-footer"><span>⚠️ Taux disq.</span><span style="font-weight:700;color:${dc}">${h.taux_disq||0}%</span><span style="margin-left:auto;font-size:8px;color:var(--text-dim)">${version}</span></div>
+    </div>`;
   }).join('');
-
-  document.getElementById('analyse-content').innerHTML = `
-    <div class="pred-meta fade-in">
-      ${liste.length} chevaux · ${data.date || currentDate || ''}
-      <span class="version-badge">${version}</span>
-    </div>
-    ${cards}`;
+  document.getElementById('analyse-content').innerHTML=`<div class="pred-meta fade-in">${liste.length} chevaux · ${data.date||currentDate||''} <span class="version-badge">${version}</span></div>${cards}`;
 }
 
-// ============================================================
-// STATS — chargement depuis /health + données locales
-// ============================================================
-let statsChargees = false;
-
+// ── Stats ──
+let statsChargees=false;
 async function chargerStats() {
   if (statsChargees) return;
-
-  document.getElementById('stats-content').innerHTML = `
-    <div class="loading-block">
-      <div class="spinner spinner-gold"></div>
-      <span>Calcul des statistiques…</span>
-    </div>`;
-
+  document.getElementById('stats-content').innerHTML='<div class="loading-block"><div class="spinner spinner-gold"></div><span>Calcul…</span></div>';
   try {
-    const resp = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(10000) });
-    const data = resp.ok ? await resp.json() : {};
-
-    const nbCourses = data.courses || 0;
-
-    // Stats calculées depuis les données locales localStorage
-    const sessions = getSessionStats();
-
-    renderStats(nbCourses, sessions);
-    statsChargees = true;
-
-  } catch(e) {
-    document.getElementById('stats-content').innerHTML = `
-      <div class="empty">
-        <div class="empty-icon">⚠️</div>
-        Impossible de charger les stats<br>
-        <div style="margin-top:12px;">
-          <button class="btn secondary" onclick="statsChargees=false;chargerStats();" style="font-size:10px;">↺ Réessayer</button>
-        </div>
-      </div>`;
+    const resp=await fetch(`${API_URL}/health`,{signal:AbortSignal.timeout(10000)});
+    const data=resp.ok?await resp.json():{};
+    const hist=JSON.parse(localStorage.getItem(LS_HIST)||'[]');
+    renderStats(data.courses||0,hist); statsChargees=true;
+  } catch {
+    document.getElementById('stats-content').innerHTML=`<div class="empty"><div class="empty-icon">⚠️</div>Impossible de charger<br><div style="margin-top:12px;"><button class="btn secondary" onclick="statsChargees=false;chargerStats();" style="font-size:10px;">↺ Réessayer</button></div></div>`;
   }
 }
-
-function getSessionStats() {
-  // Lit l'historique local de prédictions (stocké à chaque /ajouter)
-  try {
-    const hist = JSON.parse(localStorage.getItem('martengo_hist') || '[]');
-    return hist;
-  } catch { return []; }
-}
-
-function renderStats(nbCourses, sessions) {
-  const nbSessions = sessions.length;
-  const nbTop1     = sessions.filter(s => s.top1_ok).length;
-  const nbTop3     = sessions.filter(s => s.top3_ok).length;
-  const acc1       = nbSessions > 0 ? Math.round(nbTop1/nbSessions*100) : 0;
-  const acc3       = nbSessions > 0 ? Math.round(nbTop3/nbSessions*100) : 0;
-
-  // Notes distribution depuis notesPMU courant
-  const notesDist = buildNotesDist();
-
-  document.getElementById('stats-content').innerHTML = `
+function renderStats(nb, hist) {
+  const n=hist.length, a1=n?Math.round(hist.filter(h=>h.top1_ok).length/n*100):0, a3=n?Math.round(hist.filter(h=>h.top3_ok).length/n*100):0;
+  const DIMS=[{l:'Adéquation course',p:26,c:'#8a6cbf'},{l:'Forme / Musique',p:21,c:'var(--gold)'},{l:'Duo cheval/driver',p:17,c:'var(--copper)'},{l:'Historique',p:14,c:'#3a9162'},{l:'Cote & marché',p:11,c:'#5c8c7a'},{l:'Gains / Palmarès',p:8,c:'#5c8cbf'}];
+  document.getElementById('stats-content').innerHTML=`
     <div class="section-title">Base de données</div>
-
     <div class="kpi-grid fade-in">
-      <div class="kpi accent">
-        <div class="kpi-val">${nbCourses.toLocaleString('fr')}</div>
-        <div class="kpi-label">Courses historique</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-val">${(nbCourses * 9).toLocaleString('fr')}</div>
-        <div class="kpi-label">Lignes estimées</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-val">V6</div>
-        <div class="kpi-label">Version modèle</div>
-      </div>
-      <div class="kpi">
-        <div class="kpi-val">6</div>
-        <div class="kpi-label">Dimensions scoring</div>
-      </div>
+      <div class="kpi accent"><div class="kpi-val">${nb.toLocaleString('fr')}</div><div class="kpi-label">Courses historique</div></div>
+      <div class="kpi"><div class="kpi-val">${(nb*9).toLocaleString('fr')}</div><div class="kpi-label">Lignes estimées</div></div>
+      <div class="kpi"><div class="kpi-val">V6</div><div class="kpi-label">Version modèle</div></div>
+      <div class="kpi"><div class="kpi-val">6</div><div class="kpi-label">Dimensions</div></div>
     </div>
-
     <div class="section-title">Précision locale</div>
-
-    <div class="stat-block fade-in fade-in-delay-1">
-      <div class="stat-block-title">Taux de réussite · ${nbSessions} prédictions enregistrées</div>
-
-      ${nbSessions === 0 ? `
-        <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);padding:8px 0;line-height:1.8;">
-          Enregistrez des résultats de courses après vos prédictions pour voir vos statistiques de précision ici.
-        </div>
-      ` : `
-        <div class="acc-row">
-          <div class="acc-label">Gagnant exact</div>
-          <div class="acc-track"><div class="acc-fill" style="width:${acc1}%"></div></div>
-          <div class="acc-pct">${acc1}%</div>
-        </div>
-        <div class="acc-row">
-          <div class="acc-label">Top 3 correct</div>
-          <div class="acc-track"><div class="acc-fill" style="width:${acc3}%"></div></div>
-          <div class="acc-pct">${acc3}%</div>
-        </div>
-      `}
+    <div class="stat-block fade-in fd1">
+      <div class="stat-block-title">${n} prédiction${n!==1?'s':''} enregistrée${n!==1?'s':''}</div>
+      ${n===0?`<div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);line-height:1.8">Enregistrez des résultats après vos prédictions pour voir votre précision ici.</div>`
+      :`<div class="acc-row"><div class="acc-label">Gagnant exact</div><div class="acc-track"><div class="acc-fill" style="width:${a1}%"></div></div><div class="acc-pct">${a1}%</div></div>
+        <div class="acc-row"><div class="acc-label">Top 3 correct</div><div class="acc-track"><div class="acc-fill" style="width:${a3}%"></div></div><div class="acc-pct">${a3}%</div></div>`}
     </div>
-
-    <div class="section-title">Distribution des notes</div>
-
-    <div class="stat-block fade-in fade-in-delay-2">
-      <div class="stat-block-title">Notes PMU de la course courante</div>
-      ${notesDist}
+    <div class="section-title">Distribution notes</div>
+    <div class="stat-block fade-in fd2">
+      <div class="stat-block-title">Course courante (notes PMU)</div>
+      ${buildDist()}
     </div>
-
-    <div class="section-title">Dimensions V6</div>
-
-    <div class="stat-block fade-in fade-in-delay-3">
-      <div class="stat-block-title">Pondération des 6 scores</div>
-      ${renderDimWeights()}
+    <div class="section-title">Pondérations V6</div>
+    <div class="stat-block fade-in fd3">
+      <div class="stat-block-title">6 dimensions du score métier</div>
+      ${DIMS.map(d=>`<div class="acc-row"><div class="acc-label" style="width:120px;font-size:8px">${d.l}</div><div class="acc-track"><div class="acc-fill" style="width:${d.p*3.8}%;background:${d.c}"></div></div><div class="acc-pct" style="color:${d.c}">${d.p}%</div></div>`).join('')}
     </div>`;
-
-  // Afficher section résultats si prédiction en cours
-  if (predictions && chevaux.length > 0) {
-    document.getElementById('result-section').style.display = 'block';
-  }
+  if (predictions&&chevaux.length>0) document.getElementById('result-section').style.display='block';
 }
-
-function buildNotesDist() {
-  const notes = Object.values(notesPMU).map(c => c.note_pmu).filter(n => n !== undefined);
-  if (notes.length === 0) {
-    return `<div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);">Chargez des notes PMU pour voir la distribution.</div>`;
-  }
-  // Grouper par tranche 1-5, 6-10, 11-15, 16-20
-  const tranches = [
-    { label:'16-20', min:16, max:20, color:'var(--gold)' },
-    { label:'11-15', min:11, max:15, color:'var(--copper)' },
-    { label:'6-10',  min:6,  max:10, color:'var(--text-mid)' },
-    { label:'1-5',   min:1,  max:5,  color:'var(--text-dim)' },
-  ];
-  const max = notes.length;
-  return tranches.map(t => {
-    const count = notes.filter(n => n >= t.min && n <= t.max).length;
-    const pct   = max > 0 ? Math.round(count/max*100) : 0;
-    return `
-      <div class="dist-row">
-        <div class="dist-label">${t.label}</div>
-        <div class="dist-track">
-          <div class="dist-fill" style="width:${pct}%;background:${t.color};"></div>
-        </div>
-        <div class="dist-count">${count}</div>
-      </div>`;
+function buildDist() {
+  const notes=Object.values(notesPMU).map(c=>c.note_pmu).filter(n=>n!==undefined);
+  if (!notes.length) return `<div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim)">Chargez des notes PMU pour voir la distribution.</div>`;
+  return [{l:'16-20',m:16,x:20,c:'var(--gold)'},{l:'11-15',m:11,x:15,c:'var(--copper)'},{l:'6-10',m:6,x:10,c:'var(--text-mid)'},{l:'1-5',m:1,x:5,c:'var(--text-dim)'}].map(t=>{
+    const cnt=notes.filter(n=>n>=t.m&&n<=t.x).length;
+    return `<div class="dist-row"><div class="dist-label">${t.l}</div><div class="dist-track"><div class="dist-fill" style="width:${Math.round(cnt/notes.length*100)}%;background:${t.c}"></div></div><div class="dist-count">${cnt}</div></div>`;
   }).join('');
 }
 
-function renderDimWeights() {
-  const dims = [
-    { label:'Adéquation course', pct:26, color:'#8a6cbf' },
-    { label:'Forme / Musique',   pct:21, color:'var(--gold)' },
-    { label:'Duo cheval/driver', pct:17, color:'var(--copper)' },
-    { label:'Historique',        pct:14, color:'#3a9162' },
-    { label:'Cote & marché',     pct:11, color:'#5c8c7a' },
-    { label:'Gains / Palmarès',  pct:8,  color:'#5c8cbf' },
-  ];
-  return dims.map(d => `
-    <div class="acc-row">
-      <div class="acc-label" style="width:120px;font-size:8px;">${d.label}</div>
-      <div class="acc-track"><div class="acc-fill" style="width:${d.pct*3.8}%;background:${d.color};"></div></div>
-      <div class="acc-pct" style="color:${d.color};">${d.pct}%</div>
-    </div>`).join('');
-}
-
-// ============================================================
-// RÉSULTATS
-// ============================================================
+// ── Résultats ──
 function renderResultForm(payload) {
-  document.getElementById('result-section').style.display = 'block';
-  document.getElementById('result-content').innerHTML = `
+  const pMap={}; if(predictions?.tous) predictions.tous.forEach(h=>{pMap[h.numero]=h;});
+  document.getElementById('result-section').style.display='block';
+  document.getElementById('result-content').innerHTML=`
     <div class="card">
-      <div style="margin-bottom:14px;">
-        <div class="field-label">Date</div>
-        <input type="text" id="res-date" value="${currentDate}" readonly>
-      </div>
-      <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);
-           letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;
-           border-bottom:1px solid var(--border);padding-bottom:8px;">
-        Cheval — Rang d'arrivée
-      </div>
-      ${payload.map(c => `
-        <div class="result-horse">
+      <div style="margin-bottom:14px;"><div class="field-label">Date</div><input type="text" id="res-date" value="${currentDate}" readonly></div>
+      <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;margin-bottom:12px;border-bottom:1px solid var(--border);padding-bottom:8px">Cheval · prédiction — rang d'arrivée</div>
+      ${payload.map(c=>{
+        const pred=pMap[c.numero], pmu=notesPMU[c.numero], nom=pmu?.nom||'', isTop=pred?.top3_absolu||false;
+        return `<div class="result-horse">
           <div class="result-num">${c.numero}</div>
-          <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-mid);">
-            note ${c.note} · cote ${c.rapport}
+          <div>
+            ${nom?`<div style="font-family:'Syne',sans-serif;font-size:11px;font-weight:600;color:var(--text);margin-bottom:2px">${nom}</div>`:''}
+            <div class="result-pred${isTop ? ' top' : ''}">note ${c.note} · cote ${c.rapport}${isTop ? ' · 🎯 top3' : ''}</div>
           </div>
-          <input type="number" class="rang-input" id="rang-${c.numero}"
-            placeholder="Rang" min="1" max="99" step="1">
-        </div>`).join('')}
+          <input type="number" class="rang-input" id="rang-${c.numero}" placeholder="Rang" min="1" max="99" step="1">
+        </div>`;
+      }).join('')}
     </div>
-    <button class="btn full" onclick="envoyerResultats()">
-      Enregistrer les résultats →
-    </button>`;
+    <button class="btn full" onclick="envoyerResultats()">Enregistrer les résultats →</button>`;
 }
-
 async function envoyerResultats() {
-  if (!predictions) { toast('Lancez d\'abord une prédiction', 'error'); return; }
-
-  const date = document.getElementById('res-date').value;
-  if (!date) { toast('Date requise', 'error'); return; }
-
-  const chevaux_res = [];
-  let ok = true;
-
-  chevaux.forEach(c => {
-    const inp = document.getElementById(`rang-${c.numero}`);
-    if (!inp || !inp.value) { ok = false; return; }
-    chevaux_res.push({ numero: c.numero, note: c.note, rapport: c.rapport, rang_arrivee: parseInt(inp.value) });
-  });
-
-  if (!ok || chevaux_res.length === 0) { toast('Remplissez tous les rangs', 'error'); return; }
-
-  const btn = event.target;
-  btn.disabled = true;
-  btn.innerHTML = '<div class="spinner"></div> Enregistrement…';
-
+  if (!predictions){toast('Lancez d\'abord une prédiction','error');return;}
+  const date=document.getElementById('res-date').value; if(!date){toast('Date requise','error');return;}
+  const cr=[]; let ok=true;
+  chevaux.forEach(c=>{const inp=document.getElementById(`rang-${c.numero}`);if(!inp||!inp.value){ok=false;return;}cr.push({numero:c.numero,note:c.note,rapport:c.rapport,rang_arrivee:parseInt(inp.value)});});
+  if (!ok||!cr.length){toast('Remplissez tous les rangs','error');return;}
+  const btn=event.target; btn.disabled=true; btn.innerHTML='<div class="spinner"></div> Enregistrement…';
   try {
-    const resp = await fetch(`${API_URL}/ajouter`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date, chevaux: chevaux_res }),
-      signal: AbortSignal.timeout(60000),
-    });
+    const resp=await fetch(`${API_URL}/ajouter`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,chevaux:cr}),signal:AbortSignal.timeout(60000)});
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    const res = await resp.json();
-
-    // Sauvegarder stats locales
+    const res=await resp.json();
     try {
-      const hist = JSON.parse(localStorage.getItem('martengo_hist') || '[]');
-      const top = predictions && predictions.tous
-        ? [...predictions.tous].sort((a,b)=>b.proba_absolu-a.proba_absolu)[0] : null;
-      const gagnant = chevaux_res.find(c => c.rang_arrivee === 1);
-      hist.push({
-        date,
-        top1_ok: top && gagnant && top.numero === gagnant.numero,
-        top3_ok: top && chevaux_res.filter(c=>c.rang_arrivee<=3).some(c=>c.numero===top.numero),
-      });
-      localStorage.setItem('martengo_hist', JSON.stringify(hist.slice(-200)));
+      const hist=JSON.parse(localStorage.getItem(LS_HIST)||'[]');
+      const top=predictions?.tous?[...predictions.tous].sort((a,b)=>b.proba_absolu-a.proba_absolu)[0]:null;
+      const gag=cr.find(c=>c.rang_arrivee===1);
+      hist.push({date,top1_ok:!!(top&&gag&&top.numero===gag.numero),top3_ok:!!(top&&cr.filter(c=>c.rang_arrivee<=3).some(c=>c.numero===top.numero))});
+      localStorage.setItem(LS_HIST,JSON.stringify(hist.slice(-200)));
     } catch {}
-
-    toast(`✓ Course enregistrée · ${res.nb_courses} courses`, 'success');
-    statsChargees = false;
-
-    document.getElementById('result-content').innerHTML = `
-      <div class="empty">
-        <div class="empty-icon">✅</div>
-        Course du ${date} enregistrée<br>
-        <span style="font-size:9px;color:var(--text-dim);">${res.nb_lignes} lignes · ${res.nb_courses} courses</span>
-      </div>`;
+    toast(`✓ Enregistré · ${res.nb_courses} courses`,'success');
+    statsChargees=false; setBadge(false);
+    if (navigator.vibrate) navigator.vibrate([30,50,30]);
+    document.getElementById('result-content').innerHTML=`<div class="empty"><div class="empty-icon">✅</div>Course du ${date} enregistrée<br><span style="font-size:9px;color:var(--text-dim)">${res.nb_lignes} lignes · ${res.nb_courses} courses</span></div>`;
     viderCourse();
   } catch(e) {
-    toast('Erreur lors de l\'enregistrement', 'error');
-    const retr = document.createElement('div');
-    retr.className = 'retry-banner show';
-    retr.style.marginTop = '10px';
-    retr.innerHTML = `<span class="retry-banner-text">${e.message}</span><button class="retry-btn" onclick="envoyerResultats()">↺ Réessayer</button>`;
-    btn.parentNode.insertBefore(retr, btn.nextSibling);
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = 'Enregistrer les résultats →';
-  }
+    toast('Erreur lors de l\'enregistrement','error');
+    const r=document.createElement('div'); r.className='retry-banner show'; r.style.marginTop='10px';
+    r.innerHTML=`<span class="retry-banner-text">${e.message}</span><button class="retry-btn" onclick="envoyerResultats()">↺ Réessayer</button>`;
+    btn.parentNode.insertBefore(r,btn.nextSibling);
+  } finally { btn.disabled=false; btn.innerHTML='Enregistrer les résultats →'; }
 }
 
-// ============================================================
-// TOAST
-// ============================================================
-let toastTimer;
-function toast(msg, type = '') {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.className   = 'toast show ' + type;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => el.className = 'toast', 3000);
-}
+// ── Toast ──
+let _tt;
+function toast(msg,type=''){const el=document.getElementById('toast');el.textContent=msg;el.className='toast show '+type;clearTimeout(_tt);_tt=setTimeout(()=>el.className='toast',3000);}
 </script>
 </body>
 </html>

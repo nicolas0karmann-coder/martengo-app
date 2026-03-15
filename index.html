@@ -580,23 +580,20 @@ function renderSelections(data, pmuMap) {
   // Confiance = part de proba_absolu normalisée sur tout le peloton
   const probaSum=sorted.reduce((s,h)=>s+h.proba_absolu,0);
   const probaMax=Math.max(...sorted.map(h=>h.proba_absolu));
-  const wc=sorted.map((h,i)=>{
-    const prev=sorted[i-1];
-    // Émoticon départage : affiché si même note que le précédent, meilleur score XGBoost
-    const egalite = i>0 && prev.note_pmu===h.note_pmu;
-    const estDevant = i>0 && sorted[i-1].note_pmu===h.note_pmu && scoreDepart(h)>scoreDepart(sorted[i+1]||{});
-    const tieWin = i>0 && prev.note_pmu===h.note_pmu; // ce cheval a battu le suivant à égalité
-    return {...h, nom:pmuMap[h.numero]?.nom||'',
-      confiance: probaSum>0 ? Math.round(h.proba_absolu/probaSum*1000)/10 : 0,
-      barW: probaMax>0 ? Math.round(h.proba_absolu/probaMax*100) : 0,
-      tieTag: (function(){
-        // Afficher ⚡ sur le cheval qui devance un autre à note égale
-        const next=sorted[i+1];
-        if (next && next.note_pmu===h.note_pmu && scoreDepart(h)>scoreDepart(next)) return '⚡';
-        return '';
-      })()
-    };
-  });
+  // Identifier le premier de chaque groupe d'égalité (seul à recevoir ⚡)
+  const tieLeaders = new Set();
+  let gi=0;
+  while(gi<sorted.length){
+    let gj=gi+1;
+    while(gj<sorted.length && sorted[gj].note_pmu===sorted[gi].note_pmu) gj++;
+    if(gj>gi+1) tieLeaders.add(sorted[gi].numero); // premier du groupe = leader
+    gi=gj;
+  }
+  const wc=sorted.map((h,i)=>({...h, nom:pmuMap[h.numero]?.nom||'',
+    confiance: probaSum>0 ? Math.round(h.proba_absolu/probaSum*1000)/10 : 0,
+    barW: probaMax>0 ? Math.round(h.proba_absolu/probaMax*100) : 0,
+    tieTag: tieLeaders.has(h.numero) ? '⚡' : ''
+  }));
   const g=wc[0];
   const LABELS=['🥇 Gagnant','🥈 2ème','🥉 3ème','4ème','5ème','🃏 Joker 1','🃏 Joker 2'];
   function row(h,i){
@@ -635,9 +632,27 @@ function renderSelections(data, pmuMap) {
     <div class="card">${wc.slice(0,7).map((h,i)=>row(h,i)).join('')}</div>`;
 }
 
-// ── Analyse V6 ──
+// ── Analyse V8 ──
 function renderAnalyse(data) {
-  const liste=[...data.chevaux].sort((a,b)=>b.note_pmu-a.note_pmu);
+  // Même fonction de départage que renderSelections
+  function scoreDepart(h) {
+    const sc = h.scores || {};
+    return (sc.forme||0)*0.553 + (sc.adequation||0)*0.187 + (sc.gains||0)*0.181 + (sc.duo||0)*0.079;
+  }
+  // Tri identique : note_pmu puis départage XGBoost
+  const liste=[...data.chevaux].sort((a,b)=>{
+    if (b.note_pmu !== a.note_pmu) return b.note_pmu - a.note_pmu;
+    return scoreDepart(b) - scoreDepart(a);
+  });
+  // Leaders des groupes d'égalité (seuls à recevoir ⚡)
+  const tieLeaders = new Set();
+  let gi=0;
+  while(gi<liste.length){
+    let gj=gi+1;
+    while(gj<liste.length && liste[gj].note_pmu===liste[gi].note_pmu) gj++;
+    if(gj>gi+1) tieLeaders.add(liste[gi].numero);
+    gi=gj;
+  }
   const version=data.version||'v6';
   // Poids réels V8 : cote fixe 15% + XGBoost×85% pour les 5 autres
   const DIMS=[{k:'forme',l:'Forme',i:'🎵',c:'#c8942a',p:47},{k:'duo',l:'Duo',i:'🤝',c:'#b5603a',p:7},{k:'historique',l:'Palmarès',i:'📈',c:'#3a9162',p:0},{k:'gains',l:'Gains',i:'💰',c:'#5c8cbf',p:15},{k:'adequation',l:'Adéquat.',i:'🎯',c:'#8a6cbf',p:16},{k:'cote',l:'Cote',i:'📊',c:'#5c8c7a',p:15}];
@@ -647,11 +662,12 @@ function renderAnalyse(data) {
     const med=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
     const dc=(h.taux_disq||0)>20?'#e05c5c':(h.taux_disq||0)>10?'var(--copper)':'#5fcd8a';
     const nm=notesM[h.numero]; const dw=(nm!==undefined&&nm!==''&&nm!==h.note_pmu)?`<div class="note-diff-warn">⚡ Note utilisée: ${nm} (PMU: ${h.note_pmu})</div>`:'';
+    const tieTag=tieLeaders.has(h.numero)?'<span style="font-size:11px;margin-left:4px" title="Départagé par scores XGBoost">⚡</span>':'';
     return `<div class="analyse-card ${i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':''} fade-in fd${Math.min(i+1,4)}">
       <div class="analyse-header">
         <div class="analyse-avatar" style="border-color:${rc};color:${rc}">${h.numero}</div>
         <div class="analyse-info">
-          <div class="analyse-name">${med} ${h.nom||'Cheval '+h.numero}</div>
+          <div class="analyse-name">${med} ${h.nom||'Cheval '+h.numero}${tieTag}</div>
           <div class="analyse-sub">cote ${h.cote??'—'} · ${h.driver||'—'} <span style="margin-left:4px">${h.avis===1?'🟢':h.avis===-1?'🔴':'🟡'}</span></div>
           ${dw}
         </div>

@@ -567,16 +567,46 @@ function renderHorses() {
 // ── Sélections ──
 function renderSelections(data, pmuMap) {
   pmuMap=pmuMap||{};
-  const sorted=[...data.tous].sort((a,b)=>b.proba_absolu-a.proba_absolu);
-  const T=3, exps=sorted.map(h=>Math.exp((h.proba_absolu/100)*T)), sum=exps.reduce((s,v)=>s+v,0);
-  const wc=sorted.map((h,i)=>({...h, nom:pmuMap[h.numero]?.nom||'', confiance:Math.round(exps[i]/sum*1000)/10, barW:Math.round(exps[i]/exps[0]*100)}));
+  // Tri par note_pmu puis départage par scores XGBoost (ordre d'importance V8)
+  // Importances : forme 55.3% > adequation 18.7% > gains 18.1% > duo 7.9%
+  function scoreDepart(h) {
+    const sc = pmuMap[h.numero]?.scores || h.scores || {};
+    return (sc.forme||0)*0.553 + (sc.adequation||0)*0.187 + (sc.gains||0)*0.181 + (sc.duo||0)*0.079;
+  }
+  const sorted=[...data.tous].sort((a,b)=>{
+    if (b.note_pmu !== a.note_pmu) return b.note_pmu - a.note_pmu;
+    return scoreDepart(b) - scoreDepart(a); // départage XGBoost si égalité
+  });
+  // Confiance = part de proba_absolu normalisée sur tout le peloton
+  const probaSum=sorted.reduce((s,h)=>s+h.proba_absolu,0);
+  const probaMax=Math.max(...sorted.map(h=>h.proba_absolu));
+  const wc=sorted.map((h,i)=>{
+    const prev=sorted[i-1];
+    // Émoticon départage : affiché si même note que le précédent, meilleur score XGBoost
+    const egalite = i>0 && prev.note_pmu===h.note_pmu;
+    const estDevant = i>0 && sorted[i-1].note_pmu===h.note_pmu && scoreDepart(h)>scoreDepart(sorted[i+1]||{});
+    const tieWin = i>0 && prev.note_pmu===h.note_pmu; // ce cheval a battu le suivant à égalité
+    return {...h, nom:pmuMap[h.numero]?.nom||'',
+      confiance: probaSum>0 ? Math.round(h.proba_absolu/probaSum*1000)/10 : 0,
+      barW: probaMax>0 ? Math.round(h.proba_absolu/probaMax*100) : 0,
+      tieTag: (function(){
+        // Afficher ⚡ sur le cheval qui devance un autre à note égale
+        const next=sorted[i+1];
+        if (next && next.note_pmu===h.note_pmu && scoreDepart(h)>scoreDepart(next)) return '⚡';
+        return '';
+      })()
+    };
+  });
   const g=wc[0];
   const LABELS=['🥇 Gagnant','🥈 2ème','🥉 3ème','4ème','5ème','🃏 Joker 1','🃏 Joker 2'];
   function row(h,i){
     const hl=i<5, jk=i>=5, cls=i<3?'sel-circle highlight':jk?'sel-circle joker':'sel-circle';
     return `<div class="sel-row fade-in fd${Math.min(i+1,4)}" style="opacity:${hl?'1':'.5'}">
       <div class="sel-rank">${LABELS[i]||(i+1)+'ème'}</div>
-      <div class="${cls}">${h.numero}</div>
+      <div style="position:relative;flex-shrink:0">
+        <div class="${cls}">${h.numero}</div>
+        ${h.tieTag?`<div style="position:absolute;top:-6px;right:-6px;font-size:10px;line-height:1" title="Départagé par scores XGBoost">${h.tieTag}</div>`:''}
+      </div>
       <div class="sel-body">
         ${h.nom?`<div class="sel-name">${h.nom}</div>`:''}
         <div class="sel-cote">cote ${h.rapport} · note ${h.note}/20</div>

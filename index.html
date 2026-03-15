@@ -639,7 +639,8 @@ function renderSelections(data, pmuMap) {
 function renderAnalyse(data) {
   const liste=[...data.chevaux].sort((a,b)=>b.note_pmu-a.note_pmu);
   const version=data.version||'v6';
-  const DIMS=[{k:'forme',l:'Forme',i:'🎵',c:'#c8942a'},{k:'duo',l:'Duo',i:'🤝',c:'#b5603a'},{k:'historique',l:'Palmarès',i:'📈',c:'#3a9162'},{k:'gains',l:'Gains',i:'💰',c:'#5c8cbf'},{k:'adequation',l:'Adéquat.',i:'🎯',c:'#8a6cbf'},{k:'cote',l:'Cote',i:'📊',c:'#5c8c7a'}];
+  // Poids réels V8 : cote fixe 15% + XGBoost×85% pour les 5 autres
+  const DIMS=[{k:'forme',l:'Forme',i:'🎵',c:'#c8942a',p:47},{k:'duo',l:'Duo',i:'🤝',c:'#b5603a',p:7},{k:'historique',l:'Palmarès',i:'📈',c:'#3a9162',p:0},{k:'gains',l:'Gains',i:'💰',c:'#5c8cbf',p:15},{k:'adequation',l:'Adéquat.',i:'🎯',c:'#8a6cbf',p:16},{k:'cote',l:'Cote',i:'📊',c:'#5c8c7a',p:15}];
   const notesM={}; chevaux.forEach(c=>{notesM[c.numero]=c.note;});
   const cards=liste.map((h,i)=>{
     const sc=h.scores||{}, rc=i===0?'var(--gold)':i===1?'#888':i===2?'var(--copper)':'var(--border2)';
@@ -656,7 +657,7 @@ function renderAnalyse(data) {
         </div>
         <div class="analyse-note" style="color:${rc}">${h.note_pmu}<span>/20</span></div>
       </div>
-      <div class="dim-grid">${DIMS.map(d=>{const v=sc[d.k]??0;return `<div class="dim-cell"><div class="dim-label">${d.i} ${d.l}</div><div class="dim-bar-track"><div class="dim-bar-fill" style="width:${v}%;background:${d.c}"></div></div><div class="dim-val" style="color:${d.c}">${v}</div></div>`;}).join('')}</div>
+      <div class="dim-grid">${DIMS.map(d=>{const v=sc[d.k]??0;return `<div class="dim-cell"><div class="dim-label">${d.i} ${d.l}<span style="float:right;opacity:.5;font-size:7px">${d.p}%</span></div><div class="dim-bar-track"><div class="dim-bar-fill" style="width:${v}%;background:${d.c}"></div></div><div class="dim-val" style="color:${d.c}">${v}</div></div>`;}).join('')}</div>
       <div class="analyse-footer"><span>⚠️ Taux disq.</span><span style="font-weight:700;color:${dc}">${h.taux_disq||0}%</span><span style="margin-left:auto;font-size:8px;color:var(--text-dim)">${version}</span></div>
     </div>`;
   }).join('');
@@ -679,7 +680,7 @@ async function chargerStats() {
 }
 function renderStats(nb, hist) {
   const n=hist.length, a1=n?Math.round(hist.filter(h=>h.top1_ok).length/n*100):0, a3=n?Math.round(hist.filter(h=>h.top3_ok).length/n*100):0;
-  const DIMS=[{l:'Adéquation course',p:26,c:'#8a6cbf'},{l:'Forme / Musique',p:21,c:'var(--gold)'},{l:'Duo cheval/driver',p:17,c:'var(--copper)'},{l:'Historique',p:14,c:'#3a9162'},{l:'Cote & marché',p:11,c:'#5c8c7a'},{l:'Gains / Palmarès',p:8,c:'#5c8cbf'}];
+  const DIMS=[{l:'Forme / Musique',p:47,c:'var(--gold)'},{l:'Cote & marché',p:15,c:'#5c8c7a'},{l:'Adéquation course',p:16,c:'#8a6cbf'},{l:'Gains / Palmarès',p:15,c:'#5c8cbf'},{l:'Duo cheval/driver',p:7,c:'var(--copper)'},{l:'Historique',p:0,c:'#3a9162'}];
   document.getElementById('stats-content').innerHTML=`
     <div class="section-title">Base de données</div>
     <div class="kpi-grid fade-in">

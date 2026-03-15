@@ -569,11 +569,19 @@ function renderSelections(data, pmuMap) {
   pmuMap=pmuMap||{};
   // Tri par note_pmu puis départage par scores XGBoost (ordre d'importance V8)
   // Importances : forme 55.3% > adequation 18.7% > gains 18.1% > duo 7.9%
+  // scoreDepart : cherche les scores dans pmuMap EN PRIORITÉ (source fiable)
   function scoreDepart(h) {
     const sc = pmuMap[h.numero]?.scores || h.scores || {};
     return (sc.forme||0)*0.553 + (sc.adequation||0)*0.187 + (sc.gains||0)*0.181 + (sc.duo||0)*0.079;
   }
-  const sorted=[...data.tous].sort((a,b)=>{
+  // Fusion : enrichir data.tous avec les scores de pmuMap avant le tri
+  const tous_enrichis = data.tous.map(h => ({
+    ...h,
+    scores: pmuMap[h.numero]?.scores || h.scores || {},
+    note_pmu: pmuMap[h.numero]?.note_pmu ?? h.note_pmu,
+    nom: pmuMap[h.numero]?.nom || h.nom || ''
+  }));
+  const sorted=tous_enrichis.sort((a,b)=>{
     if (b.note_pmu !== a.note_pmu) return b.note_pmu - a.note_pmu;
     return scoreDepart(b) - scoreDepart(a); // départage XGBoost si égalité
   });

@@ -676,7 +676,7 @@ function renderAnalyse(data) {
   let misePlacea = null;
   for (let i=0; i<Math.min(5, liste.length); i++) {
     const cote = liste[i].cote ?? 0;
-    if (cote >= 4 && cote <= 8) { misePlacea = liste[i].numero; break; }
+    if (cote >= 4 && cote <= 10) { misePlacea = liste[i].numero; break; }
   }
 
   const cards=liste.map((h,i)=>{
@@ -702,14 +702,13 @@ function renderAnalyse(data) {
       <div class="dim-grid">${DIMS.map(d=>{const v=sc[d.k]??0;return `<div class="dim-cell"><div class="dim-label">${d.i} ${d.l}<span style="float:right;opacity:.5;font-size:7px">${d.p}%</span></div><div class="dim-bar-track"><div class="dim-bar-fill" style="width:${v}%;background:${d.c}"></div></div><div class="dim-val" style="color:${d.c}">${v}</div></div>`;}).join('')}</div>
       <div class="analyse-footer">
         <span>⚠️ Taux disq.</span><span style="font-weight:700;color:${dc}">${h.taux_disq||0}%</span>
-        ${badge60j(h.courses_60j??0)}
         <span style="margin-left:auto;font-size:8px;color:var(--text-dim)">${version}</span>
       </div>
     </div>`;
   }).join('');
   const miseBannerHtml = misePlacea
-    ? `<div style="background:rgba(58,145,98,.12);border:1px solid rgba(58,145,98,.4);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-family:monospace;font-size:10px;color:#3a9162;letter-spacing:1px">💶 MISE PLACÉE RECOMMANDÉE → Cheval <strong>#${misePlacea}</strong> · cote ${liste.find(h=>h.numero===misePlacea)?.cote??'—'}</div>`
-    : `<div style="background:rgba(100,100,100,.08);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-family:monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px">⛔ Aucun cheval dans la fourchette cote 4→8 (rang 1→5)</div>`;
+    ? `<div style="background:rgba(58,145,98,.12);border:1px solid rgba(58,145,98,.4);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-family:monospace;font-size:10px;color:#3a9162;letter-spacing:1px">💶 MISE PLACÉE RECOMMANDÉE → Cheval <strong>#${misePlacea}</strong> · cote ${liste.find(h=>h.numero===misePlacea)?.cote??'—'} · fourchette 4→10</div>`
+    : `<div style="background:rgba(100,100,100,.08);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-family:monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px">⛔ Aucun cheval dans la fourchette cote 4→10 (rang 1→5)</div>`;
   document.getElementById('analyse-content').innerHTML=`<div class="pred-meta fade-in">${liste.length} chevaux · ${data.date||currentDate||''} <span class="version-badge">${version}</span></div>${miseBannerHtml}${cards}`;
 }
 

@@ -702,7 +702,8 @@ function renderAnalyse(data) {
       <div class="dim-grid">${DIMS.map(d=>{const v=sc[d.k]??0;return `<div class="dim-cell"><div class="dim-label">${d.i} ${d.l}<span style="float:right;opacity:.5;font-size:7px">${d.p}%</span></div><div class="dim-bar-track"><div class="dim-bar-fill" style="width:${v}%;background:${d.c}"></div></div><div class="dim-val" style="color:${d.c}">${v}</div></div>`;}).join('')}</div>
       <div class="analyse-footer">
         <span>⚠️ Taux disq.</span><span style="font-weight:700;color:${dc}">${h.taux_disq||0}%</span>
-        <span style="margin-left:auto;font-size:8px;color:var(--text-dim)">${version}</span>
+
+        <span style="margin-left:auto;font-size:8px;color:var(--text-dim);font-family:monospace;letter-spacing:0">${h.musique||''}</span>
       </div>
     </div>`;
   }).join('');

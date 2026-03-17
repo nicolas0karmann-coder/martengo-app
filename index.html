@@ -670,7 +670,13 @@ function renderAnalyse(data) {
   const version=data.version||'v6';
   const isGalop = version.includes('galop');
   // DIMS dynamiques selon la discipline
-  const DIMS = isGalop
+  const isPlat = version.includes('plat');
+  const isHaie = version.includes('haie');
+  const DIMS = isPlat
+    ? [{k:'forme',l:'Forme',i:'🎵',c:'#c8942a',p:36},{k:'gains',l:'Gains',i:'💰',c:'#5c8cbf',p:33},{k:'jockey',l:'Jockey',i:'🏇',c:'#b5603a',p:21},{k:'handicap',l:'Handicap',i:'⚖️',c:'#8a6cbf',p:10},{k:'historique',l:'Palmarès',i:'📈',c:'#3a9162',p:0},{k:'cote',l:'Cote',i:'📊',c:'#5c8c7a',p:15}]
+    : isHaie
+    ? [{k:'gains',l:'Gains',i:'💰',c:'#5c8cbf',p:28},{k:'forme',l:'Forme',i:'🎵',c:'#c8942a',p:26},{k:'jockey',l:'Jockey',i:'🏇',c:'#b5603a',p:25},{k:'handicap',l:'Handicap',i:'⚖️',c:'#8a6cbf',p:21},{k:'historique',l:'Palmarès',i:'📈',c:'#3a9162',p:0},{k:'cote',l:'Cote',i:'📊',c:'#5c8c7a',p:15}]
+    : isGalop
     ? [{k:'forme',l:'Forme',i:'🎵',c:'#c8942a',p:33},{k:'duo',l:'Duo jockey',i:'🤝',c:'#b5603a',p:12},{k:'historique',l:'Palmarès',i:'📈',c:'#3a9162',p:0},{k:'gains',l:'Gains',i:'💰',c:'#5c8cbf',p:31},{k:'handicap',l:'Handicap',i:'⚖️',c:'#8a6cbf',p:9},{k:'cote',l:'Cote',i:'📊',c:'#5c8c7a',p:15}]
     : [{k:'forme',l:'Forme',i:'🎵',c:'#c8942a',p:47},{k:'duo',l:'Duo',i:'🤝',c:'#b5603a',p:7},{k:'historique',l:'Palmarès',i:'📈',c:'#3a9162',p:0},{k:'gains',l:'Gains',i:'💰',c:'#5c8cbf',p:15},{k:'adequation',l:'Adéquat.',i:'🎯',c:'#8a6cbf',p:16},{k:'cote',l:'Cote',i:'📊',c:'#5c8c7a',p:15}];
   const notesM={}; chevaux.forEach(c=>{notesM[c.numero]=c.note;});
@@ -735,7 +741,13 @@ function renderStats(nb, hist) {
   // Pondérations selon discipline courante
   const lastVersion = notesPMUData?.version || '';
   const isGalopStats = lastVersion.includes('galop');
-  const DIMS = isGalopStats
+  const isPlatStats  = lastVersion.includes('plat');
+  const isHaieStats  = lastVersion.includes('haie');
+  const DIMS = isPlatStats
+    ? [{l:'Forme / Musique',p:36,c:'var(--gold)'},{l:'Gains / Palmarès',p:33,c:'#5c8cbf'},{l:'Jockey',p:21,c:'var(--copper)'},{l:'Cote & marché',p:15,c:'#5c8c7a'},{l:'Handicap poids',p:10,c:'#8a6cbf'},{l:'Historique',p:0,c:'#3a9162'}]
+    : isHaieStats
+    ? [{l:'Gains / Palmarès',p:28,c:'#5c8cbf'},{l:'Forme / Musique',p:26,c:'var(--gold)'},{l:'Jockey obstacle',p:25,c:'var(--copper)'},{l:'Handicap poids',p:21,c:'#8a6cbf'},{l:'Cote & marché',p:15,c:'#5c8c7a'},{l:'Historique',p:0,c:'#3a9162'}]
+    : isGalopStats
     ? [{l:'Forme / Musique',p:33,c:'var(--gold)'},{l:'Gains / Palmarès',p:31,c:'#5c8cbf'},{l:'Cote & marché',p:15,c:'#5c8c7a'},{l:'Duo cheval/jockey',p:12,c:'var(--copper)'},{l:'Handicap poids',p:9,c:'#8a6cbf'},{l:'Historique',p:0,c:'#3a9162'}]
     : [{l:'Forme / Musique',p:47,c:'var(--gold)'},{l:'Cote & marché',p:15,c:'#5c8c7a'},{l:'Adéquation course',p:16,c:'#8a6cbf'},{l:'Gains / Palmarès',p:15,c:'#5c8cbf'},{l:'Duo cheval/driver',p:7,c:'var(--copper)'},{l:'Historique',p:0,c:'#3a9162'}];
   document.getElementById('stats-content').innerHTML=`

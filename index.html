@@ -567,11 +567,16 @@ function renderHorses() {
 // ── Sélections ──
 function renderSelections(data, pmuMap) {
   pmuMap=pmuMap||{};
-  // Tri par note_pmu puis départage par scores XGBoost (ordre d'importance V8)
-  // Importances : forme 55.3% > adequation 18.7% > gains 18.1% > duo 7.9%
-  // scoreDepart : cherche les scores dans pmuMap EN PRIORITÉ (source fiable)
+  // Discipline depuis notesPMUData global
+  const selVersion  = notesPMUData?.version || '';
+  const selIsPlat   = selVersion.includes('plat');
+  const selCoteMax  = selIsPlat ? 8 : 10;
+  const selFourchette = selIsPlat ? '4→8' : '4→10';
+  // Tri par note_pmu puis départage par scores XGBoost
   function scoreDepart(h) {
     const sc = pmuMap[h.numero]?.scores || h.scores || {};
+    if (selIsPlat)
+      return (sc.forme||0)*0.363 + (sc.gains||0)*0.329 + (sc.jockey||sc.duo||0)*0.211 + (sc.handicap||0)*0.097;
     return (sc.forme||0)*0.553 + (sc.adequation||0)*0.187 + (sc.gains||0)*0.181 + (sc.duo||0)*0.079;
   }
   // Fusion : enrichir data.tous avec les scores de pmuMap avant le tri
@@ -594,8 +599,14 @@ function renderSelections(data, pmuMap) {
   while(gi<sorted.length){
     let gj=gi+1;
     while(gj<sorted.length && sorted[gj].note_pmu===sorted[gi].note_pmu) gj++;
-    if(gj>gi+1) tieLeaders.add(sorted[gi].numero); // premier du groupe = leader
+    if(gj>gi+1) tieLeaders.add(sorted[gi].numero);
     gi=gj;
+  }
+  // Cheval à miser : premier rang 1→5 dans la fourchette de cote selon discipline
+  let miseSel = null;
+  for (let i=0; i<Math.min(5, sorted.length); i++) {
+    const cote = sorted[i].cote ?? pmuMap[sorted[i].numero]?.cote ?? 0;
+    if (cote >= 4 && cote <= selCoteMax) { miseSel = sorted[i].numero; break; }
   }
   const wc=sorted.map((h,i)=>({...h, nom:pmuMap[h.numero]?.nom||'',
     confiance: probaSum>0 ? Math.round(h.proba_absolu/probaSum*1000)/10 : 0,
@@ -606,11 +617,14 @@ function renderSelections(data, pmuMap) {
   const LABELS=['🥇 Gagnant','🥈 2ème','🥉 3ème','4ème','5ème','🃏 Joker 1','🃏 Joker 2'];
   function row(h,i){
     const hl=i<5, jk=i>=5, cls=i<3?'sel-circle highlight':jk?'sel-circle joker':'sel-circle';
-    return `<div class="sel-row fade-in fd${Math.min(i+1,4)}" style="opacity:${hl?'1':'.5'}">
+    const isMiseSel = h.numero === miseSel;
+    const circleStyle = isMiseSel ? 'border-color:#3a9162;color:#3a9162;font-weight:900' : '';
+    return `<div class="sel-row fade-in fd${Math.min(i+1,4)}" style="opacity:${hl?'1':'.5'};${isMiseSel?'background:rgba(58,145,98,.06);border-radius:8px;margin:0 -4px;padding:0 4px':''}">
       <div class="sel-rank">${LABELS[i]||(i+1)+'ème'}</div>
       <div style="position:relative;flex-shrink:0">
-        <div class="${cls}">${h.numero}</div>
+        <div class="${cls}" style="${circleStyle}">${h.numero}</div>
         ${h.tieTag?`<div style="position:absolute;top:-6px;right:-6px;font-size:10px;line-height:1" title="Départagé par scores XGBoost">${h.tieTag}</div>`:''}
+        ${isMiseSel?`<div style="position:absolute;top:-6px;left:-6px;font-size:10px;line-height:1" title="Miser en placé ${selFourchette}">💶</div>`:''}
       </div>
       <div class="sel-body">
         ${h.nom?`<div class="sel-name">${h.nom}</div>`:''}
@@ -681,11 +695,14 @@ function renderAnalyse(data) {
     : [{k:'forme',l:'Forme',i:'🎵',c:'#c8942a',p:47},{k:'duo',l:'Duo',i:'🤝',c:'#b5603a',p:7},{k:'historique',l:'Palmarès',i:'📈',c:'#3a9162',p:0},{k:'gains',l:'Gains',i:'💰',c:'#5c8cbf',p:15},{k:'adequation',l:'Adéquat.',i:'🎯',c:'#8a6cbf',p:16},{k:'cote',l:'Cote',i:'📊',c:'#5c8c7a',p:15}];
   const notesM={}; chevaux.forEach(c=>{notesM[c.numero]=c.note;});
 
-  // ── Trouver le cheval à miser en placé (cote 4→8, rang 1→5) ──
+  // ── Trouver le cheval à miser en placé ──────────────────────
+  // PLAT : cote 4→8 | Autres : cote 4→10
+  const coteMax = isPlat ? 8 : 10;
+  const fourchetteLabel = isPlat ? '4→8' : '4→10';
   let misePlacea = null;
   for (let i=0; i<Math.min(5, liste.length); i++) {
     const cote = liste[i].cote ?? 0;
-    if (cote >= 4 && cote <= 10) { misePlacea = liste[i].numero; break; }
+    if (cote >= 4 && cote <= coteMax) { misePlacea = liste[i].numero; break; }
   }
 
   const cards=liste.map((h,i)=>{
@@ -717,8 +734,8 @@ function renderAnalyse(data) {
     </div>`;
   }).join('');
   const miseBannerHtml = misePlacea
-    ? `<div style="background:rgba(58,145,98,.12);border:1px solid rgba(58,145,98,.4);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-family:monospace;font-size:10px;color:#3a9162;letter-spacing:1px">💶 MISE PLACÉE RECOMMANDÉE → Cheval <strong>#${misePlacea}</strong> · cote ${liste.find(h=>h.numero===misePlacea)?.cote??'—'} · fourchette 4→10</div>`
-    : `<div style="background:rgba(100,100,100,.08);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-family:monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px">⛔ Aucun cheval dans la fourchette cote 4→10 (rang 1→5)</div>`;
+    ? `<div style="background:rgba(58,145,98,.12);border:1px solid rgba(58,145,98,.4);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-family:monospace;font-size:10px;color:#3a9162;letter-spacing:1px">💶 MISE PLACÉE RECOMMANDÉE → Cheval <strong>#${misePlacea}</strong> · cote ${liste.find(h=>h.numero===misePlacea)?.cote??'—'} · fourchette ${fourchetteLabel}</div>`
+    : `<div style="background:rgba(100,100,100,.08);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-family:monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px">⛔ Aucun cheval dans la fourchette cote ${fourchetteLabel} (rang 1→5)</div>`;
   document.getElementById('analyse-content').innerHTML=`<div class="pred-meta fade-in">${liste.length} chevaux · ${data.date||currentDate||''} <span class="version-badge">${version}</span></div>${miseBannerHtml}${cards}`;
 }
 

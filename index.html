@@ -384,10 +384,10 @@ async function checkHealth(isFirst) {
       clearInterval(_hTimer);
       if (!resp.ok) throw new Error();
       const data=await resp.json(); apiPrete=true;
-      dot.className='dot online'; text.textContent=`${(data.courses||0).toLocaleString('fr')} courses`;
+      dot.className='dot online'; text.textContent=`${(data.courses||0).toLocaleString('fr')} jours`;
       document.getElementById('btn-pmu').disabled=false;
       banner.classList.remove('show');
-      setPmuProgress(100,`✓ Prêt — ${(data.courses||0).toLocaleString('fr')} courses`,'#5fcd8a');
+      setPmuProgress(100,`✓ Prêt — ${(data.courses||0).toLocaleString('fr')} jours`,'#5fcd8a');
       setTimeout(()=>clearPmuProgress(),1500);
     } catch { clearInterval(_hTimer); dot.className='dot error'; text.textContent='hors ligne'; clearPmuProgress(''); banner.classList.add('show'); showPmuRetry('Serveur en démarrage — jusqu\'à 50s sur Render Free'); }
   } else {
@@ -396,7 +396,7 @@ async function checkHealth(isFirst) {
       if (!resp.ok) throw new Error();
       const data=await resp.json();
       if (!apiPrete) { apiPrete=true; document.getElementById('btn-pmu').disabled=false; banner.classList.remove('show'); clearPmuProgress(''); }
-      dot.className='dot online'; text.textContent=`${(data.courses||0).toLocaleString('fr')} courses`;
+      dot.className='dot online'; text.textContent=`${(data.courses||0).toLocaleString('fr')} jours`;
     } catch { dot.className='dot error'; text.textContent='hors ligne'; if (apiPrete) { apiPrete=false; banner.classList.add('show'); } }
   }
 }
@@ -570,8 +570,17 @@ function renderSelections(data, pmuMap) {
   // Discipline depuis notesPMUData global
   const selVersion  = notesPMUData?.version || '';
   const selIsPlat   = selVersion.includes('plat');
-  const selCoteMax  = selIsPlat ? 8 : 10;
-  const selFourchette = selIsPlat ? '4→8' : '4→10';
+  const selIsHaie   = selVersion.includes('haie');
+  const selIsGalop  = selVersion.includes('galop');
+  let selCoteMin = 4, selCoteMax = 10, selFourchette = '4→10', selTypePari = 'SP';
+  if (selIsPlat) {
+    selCoteMin=1; selCoteMax=4; selFourchette='1→4'; selTypePari='SG';
+  } else if (selIsHaie) {
+    selCoteMin=4; selCoteMax=8; selFourchette='4→8'; selTypePari='SP';
+  } else if (!selIsGalop) {
+    // ATTELE : SG modèle=favori cote 3→6
+    selCoteMin=3; selCoteMax=6; selFourchette='3→6'; selTypePari='SG';
+  }
   // Tri par note_pmu puis départage par scores XGBoost
   function scoreDepart(h) {
     const sc = pmuMap[h.numero]?.scores || h.scores || {};
@@ -602,11 +611,31 @@ function renderSelections(data, pmuMap) {
     if(gj>gi+1) tieLeaders.add(sorted[gi].numero);
     gi=gj;
   }
-  // Cheval à miser : premier rang 1→5 dans la fourchette de cote selon discipline
+  // Cheval à miser selon stratégie par discipline
   let miseSel = null;
-  for (let i=0; i<Math.min(5, sorted.length); i++) {
-    const cote = sorted[i].cote ?? pmuMap[sorted[i].numero]?.cote ?? 0;
-    if (cote >= 4 && cote <= selCoteMax) { miseSel = sorted[i].numero; break; }
+  if (selIsPlat) {
+    // PLAT : SG top1 cote 1→4
+    const h = sorted[0];
+    const cote = h?.cote ?? pmuMap[h?.numero]?.cote ?? 0;
+    if (h && cote >= 1 && cote <= 4) miseSel = h.numero;
+  } else if (selIsHaie) {
+    // HAIE : SP top5 cote 4→8
+    for (let i=0; i<Math.min(5, sorted.length); i++) {
+      const cote = sorted[i].cote ?? pmuMap[sorted[i].numero]?.cote ?? 0;
+      if (cote >= 4 && cote <= 8) { miseSel = sorted[i].numero; break; }
+    }
+  } else if (!selIsGalop) {
+    // ATTELE : SG top1 si =favori ET cote 3→6
+    const h = sorted[0];
+    const cote = h?.cote ?? pmuMap[h?.numero]?.cote ?? 0;
+    const minCote = Math.min(...sorted.map(x => x.cote ?? pmuMap[x.numero]?.cote ?? 99));
+    if (h && cote >= 3 && cote <= 6 && Math.abs(cote - minCote) < 0.1) miseSel = h.numero;
+  } else {
+    // MONTE/autres : SP top5 cote 4→10
+    for (let i=0; i<Math.min(5, sorted.length); i++) {
+      const cote = sorted[i].cote ?? pmuMap[sorted[i].numero]?.cote ?? 0;
+      if (cote >= 4 && cote <= 10) { miseSel = sorted[i].numero; break; }
+    }
   }
   const wc=sorted.map((h,i)=>({...h, nom:pmuMap[h.numero]?.nom||'',
     confiance: probaSum>0 ? Math.round(h.proba_absolu/probaSum*1000)/10 : 0,
@@ -624,7 +653,7 @@ function renderSelections(data, pmuMap) {
       <div style="position:relative;flex-shrink:0">
         <div class="${cls}" style="${circleStyle}">${h.numero}</div>
         ${h.tieTag?`<div style="position:absolute;top:-6px;right:-6px;font-size:10px;line-height:1" title="Départagé par scores XGBoost">${h.tieTag}</div>`:''}
-        ${isMiseSel?`<div style="position:absolute;top:-6px;left:-6px;font-size:10px;line-height:1" title="Miser en placé ${selFourchette}">💶</div>`:''}
+        ${isMiseSel?`<div style="position:absolute;top:-6px;left:-6px;font-size:10px;line-height:1" title="${selTypePari==='SG'?'Simple Gagnant':'Simple Placé'} ${selFourchette}">💰</div>`:''}
       </div>
       <div class="sel-body">
         ${h.nom?`<div class="sel-name">${h.nom}</div>`:''}
@@ -695,14 +724,46 @@ function renderAnalyse(data) {
     : [{k:'forme',l:'Forme',i:'🎵',c:'#c8942a',p:47},{k:'duo',l:'Duo',i:'🤝',c:'#b5603a',p:7},{k:'historique',l:'Palmarès',i:'📈',c:'#3a9162',p:0},{k:'gains',l:'Gains',i:'💰',c:'#5c8cbf',p:15},{k:'adequation',l:'Adéquat.',i:'🎯',c:'#8a6cbf',p:16},{k:'cote',l:'Cote',i:'📊',c:'#5c8c7a',p:15}];
   const notesM={}; chevaux.forEach(c=>{notesM[c.numero]=c.note;});
 
-  // ── Trouver le cheval à miser en placé ──────────────────────
-  // PLAT : cote 4→8 | Autres : cote 4→10
-  const coteMax = isPlat ? 8 : 10;
-  const fourchetteLabel = isPlat ? '4→8' : '4→10';
+  // ── Trouver le cheval à miser selon la stratégie par discipline ──
+  // ATTELE : Simple Gagnant — modèle=favori marché, cote 3→6
+  // PLAT   : Simple Gagnant — top1, cote 1→4
+  // HAIE   : Simple Placé  — top5, cote 4→8
+  // MONTE/autres : Simple Placé — top5, cote 4→10
   let misePlacea = null;
-  for (let i=0; i<Math.min(5, liste.length); i++) {
-    const cote = liste[i].cote ?? 0;
-    if (cote >= 4 && cote <= coteMax) { misePlacea = liste[i].numero; break; }
+  let typePariBest = 'SP';  // SP=Simple Placé, SG=Simple Gagnant
+  let fourchetteLabel = '4→10';
+
+  if (isPlat) {
+    // PLAT : SG top1 cote 1→4
+    typePariBest = 'SG'; fourchetteLabel = '1→4';
+    const h = liste[0];
+    if (h && (h.cote ?? 0) >= 1 && (h.cote ?? 0) <= 4) misePlacea = h.numero;
+  } else if (isHaie) {
+    // HAIE : SP top5 cote 4→8
+    typePariBest = 'SP'; fourchetteLabel = '4→8';
+    for (let i=0; i<Math.min(5, liste.length); i++) {
+      const cote = liste[i].cote ?? 0;
+      if (cote >= 4 && cote <= 8) { misePlacea = liste[i].numero; break; }
+    }
+  } else if (!isGalop) {
+    // ATTELE : SG si modèle=favori marché ET cote 3→6
+    typePariBest = 'SG'; fourchetteLabel = '3→6';
+    const top1 = liste[0];
+    if (top1) {
+      const cote = top1.cote ?? 0;
+      // Vérifier si top1 est aussi le favori (cote la plus basse)
+      const minCote = Math.min(...liste.map(h => h.cote ?? 99));
+      if (cote >= 3 && cote <= 6 && Math.abs(cote - minCote) < 0.1) {
+        misePlacea = top1.numero;
+      }
+    }
+  } else {
+    // MONTE/autres galop : SP top5 cote 4→10
+    typePariBest = 'SP'; fourchetteLabel = '4→10';
+    for (let i=0; i<Math.min(5, liste.length); i++) {
+      const cote = liste[i].cote ?? 0;
+      if (cote >= 4 && cote <= 10) { misePlacea = liste[i].numero; break; }
+    }
   }
 
   const cards=liste.map((h,i)=>{
@@ -734,8 +795,8 @@ function renderAnalyse(data) {
     </div>`;
   }).join('');
   const miseBannerHtml = misePlacea
-    ? `<div style="background:rgba(58,145,98,.12);border:1px solid rgba(58,145,98,.4);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-family:monospace;font-size:10px;color:#3a9162;letter-spacing:1px">💶 MISE PLACÉE RECOMMANDÉE → Cheval <strong>#${misePlacea}</strong> · cote ${liste.find(h=>h.numero===misePlacea)?.cote??'—'} · fourchette ${fourchetteLabel}</div>`
-    : `<div style="background:rgba(100,100,100,.08);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-family:monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px">⛔ Aucun cheval dans la fourchette cote ${fourchetteLabel} (rang 1→5)</div>`;
+    ? `<div style="background:rgba(58,145,98,.12);border:1px solid rgba(58,145,98,.4);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-family:monospace;font-size:10px;color:#3a9162;letter-spacing:1px">💰 ${typePariBest==='SG'?'SIMPLE GAGNANT':'SIMPLE PLACÉ'} RECOMMANDÉ → Cheval <strong>#${misePlacea}</strong> · cote ${liste.find(h=>h.numero===misePlacea)?.cote??'—'} · fourchette ${fourchetteLabel}</div>`
+    : `<div style="background:rgba(100,100,100,.08);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-family:monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px">⛔ Aucun cheval dans la fourchette cote ${fourchetteLabel}</div>`;
   document.getElementById('analyse-content').innerHTML=`<div class="pred-meta fade-in">${liste.length} chevaux · ${data.date||currentDate||''} <span class="version-badge">${version}</span></div>${miseBannerHtml}${cards}`;
 }
 

@@ -668,8 +668,11 @@ function renderAnalyse(data) {
     gi=gj;
   }
   const version=data.version||'v6';
-  // Poids réels V8 : cote fixe 15% + XGBoost×85% pour les 5 autres
-  const DIMS=[{k:'forme',l:'Forme',i:'🎵',c:'#c8942a',p:47},{k:'duo',l:'Duo',i:'🤝',c:'#b5603a',p:7},{k:'historique',l:'Palmarès',i:'📈',c:'#3a9162',p:0},{k:'gains',l:'Gains',i:'💰',c:'#5c8cbf',p:15},{k:'adequation',l:'Adéquat.',i:'🎯',c:'#8a6cbf',p:16},{k:'cote',l:'Cote',i:'📊',c:'#5c8c7a',p:15}];
+  const isGalop = version.includes('galop');
+  // DIMS dynamiques selon la discipline
+  const DIMS = isGalop
+    ? [{k:'forme',l:'Forme',i:'🎵',c:'#c8942a',p:33},{k:'duo',l:'Duo jockey',i:'🤝',c:'#b5603a',p:12},{k:'historique',l:'Palmarès',i:'📈',c:'#3a9162',p:0},{k:'gains',l:'Gains',i:'💰',c:'#5c8cbf',p:31},{k:'handicap',l:'Handicap',i:'⚖️',c:'#8a6cbf',p:9},{k:'cote',l:'Cote',i:'📊',c:'#5c8c7a',p:15}]
+    : [{k:'forme',l:'Forme',i:'🎵',c:'#c8942a',p:47},{k:'duo',l:'Duo',i:'🤝',c:'#b5603a',p:7},{k:'historique',l:'Palmarès',i:'📈',c:'#3a9162',p:0},{k:'gains',l:'Gains',i:'💰',c:'#5c8cbf',p:15},{k:'adequation',l:'Adéquat.',i:'🎯',c:'#8a6cbf',p:16},{k:'cote',l:'Cote',i:'📊',c:'#5c8c7a',p:15}];
   const notesM={}; chevaux.forEach(c=>{notesM[c.numero]=c.note;});
 
   // ── Trouver le cheval à miser en placé (cote 4→8, rang 1→5) ──
@@ -693,7 +696,7 @@ function renderAnalyse(data) {
         <div class="analyse-avatar" style="border-color:${isMise?'#3a9162':rc};color:${isMise?'#3a9162':rc};${isMise?'font-weight:900':''}">${h.numero}</div>
         <div class="analyse-info">
           <div class="analyse-name" style="${isMise?'color:#3a9162;font-weight:800':''}">${med} ${h.nom||'Cheval '+h.numero}${tieTag}</div>
-          <div class="analyse-sub">cote ${h.cote??'—'} · ${h.driver||'—'} <span style="margin-left:4px">${h.avis===1?'🟢':h.avis===-1?'🔴':'🟡'}</span></div>
+          <div class="analyse-sub">cote ${h.cote??'—'} · ${h.driver||'—'} <span style="margin-left:4px">${h.avis===1?'🟢':h.avis===-1?'🔴':'🟡'}</span>${isGalop&&h.handicap_poids?'<span style="margin-left:6px;opacity:.7">⚖️ '+(h.handicap_poids/10).toFixed(1)+'kg</span>':''}</div>
           ${dw}
           ${miseBadge}
         </div>
@@ -729,7 +732,12 @@ async function chargerStats() {
 }
 function renderStats(nb, hist) {
   const n=hist.length, a1=n?Math.round(hist.filter(h=>h.top1_ok).length/n*100):0, a3=n?Math.round(hist.filter(h=>h.top3_ok).length/n*100):0;
-  const DIMS=[{l:'Forme / Musique',p:47,c:'var(--gold)'},{l:'Cote & marché',p:15,c:'#5c8c7a'},{l:'Adéquation course',p:16,c:'#8a6cbf'},{l:'Gains / Palmarès',p:15,c:'#5c8cbf'},{l:'Duo cheval/driver',p:7,c:'var(--copper)'},{l:'Historique',p:0,c:'#3a9162'}];
+  // Pondérations selon discipline courante
+  const lastVersion = notesPMUData?.version || '';
+  const isGalopStats = lastVersion.includes('galop');
+  const DIMS = isGalopStats
+    ? [{l:'Forme / Musique',p:33,c:'var(--gold)'},{l:'Gains / Palmarès',p:31,c:'#5c8cbf'},{l:'Cote & marché',p:15,c:'#5c8c7a'},{l:'Duo cheval/jockey',p:12,c:'var(--copper)'},{l:'Handicap poids',p:9,c:'#8a6cbf'},{l:'Historique',p:0,c:'#3a9162'}]
+    : [{l:'Forme / Musique',p:47,c:'var(--gold)'},{l:'Cote & marché',p:15,c:'#5c8c7a'},{l:'Adéquation course',p:16,c:'#8a6cbf'},{l:'Gains / Palmarès',p:15,c:'#5c8cbf'},{l:'Duo cheval/driver',p:7,c:'var(--copper)'},{l:'Historique',p:0,c:'#3a9162'}];
   document.getElementById('stats-content').innerHTML=`
     <div class="section-title">Base de données</div>
     <div class="kpi-grid fade-in">

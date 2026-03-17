@@ -576,10 +576,13 @@ function renderSelections(data, pmuMap) {
   if (selIsPlat) {
     selCoteMin=1; selCoteMax=4; selFourchette='1→4'; selTypePari='SG';
   } else if (selIsHaie) {
-    selCoteMin=4; selCoteMax=8; selFourchette='4→8'; selTypePari='SP';
+    selCoteMin=4; selCoteMax=8; selFourchette='4→8'; selTypePari='SG';
   } else if (!selIsGalop) {
-    // ATTELE : SG modèle=favori cote 3→6
-    selCoteMin=3; selCoteMax=6; selFourchette='3→6'; selTypePari='SG';
+    // ATTELE : SG top1=favori cote 3→5
+    selCoteMin=3; selCoteMax=5; selFourchette='3→5'; selTypePari='SG';
+  } else {
+    // MONTE : SG top1 cote 2→4
+    selCoteMin=2; selCoteMax=4; selFourchette='2→4'; selTypePari='SG';
   }
   // Tri par note_pmu puis départage par scores XGBoost
   function scoreDepart(h) {
@@ -613,29 +616,27 @@ function renderSelections(data, pmuMap) {
   }
   // Cheval à miser selon stratégie par discipline
   let miseSel = null;
+  const minCoteSel = Math.min(...sorted.map(x => x.cote ?? pmuMap[x.numero]?.cote ?? 99));
   if (selIsPlat) {
     // PLAT : SG top1 cote 1→4
     const h = sorted[0];
     const cote = h?.cote ?? pmuMap[h?.numero]?.cote ?? 0;
     if (h && cote >= 1 && cote <= 4) miseSel = h.numero;
   } else if (selIsHaie) {
-    // HAIE : SP top5 cote 4→8
-    for (let i=0; i<Math.min(5, sorted.length); i++) {
-      const cote = sorted[i].cote ?? pmuMap[sorted[i].numero]?.cote ?? 0;
-      if (cote >= 4 && cote <= 8) { miseSel = sorted[i].numero; break; }
-    }
-  } else if (!selIsGalop) {
-    // ATTELE : SG top1 si =favori ET cote 3→6
+    // HAIE : SG top1 cote 4→8
     const h = sorted[0];
     const cote = h?.cote ?? pmuMap[h?.numero]?.cote ?? 0;
-    const minCote = Math.min(...sorted.map(x => x.cote ?? pmuMap[x.numero]?.cote ?? 99));
-    if (h && cote >= 3 && cote <= 6 && Math.abs(cote - minCote) < 0.1) miseSel = h.numero;
+    if (h && cote >= 4 && cote <= 8) miseSel = h.numero;
+  } else if (!selIsGalop) {
+    // ATTELE : SG top1=favori ET cote 3→5
+    const h = sorted[0];
+    const cote = h?.cote ?? pmuMap[h?.numero]?.cote ?? 0;
+    if (h && cote >= 3 && cote <= 5 && Math.abs(cote - minCoteSel) < 0.1) miseSel = h.numero;
   } else {
-    // MONTE/autres : SP top5 cote 4→10
-    for (let i=0; i<Math.min(5, sorted.length); i++) {
-      const cote = sorted[i].cote ?? pmuMap[sorted[i].numero]?.cote ?? 0;
-      if (cote >= 4 && cote <= 10) { miseSel = sorted[i].numero; break; }
-    }
+    // MONTE : SG top1 cote 2→4
+    const h = sorted[0];
+    const cote = h?.cote ?? pmuMap[h?.numero]?.cote ?? 0;
+    if (h && cote >= 2 && cote <= 4) miseSel = h.numero;
   }
   const wc=sorted.map((h,i)=>({...h, nom:pmuMap[h.numero]?.nom||'',
     confiance: probaSum>0 ? Math.round(h.proba_absolu/probaSum*1000)/10 : 0,
@@ -733,37 +734,32 @@ function renderAnalyse(data) {
   let typePariBest = 'SP';  // SP=Simple Placé, SG=Simple Gagnant
   let fourchetteLabel = '4→10';
 
+  const minCoteAnalyse = Math.min(...liste.map(h => h.cote ?? 99));
   if (isPlat) {
     // PLAT : SG top1 cote 1→4
     typePariBest = 'SG'; fourchetteLabel = '1→4';
     const h = liste[0];
     if (h && (h.cote ?? 0) >= 1 && (h.cote ?? 0) <= 4) misePlacea = h.numero;
   } else if (isHaie) {
-    // HAIE : SP top5 cote 4→8
-    typePariBest = 'SP'; fourchetteLabel = '4→8';
-    for (let i=0; i<Math.min(5, liste.length); i++) {
-      const cote = liste[i].cote ?? 0;
-      if (cote >= 4 && cote <= 8) { misePlacea = liste[i].numero; break; }
-    }
+    // HAIE : SG top1 cote 4→8
+    typePariBest = 'SG'; fourchetteLabel = '4→8';
+    const h = liste[0];
+    if (h && (h.cote ?? 0) >= 4 && (h.cote ?? 0) <= 8) misePlacea = h.numero;
   } else if (!isGalop) {
-    // ATTELE : SG si modèle=favori marché ET cote 3→6
-    typePariBest = 'SG'; fourchetteLabel = '3→6';
+    // ATTELE : SG top1=favori marché ET cote 3→5
+    typePariBest = 'SG'; fourchetteLabel = '3→5';
     const top1 = liste[0];
     if (top1) {
       const cote = top1.cote ?? 0;
-      // Vérifier si top1 est aussi le favori (cote la plus basse)
-      const minCote = Math.min(...liste.map(h => h.cote ?? 99));
-      if (cote >= 3 && cote <= 6 && Math.abs(cote - minCote) < 0.1) {
+      if (cote >= 3 && cote <= 5 && Math.abs(cote - minCoteAnalyse) < 0.1) {
         misePlacea = top1.numero;
       }
     }
   } else {
-    // MONTE/autres galop : SP top5 cote 4→10
-    typePariBest = 'SP'; fourchetteLabel = '4→10';
-    for (let i=0; i<Math.min(5, liste.length); i++) {
-      const cote = liste[i].cote ?? 0;
-      if (cote >= 4 && cote <= 10) { misePlacea = liste[i].numero; break; }
-    }
+    // MONTE : SG top1 cote 2→4
+    typePariBest = 'SG'; fourchetteLabel = '2→4';
+    const h = liste[0];
+    if (h && (h.cote ?? 0) >= 2 && (h.cote ?? 0) <= 4) misePlacea = h.numero;
   }
 
   const cards=liste.map((h,i)=>{

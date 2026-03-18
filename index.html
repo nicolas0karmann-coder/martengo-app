@@ -827,9 +827,27 @@ function renderAnalyse(data) {
 // ── Dashboard Journée ──
 let dashboardCharge = false;
 
+let dashSortMode = 'reunion'; // 'reunion' ou 'heure'
+let wakeLock = null;
+
+async function acquireWakeLock() {
+  if ('wakeLock' in navigator) {
+    try { wakeLock = await navigator.wakeLock.request('screen'); } catch(e) {}
+  }
+}
+async function releaseWakeLock() {
+  if (wakeLock) { try { await wakeLock.release(); wakeLock = null; } catch(e) {} }
+}
+
+function toggleDashSort() {
+  dashSortMode = dashSortMode === 'reunion' ? 'heure' : 'reunion';
+  chargerDashboard();
+}
+
 async function chargerDashboard() {
   const el = document.getElementById('dashboard-content');
   el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement journée…</span></div>';
+  await acquireWakeLock();
   const today = new Date();
   const pad = n => String(n).padStart(2,'0');
   const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
@@ -888,39 +906,71 @@ async function chargerDashboard() {
       }));
     }
 
-    // Grouper par réunion
-    const byR = {};
-    for (const co of courses) {
-      if (!byR[co.r]) byR[co.r] = {lieu: co.lieu, courses:[]};
-      byR[co.r].courses.push(co);
-    }
+    await releaseWakeLock();
 
-    let html = `<div class="dash-refresh"><span>📋 ${courses.length} courses · ${dateGeny}</span><button onclick="dashboardCharge=false;chargerDashboard()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺ Actualiser</button></div>`;
+    // Fonction rendu d'une ligne
+    const renderRow = (co, d) => {
+      const disc = co.disc;
+      const discNorm = disc==='TROT_ATTELE'?'ATTELE':disc;
+      const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
+      if (!d?.chevaux?.length) {
+        return `<div class="dash-row" onclick="${onclick}"><div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div><div><div class="dash-cheval" style="color:var(--text-dim)">Non disponible</div><div class="dash-disc">${DISC_LABELS[disc]||disc} · ${co.dist}m</div></div><div><div class="dash-signal skip">⛔ SKIP</div></div></div>`;
+      }
+      const top1 = d.chevaux[0];
+      const cote = top1.cote ?? 0;
+      const minCote = Math.min(...d.chevaux.map(h=>h.cote??99));
+      const estFavori = Math.abs(cote-minCote) < 0.1;
+      const signal = getSignal(disc, cote, estFavori);
+      const coteEnZoneJaune = (discNorm==='PLAT'&&cote>=1&&cote<=6) ||
+                               (discNorm==='HAIE'&&cote>=3&&cote<=10) ||
+                               (discNorm==='MONTE'&&cote>=2&&cote<=6) ||
+                               ((discNorm==='ATTELE')&&cote>=2&&cote<=7);
+      const signalFinal = signal==='go' ? 'go' : coteEnZoneJaune ? 'watch' : 'skip';
+      const signalTxt = signalFinal==='go' ? `💰 ${getPariLabel(discNorm)}` : signalFinal==='watch' ? '👁 SURVEILLER' : '⛔ SKIP';
+      const coteColor = signalFinal==='go'?'#3a9162':signalFinal==='watch'?'var(--gold)':'var(--text-mid)';
+      return `<div class="dash-row" onclick="${onclick}">
+        <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
+        <div><div class="dash-cheval">#${top1.numero} ${top1.nom||''}</div><div class="dash-disc">${DISC_LABELS[disc]||disc} · ${co.dist}m${estFavori?' ⭐':''}</div></div>
+        <div style="text-align:right"><div class="dash-cote" style="color:${coteColor}">${cote?cote.toFixed(1):'—'}</div><div class="dash-signal ${signalFinal}">${signalTxt}</div></div>
+      </div>`;
+    };
 
-    for (const [rNum, rd] of Object.entries(byR)) {
-      html += `<div class="dash-reunion">R${rNum} · ${rd.lieu}</div>`;
-      for (const co of rd.courses) {
-        const d = allResults[`${co.r}-${co.c}`];
-        const disc = co.disc;
-        if (!d?.chevaux?.length) {
-          html += `<div class="dash-row"><div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div><div><div class="dash-cheval" style="color:var(--text-dim)">Non disponible</div><div class="dash-disc">${DISC_LABELS[disc]||disc} · ${co.dist}m</div></div><div><div class="dash-signal skip">SKIP</div></div></div>`;
-          continue;
+    const sortIcon = dashSortMode === 'reunion' ? '🏟 Réunion' : '🕐 Heure';
+    let html = `<div class="dash-refresh">
+      <span>📋 ${courses.length} courses · ${dateGeny}</span>
+      <div style="display:flex;gap:6px">
+        <button onclick="toggleDashSort()" style="background:none;border:1px solid var(--gold);color:var(--gold);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">${sortIcon}</button>
+        <button onclick="dashboardCharge=false;chargerDashboard()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
+      </div>
+    </div>`;
+
+    if (dashSortMode === 'heure') {
+      // Tri par heure
+      const sorted = [...courses].sort((a,b) => a.heure.localeCompare(b.heure));
+      let lastHeure = '';
+      for (const co of sorted) {
+        const h = co.heure.substring(0,5);
+        if (h !== lastHeure) {
+          html += `<div class="dash-reunion">🕐 ${h}</div>`;
+          lastHeure = h;
         }
-        const top1 = d.chevaux[0];
-        const cote = top1.cote ?? 0;
-        const minCote = Math.min(...d.chevaux.map(h=>h.cote??99));
-        const estFavori = Math.abs(cote-minCote) < 0.1;
-        const signal = getSignal(disc, cote, estFavori);
-        const discNorm = disc==='TROT_ATTELE'?'ATTELE':disc;
-        const signalTxt = signal==='go' ? `💰 ${getPariLabel(discNorm)}` : signal==='watch' ? '👁 SURVEILLER' : '⛔ SKIP';
-        const coteColor = signal==='go'?'#3a9162':cote>=3&&cote<=8?'var(--gold)':'var(--text-mid)';
-        html += `<div class="dash-row" onclick="goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)">
-          <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
-          <div><div class="dash-cheval">#${top1.numero} ${top1.nom||''}</div><div class="dash-disc">${DISC_LABELS[disc]||disc} · ${co.dist}m${estFavori?' · ⭐FAV':''}</div></div>
-          <div style="text-align:right"><div class="dash-cote" style="color:${coteColor}">${cote?cote.toFixed(1):'—'}</div><div class="dash-signal ${signal}">${signalTxt}</div></div>
-        </div>`;
+        html += renderRow(co, allResults[`${co.r}-${co.c}`]);
+      }
+    } else {
+      // Grouper par réunion
+      const byR = {};
+      for (const co of courses) {
+        if (!byR[co.r]) byR[co.r] = {lieu: co.lieu, courses:[]};
+        byR[co.r].courses.push(co);
+      }
+      for (const [rNum, rd] of Object.entries(byR)) {
+        html += `<div class="dash-reunion">R${rNum} · ${rd.lieu}</div>`;
+        for (const co of rd.courses) {
+          html += renderRow(co, allResults[`${co.r}-${co.c}`]);
+        }
       }
     }
+
     el.innerHTML = html;
     dashboardCharge = true;
   } catch(e) {

@@ -28,18 +28,21 @@ html,body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;f
 #app{max-width:480px;margin:0 auto;padding-top:var(--safe-top);padding-bottom:calc(var(--safe-bot) + 76px)}
 #app::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:.6}
 
-.dash-row{display:grid;grid-template-columns:60px 1fr auto;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s}
+.dash-row{display:grid;grid-template-columns:48px 1fr 72px;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;min-width:0}
 .dash-row:hover{background:var(--bg2)}
-.dash-course{font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);letter-spacing:1px}
-.dash-cheval{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dash-disc{font-size:9px;color:var(--text-dim);margin-top:1px}
-.dash-cote{font-family:'Space Mono',monospace;font-size:12px;font-weight:700;text-align:right}
-.dash-signal{font-size:9px;font-weight:700;letter-spacing:1px;padding:3px 7px;border-radius:4px;white-space:nowrap;margin-top:3px;text-align:right}
+.dash-course{font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);letter-spacing:0.5px}
+.dash-cheval{font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.dash-disc{font-size:8px;color:var(--text-dim);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-cote{font-family:'Space Mono',monospace;font-size:11px;font-weight:700;text-align:right}
+.dash-signal{font-size:8px;font-weight:700;letter-spacing:0.5px;padding:2px 5px;border-radius:4px;white-space:nowrap;margin-top:3px;text-align:right;overflow:hidden;text-overflow:ellipsis}
 .dash-signal.go{background:rgba(58,145,98,.2);color:#3a9162;border:1px solid rgba(58,145,98,.4)}
 .dash-signal.watch{background:rgba(200,148,42,.12);color:var(--gold);border:1px solid rgba(200,148,42,.3)}
 .dash-signal.skip{background:var(--bg3);color:var(--text-dim);border:1px solid var(--border)}
-.dash-reunion{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:2px;color:var(--gold);padding:8px 14px 4px;border-bottom:1px solid var(--border);background:var(--bg2)}
-.dash-refresh{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);border-bottom:1px solid var(--border)}
+.dash-reunion{font-family:'Bebas Neue',sans-serif;font-size:12px;letter-spacing:2px;color:var(--gold);padding:6px 12px 3px;border-bottom:1px solid var(--border);background:var(--bg2)}
+.dash-refresh{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border)}
+.dash-progress{padding:12px 14px;font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)}
+.dash-progress-bar{height:3px;background:var(--border);border-radius:2px;margin-top:6px;overflow:hidden}
+.dash-progress-fill{height:100%;background:var(--gold);border-radius:2px;transition:width .3s}
 .header{display:flex;align-items:flex-end;justify-content:space-between;padding:20px 20px 14px;border-bottom:1px solid var(--border);position:relative}
 .header::after{content:'';position:absolute;bottom:0;left:20px;right:20px;height:1px;background:linear-gradient(90deg,var(--gold) 0%,transparent 60%);opacity:.4}
 .header-brand{display:flex;flex-direction:column;gap:2px}
@@ -860,14 +863,28 @@ async function chargerDashboard() {
     }));
     if (!courses.length) { el.innerHTML='<div class="empty"><div class="empty-icon">📋</div>Aucune course aujourd\'hui</div>'; return; }
 
-    // Charger les notes en parallèle par chunks de 5
+    // Charger les notes avec barre de progression
     const allResults = {};
+    const total = courses.length;
+    let loaded = 0;
+
+    const updateProgress = () => {
+      const pct = Math.round(loaded/total*100);
+      el.innerHTML = `<div class="dash-progress">
+        Chargement des notes… ${loaded}/${total} courses (${pct}%)
+        <div class="dash-progress-bar"><div class="dash-progress-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    };
+    updateProgress();
+
     for (let i=0; i<courses.length; i+=5) {
       await Promise.all(courses.slice(i,i+5).map(async co => {
         try {
           const r = await fetch(`${API_URL}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
           if (r.ok) allResults[`${co.r}-${co.c}`] = await r.json();
         } catch(e) {}
+        loaded++;
+        updateProgress();
       }));
     }
 

@@ -913,8 +913,36 @@ async function chargerDashboard() {
     el.innerHTML = html;
     dashboardCharge = true;
   } catch(e) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Erreur<br><small>${e.message}</small><br><button class="btn secondary" onclick="chargerDashboard()" style="margin-top:12px;font-size:10px">↺ Réessayer</button></div>`;
+    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Erreur : ${e.message}<br>
+    <button class="btn secondary" onclick="chargerDashboard()" style="margin-top:12px;font-size:10px">↺ Réessayer</button>
+    <button class="btn secondary" onclick="testerConnexion()" style="margin-top:8px;font-size:10px">🔍 Diagnostiquer</button>
+    </div>`;
   }
+}
+
+async function testerConnexion() {
+  const el = document.getElementById('dashboard-content');
+  el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Diagnostic…</span></div>';
+  let html = '<div style="padding:14px;font-family:Space Mono,monospace;font-size:10px;line-height:2">';
+  // Test API Martengo
+  try {
+    const r = await fetch(API_URL + '/health', {signal: AbortSignal.timeout(8000)});
+    html += '<div style="color:#3a9162">✅ API Martengo OK (' + r.status + ')</div>';
+  } catch(e) {
+    html += '<div style="color:#8c3a3a">❌ API Martengo : ' + e.message + '</div>';
+  }
+  // Test API PMU
+  try {
+    const today = new Date();
+    const pad = n => String(n).padStart(2,'0');
+    const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
+    const r = await fetch('https://offline.turfinfo.api.pmu.fr/rest/client/7/programme/' + dateStr, {signal: AbortSignal.timeout(8000)});
+    html += '<div style="color:#3a9162">✅ API PMU OK (' + r.status + ')</div>';
+  } catch(e) {
+    html += '<div style="color:#8c3a3a">❌ API PMU : ' + e.message + '</div>';
+  }
+  html += '</div><div style="padding:0 14px"><button class="btn full" onclick="chargerDashboard()" style="font-size:11px">↺ Réessayer dashboard</button></div>';
+  el.innerHTML = html;
 }
 
 // ── Stats ──

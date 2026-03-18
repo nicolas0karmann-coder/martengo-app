@@ -304,7 +304,11 @@ input[readonly]{opacity:.5;cursor:default}
     <!-- DASHBOARD -->
     <div class="screen" id="screen-dashboard">
       <div id="dashboard-content">
-        <div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement…</span></div>
+        <div class="empty">
+          <div class="empty-icon">📋</div>
+          Vue de toutes les courses du jour<br>
+          <button class="btn full" onclick="chargerDashboard()" style="margin-top:16px;font-size:11px">Charger la journée →</button>
+        </div>
       </div>
     </div>
 
@@ -371,7 +375,7 @@ function goTo(screen) {
   document.getElementById('tab-'+screen).classList.add('active');
   currentScreen = screen;
   if (screen === 'stats') { chargerStats(); document.getElementById('badge-stats').classList.remove('show'); }
-  if (screen === 'dashboard') { chargerDashboard(); document.getElementById('badge-dashboard').classList.remove('show'); }
+  if (screen === 'dashboard') { document.getElementById('badge-dashboard').classList.remove('show'); }
 }
 function setBadge(show) { document.getElementById('badge-stats').classList.toggle('show', show && currentScreen !== 'stats'); }
 

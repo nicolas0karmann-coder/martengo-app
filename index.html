@@ -28,6 +28,18 @@ html,body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;f
 #app{max-width:480px;margin:0 auto;padding-top:var(--safe-top);padding-bottom:calc(var(--safe-bot) + 76px)}
 #app::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:.6}
 
+.dash-row{display:grid;grid-template-columns:60px 1fr auto;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s}
+.dash-row:hover{background:var(--bg2)}
+.dash-course{font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);letter-spacing:1px}
+.dash-cheval{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dash-disc{font-size:9px;color:var(--text-dim);margin-top:1px}
+.dash-cote{font-family:'Space Mono',monospace;font-size:12px;font-weight:700;text-align:right}
+.dash-signal{font-size:9px;font-weight:700;letter-spacing:1px;padding:3px 7px;border-radius:4px;white-space:nowrap;margin-top:3px;text-align:right}
+.dash-signal.go{background:rgba(58,145,98,.2);color:#3a9162;border:1px solid rgba(58,145,98,.4)}
+.dash-signal.watch{background:rgba(200,148,42,.12);color:var(--gold);border:1px solid rgba(200,148,42,.3)}
+.dash-signal.skip{background:var(--bg3);color:var(--text-dim);border:1px solid var(--border)}
+.dash-reunion{font-family:'Bebas Neue',sans-serif;font-size:13px;letter-spacing:2px;color:var(--gold);padding:8px 14px 4px;border-bottom:1px solid var(--border);background:var(--bg2)}
+.dash-refresh{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);border-bottom:1px solid var(--border)}
 .header{display:flex;align-items:flex-end;justify-content:space-between;padding:20px 20px 14px;border-bottom:1px solid var(--border);position:relative}
 .header::after{content:'';position:absolute;bottom:0;left:20px;right:20px;height:1px;background:linear-gradient(90deg,var(--gold) 0%,transparent 60%);opacity:.4}
 .header-brand{display:flex;flex-direction:column;gap:2px}
@@ -210,10 +222,11 @@ input[readonly]{opacity:.5;cursor:default}
     </div>
   </div>
 
-  <nav class="nav">
+  <nav class="nav" style="grid-template-columns:repeat(5,1fr)">
     <button class="nav-btn active" onclick="goTo('saisie')" id="tab-saisie"><span class="nav-icon">✏️</span>Saisie</button>
-    <button class="nav-btn" onclick="goTo('selections')" id="tab-selections"><span class="nav-icon">🎯</span>Sélections</button>
+    <button class="nav-btn" onclick="goTo('selections')" id="tab-selections"><span class="nav-icon">🎯</span>Sélect.</button>
     <button class="nav-btn" onclick="goTo('analyse')" id="tab-analyse"><span class="nav-icon">🔬</span>Analyse</button>
+    <button class="nav-btn" onclick="goTo('dashboard')" id="tab-dashboard"><span class="nav-icon">📋</span>Journée<span class="nav-badge" id="badge-dashboard"></span></button>
     <button class="nav-btn" onclick="goTo('stats')" id="tab-stats">
       <span class="nav-icon">📊</span>Stats
       <span class="nav-badge" id="badge-stats"></span>
@@ -288,6 +301,13 @@ input[readonly]{opacity:.5;cursor:default}
     </div>
 
     <!-- STATS + RÉSULTATS -->
+    <!-- DASHBOARD -->
+    <div class="screen" id="screen-dashboard">
+      <div id="dashboard-content">
+        <div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement…</span></div>
+      </div>
+    </div>
+
     <div class="screen" id="screen-stats">
       <div id="stats-content">
         <div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement…</span></div>
@@ -304,7 +324,7 @@ input[readonly]{opacity:.5;cursor:default}
 <script>
 const API_URL = "https://martengo-api-v5.onrender.com";
 const LS_SAISIE = 'martengo_v3', LS_HIST = 'martengo_hist';
-const SCREENS = ['saisie','selections','analyse','stats'];
+const SCREENS = ['saisie','selections','analyse','dashboard','stats'];
 
 let chevaux = [], predictions = null, notesPMU = {}, notesPMUData = null;
 let currentDate = '', horseCounter = 0, apiPrete = false, currentScreen = 'saisie';
@@ -351,6 +371,7 @@ function goTo(screen) {
   document.getElementById('tab-'+screen).classList.add('active');
   currentScreen = screen;
   if (screen === 'stats') { chargerStats(); document.getElementById('badge-stats').classList.remove('show'); }
+  if (screen === 'dashboard') { chargerDashboard(); document.getElementById('badge-dashboard').classList.remove('show'); }
 }
 function setBadge(show) { document.getElementById('badge-stats').classList.toggle('show', show && currentScreen !== 'stats'); }
 
@@ -794,6 +815,102 @@ function renderAnalyse(data) {
     ? `<div style="background:rgba(58,145,98,.12);border:1px solid rgba(58,145,98,.4);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-family:monospace;font-size:10px;color:#3a9162;letter-spacing:1px">💰 ${typePariBest==='SG'?'SIMPLE GAGNANT':'SIMPLE PLACÉ'} RECOMMANDÉ → Cheval <strong>#${misePlacea}</strong> · cote ${liste.find(h=>h.numero===misePlacea)?.cote??'—'} · fourchette ${fourchetteLabel}</div>`
     : `<div style="background:rgba(100,100,100,.08);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-family:monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px">⛔ Aucun cheval dans la fourchette cote ${fourchetteLabel}</div>`;
   document.getElementById('analyse-content').innerHTML=`<div class="pred-meta fade-in">${liste.length} chevaux · ${data.date||currentDate||''} <span class="version-badge">${version}</span></div>${miseBannerHtml}${cards}`;
+}
+
+// ── Dashboard Journée ──
+let dashboardCharge = false;
+
+async function chargerDashboard() {
+  const el = document.getElementById('dashboard-content');
+  el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement journée…</span></div>';
+  const today = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
+  const dateGeny = today.getFullYear() + '-' + pad(today.getMonth()+1) + '-' + pad(today.getDate());
+  const DISC_LABELS = {'TROT_ATTELE':'ATTELÉ','ATTELE':'ATTELÉ','PLAT':'PLAT','HAIE':'HAIE','MONTE':'MONTÉ','STEEPLECHASE':'STEEPLE','CROSS':'CROSS'};
+
+  function getSignal(disc, cote, estFavori) {
+    if (disc==='PLAT' && cote>=1 && cote<=4) return 'go';
+    if (disc==='HAIE' && cote>=4 && cote<=8) return 'go';
+    if (disc==='MONTE' && cote>=2 && cote<=4) return 'go';
+    if ((disc==='ATTELE'||disc==='TROT_ATTELE') && cote>=3 && cote<=5 && estFavori) return 'go';
+    if (cote>0) return 'watch';
+    return 'skip';
+  }
+  function getPariLabel(disc) {
+    if (disc==='HAIE') return 'SG 4→8';
+    if (disc==='PLAT') return 'SG 1→4';
+    if (disc==='MONTE') return 'SG 2→4';
+    return 'SG 3→5★';
+  }
+
+  try {
+    const resp = await fetch(`https://offline.turfinfo.api.pmu.fr/rest/client/7/programme/${dateStr}`);
+    if (!resp.ok) throw new Error('Programme indisponible');
+    const data = await resp.json();
+    const reunions = data?.programme?.reunions || [];
+    const courses = [];
+    for (const reunion of reunions) {
+      const r = reunion.numOfficiel || reunion.numReunion;
+      const lieu = reunion.hippodrome?.libelleCourt || reunion.hippodrome?.libelleLong || '';
+      for (const course of (reunion.courses||[])) {
+        const c = course.numOrdre || course.numExterne;
+        const disc = course.discipline || '';
+        const heure = course.heureDepart ? new Date(course.heureDepart).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '—';
+        courses.push({r, c, disc, dist: course.distance||0, lieu, heure});
+      }
+    }
+    if (!courses.length) { el.innerHTML='<div class="empty"><div class="empty-icon">📋</div>Aucune course aujourd\'hui</div>'; return; }
+
+    // Charger les notes en parallèle par chunks de 5
+    const allResults = {};
+    for (let i=0; i<courses.length; i+=5) {
+      await Promise.all(courses.slice(i,i+5).map(async co => {
+        try {
+          const r = await fetch(`${API_URL}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
+          if (r.ok) allResults[`${co.r}-${co.c}`] = await r.json();
+        } catch(e) {}
+      }));
+    }
+
+    // Grouper par réunion
+    const byR = {};
+    for (const co of courses) {
+      if (!byR[co.r]) byR[co.r] = {lieu: co.lieu, courses:[]};
+      byR[co.r].courses.push(co);
+    }
+
+    let html = `<div class="dash-refresh"><span>📋 ${courses.length} courses · ${dateGeny}</span><button onclick="dashboardCharge=false;chargerDashboard()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺ Actualiser</button></div>`;
+
+    for (const [rNum, rd] of Object.entries(byR)) {
+      html += `<div class="dash-reunion">R${rNum} · ${rd.lieu}</div>`;
+      for (const co of rd.courses) {
+        const d = allResults[`${co.r}-${co.c}`];
+        const disc = co.disc;
+        if (!d?.chevaux?.length) {
+          html += `<div class="dash-row"><div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div><div><div class="dash-cheval" style="color:var(--text-dim)">Non disponible</div><div class="dash-disc">${DISC_LABELS[disc]||disc} · ${co.dist}m</div></div><div><div class="dash-signal skip">SKIP</div></div></div>`;
+          continue;
+        }
+        const top1 = d.chevaux[0];
+        const cote = top1.cote ?? 0;
+        const minCote = Math.min(...d.chevaux.map(h=>h.cote??99));
+        const estFavori = Math.abs(cote-minCote) < 0.1;
+        const signal = getSignal(disc, cote, estFavori);
+        const discNorm = disc==='TROT_ATTELE'?'ATTELE':disc;
+        const signalTxt = signal==='go' ? `💰 ${getPariLabel(discNorm)}` : signal==='watch' ? '👁 SURVEILLER' : '⛔ SKIP';
+        const coteColor = signal==='go'?'#3a9162':cote>=3&&cote<=8?'var(--gold)':'var(--text-mid)';
+        html += `<div class="dash-row" onclick="goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)">
+          <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
+          <div><div class="dash-cheval">#${top1.numero} ${top1.nom||''}</div><div class="dash-disc">${DISC_LABELS[disc]||disc} · ${co.dist}m${estFavori?' · ⭐FAV':''}</div></div>
+          <div style="text-align:right"><div class="dash-cote" style="color:${coteColor}">${cote?cote.toFixed(1):'—'}</div><div class="dash-signal ${signal}">${signalTxt}</div></div>
+        </div>`;
+      }
+    }
+    el.innerHTML = html;
+    dashboardCharge = true;
+  } catch(e) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Erreur<br><small>${e.message}</small><br><button class="btn secondary" onclick="chargerDashboard()" style="margin-top:12px;font-size:10px">↺ Réessayer</button></div>`;
+  }
 }
 
 // ── Stats ──

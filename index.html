@@ -849,21 +849,15 @@ async function chargerDashboard() {
   }
 
   try {
-    const resp = await fetch(`https://offline.turfinfo.api.pmu.fr/rest/client/7/programme/${dateStr}`);
-    if (!resp.ok) throw new Error('Programme indisponible');
+    // Via notre proxy API pour éviter les problèmes CORS
+    const resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
+    if (!resp.ok) throw new Error('Programme indisponible (' + resp.status + ')');
     const data = await resp.json();
-    const reunions = data?.programme?.reunions || [];
-    const courses = [];
-    for (const reunion of reunions) {
-      const r = reunion.numOfficiel || reunion.numReunion;
-      const lieu = reunion.hippodrome?.libelleCourt || reunion.hippodrome?.libelleLong || '';
-      for (const course of (reunion.courses||[])) {
-        const c = course.numOrdre || course.numExterne;
-        const disc = course.discipline || '';
-        const heure = course.heureDepart ? new Date(course.heureDepart).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '—';
-        courses.push({r, c, disc, dist: course.distance||0, lieu, heure});
-      }
-    }
+    if (data.error) throw new Error(data.error);
+    const courses = (data.courses || []).map(c => ({
+      r: c.r_num, c: c.c_num, disc: c.disc,
+      dist: c.dist, lieu: c.lieu, heure: c.heure
+    }));
     if (!courses.length) { el.innerHTML='<div class="empty"><div class="empty-icon">📋</div>Aucune course aujourd\'hui</div>'; return; }
 
     // Charger les notes en parallèle par chunks de 5
@@ -931,15 +925,16 @@ async function testerConnexion() {
   } catch(e) {
     html += '<div style="color:#8c3a3a">❌ API Martengo : ' + e.message + '</div>';
   }
-  // Test API PMU
+  // Test proxy /programme
   try {
     const today = new Date();
     const pad = n => String(n).padStart(2,'0');
     const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
-    const r = await fetch('https://offline.turfinfo.api.pmu.fr/rest/client/7/programme/' + dateStr, {signal: AbortSignal.timeout(8000)});
-    html += '<div style="color:#3a9162">✅ API PMU OK (' + r.status + ')</div>';
+    const r = await fetch(API_URL + '/programme?date=' + dateStr, {signal: AbortSignal.timeout(10000)});
+    const d = await r.json();
+    html += '<div style="color:#3a9162">✅ Proxy programme OK → ' + (d.courses||[]).length + ' courses</div>';
   } catch(e) {
-    html += '<div style="color:#8c3a3a">❌ API PMU : ' + e.message + '</div>';
+    html += '<div style="color:#8c3a3a">❌ Proxy programme : ' + e.message + '</div>';
   }
   html += '</div><div style="padding:0 14px"><button class="btn full" onclick="chargerDashboard()" style="font-size:11px">↺ Réessayer dashboard</button></div>';
   el.innerHTML = html;

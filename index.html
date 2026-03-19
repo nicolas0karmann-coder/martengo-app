@@ -630,9 +630,23 @@ function renderSelections(data, pmuMap) {
     if (b.note_pmu !== a.note_pmu) return b.note_pmu - a.note_pmu;
     return scoreDepart(b) - scoreDepart(a); // départage XGBoost si égalité
   });
-  // Confiance = part de proba_absolu normalisée sur tout le peloton
-  const probaSum=sorted.reduce((s,h)=>s+h.proba_absolu,0);
+  // ── Indice de confiance global (winner card uniquement) ──
+  // 60% note du leader (niveau absolu) + 40% écart note1 vs note2
   const probaMax=Math.max(...sorted.map(h=>h.proba_absolu));
+  const noteLeader = sorted[0]?.note_pmu ?? sorted[0]?.note ?? 0;
+  const note2nd    = sorted[1]?.note_pmu ?? sorted[1]?.note ?? 0;
+  const sNote  = (noteLeader - 1) / 19;
+  const sEcart = Math.min((noteLeader - note2nd) / 10, 1);
+  const indiceGlobal = Math.round((sNote * 0.60 + sEcart * 0.40) * 100);
+
+  // Couleur : alignement rang note leader vs rang cote dans le peloton
+  const cotesAll = sorted.map(h => h.rapport ?? h.cote ?? 99);
+  const coteLeader = sorted[0]?.rapport ?? sorted[0]?.cote ?? 99;
+  const rangCoteLeader = cotesAll.slice().sort((a,b)=>a-b).indexOf(coteLeader) + 1;
+  const ecartRang = Math.abs(1 - rangCoteLeader);
+  const confianceCouleur = ecartRang <= 1 ? '#3a9162' : ecartRang <= 4 ? '#c8942a' : '#c0392b';
+  const confianceLabel   = ecartRang <= 1 ? 'marché confirme' : ecartRang <= 4 ? 'légère divergence' : 'divergence marché';
+
   // Identifier le premier de chaque groupe d'égalité (seul à recevoir ⚡)
   const tieLeaders = new Set();
   let gi=0;
@@ -646,28 +660,23 @@ function renderSelections(data, pmuMap) {
   let miseSel = null;
   const minCoteSel = Math.min(...sorted.map(x => x.cote ?? pmuMap[x.numero]?.cote ?? 99));
   if (selIsPlat) {
-    // PLAT : SG top1 cote 1→4
     const h = sorted[0];
     const cote = h?.cote ?? pmuMap[h?.numero]?.cote ?? 0;
     if (h && cote >= 1 && cote <= 4) miseSel = h.numero;
   } else if (selIsHaie) {
-    // HAIE : SG top1 cote 4→8
     const h = sorted[0];
     const cote = h?.cote ?? pmuMap[h?.numero]?.cote ?? 0;
     if (h && cote >= 4 && cote <= 8) miseSel = h.numero;
   } else if (!selIsGalop) {
-    // ATTELE : SG top1=favori ET cote 3→5
     const h = sorted[0];
     const cote = h?.cote ?? pmuMap[h?.numero]?.cote ?? 0;
     if (h && cote >= 3 && cote <= 5 && Math.abs(cote - minCoteSel) < 0.1) miseSel = h.numero;
   } else {
-    // MONTE : SG top1 cote 2→4
     const h = sorted[0];
     const cote = h?.cote ?? pmuMap[h?.numero]?.cote ?? 0;
     if (h && cote >= 2 && cote <= 4) miseSel = h.numero;
   }
   const wc=sorted.map((h,i)=>({...h, nom:pmuMap[h.numero]?.nom||'',
-    confiance: probaSum>0 ? Math.round(h.proba_absolu/probaSum*1000)/10 : 0,
     barW: probaMax>0 ? Math.round(h.proba_absolu/probaMax*100) : 0,
     tieTag: tieLeaders.has(h.numero) ? '⚡' : ''
   }));
@@ -689,10 +698,6 @@ function renderSelections(data, pmuMap) {
         <div class="sel-cote">cote ${h.rapport} · note ${h.note}/20</div>
         <div class="sel-bar-track"><div class="${hl?'sel-bar-fill':'sel-bar-fill dim'}" style="width:${h.barW}%"></div></div>
       </div>
-      <div class="sel-conf" style="opacity:${hl?'1':'.4'}">
-        <div class="${hl?'sel-conf-val':'sel-conf-val dim'}">${h.confiance}%</div>
-        <div class="sel-conf-label">confiance</div>
-      </div>
     </div>`;
   }
   document.getElementById('selections-content').innerHTML=`
@@ -704,7 +709,10 @@ function renderSelections(data, pmuMap) {
         ${g.nom?`<div class="winner-name">${g.nom}</div>`:''}
         <div class="winner-note">Note ${g.note}/20 · Cote ${g.rapport}</div>
       </div>
-      <div class="winner-conf"><div class="winner-conf-val">${g.confiance}%</div><div class="winner-conf-label">confiance</div></div>
+      <div class="winner-conf">
+        <div class="winner-conf-val" style="color:${confianceCouleur}">${indiceGlobal}%</div>
+        <div class="winner-conf-label" style="color:${confianceCouleur};opacity:.8">${confianceLabel}</div>
+      </div>
     </div>
     <div class="section-title">Top 3</div>
     <div class="card">${wc.slice(0,3).map((h,i)=>row(h,i)).join('')}</div>

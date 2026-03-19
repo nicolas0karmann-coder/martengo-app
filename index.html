@@ -1029,19 +1029,19 @@ function renderStats(nb, hist) {
   const isPlatStats  = lastVersion.includes('plat');
   const isHaieStats  = lastVersion.includes('haie');
   const DIMS = isPlatStats
-    ? [{l:'Forme / Musique',p:36,c:'var(--gold)'},{l:'Gains / Palmarès',p:33,c:'#5c8cbf'},{l:'Jockey',p:21,c:'var(--copper)'},{l:'Cote & marché',p:15,c:'#5c8c7a'},{l:'Handicap poids',p:10,c:'#8a6cbf'},{l:'Historique',p:0,c:'#3a9162'}]
+    ? [{l:'Forme / Musique',p:36,c:'var(--gold)'},{l:'Gains / Palmarès',p:33,c:'#5c8cbf'},{l:'Jockey',p:21,c:'var(--copper)'},{l:'Cote & marché',p:15,c:'#5c8c7a'},{l:'Handicap poids',p:10,c:'#8a6cbf'}]
     : isHaieStats
-    ? [{l:'Gains / Palmarès',p:28,c:'#5c8cbf'},{l:'Forme / Musique',p:26,c:'var(--gold)'},{l:'Jockey obstacle',p:25,c:'var(--copper)'},{l:'Handicap poids',p:21,c:'#8a6cbf'},{l:'Cote & marché',p:15,c:'#5c8c7a'},{l:'Historique',p:0,c:'#3a9162'}]
+    ? [{l:'Gains / Palmarès',p:28,c:'#5c8cbf'},{l:'Forme / Musique',p:26,c:'var(--gold)'},{l:'Jockey obstacle',p:25,c:'var(--copper)'},{l:'Handicap poids',p:21,c:'#8a6cbf'},{l:'Cote & marché',p:15,c:'#5c8c7a'}]
     : isGalopStats
-    ? [{l:'Forme / Musique',p:33,c:'var(--gold)'},{l:'Gains / Palmarès',p:31,c:'#5c8cbf'},{l:'Cote & marché',p:15,c:'#5c8c7a'},{l:'Duo cheval/jockey',p:12,c:'var(--copper)'},{l:'Handicap poids',p:9,c:'#8a6cbf'},{l:'Historique',p:0,c:'#3a9162'}]
-    : [{l:'Forme / Musique',p:47,c:'var(--gold)'},{l:'Cote & marché',p:15,c:'#5c8c7a'},{l:'Adéquation course',p:16,c:'#8a6cbf'},{l:'Gains / Palmarès',p:15,c:'#5c8cbf'},{l:'Duo cheval/driver',p:7,c:'var(--copper)'},{l:'Historique',p:0,c:'#3a9162'}];
+    ? [{l:'Forme / Musique',p:33,c:'var(--gold)'},{l:'Gains / Palmarès',p:31,c:'#5c8cbf'},{l:'Cote & marché',p:15,c:'#5c8c7a'},{l:'Duo cheval/jockey',p:12,c:'var(--copper)'},{l:'Handicap poids',p:9,c:'#8a6cbf'}]
+    : [{l:'Forme / Musique',p:47,c:'var(--gold)'},{l:'Cote & marché',p:15,c:'#5c8c7a'},{l:'Adéquation course',p:16,c:'#8a6cbf'},{l:'Gains / Palmarès',p:15,c:'#5c8cbf'},{l:'Duo cheval/driver',p:7,c:'var(--copper)'}];
   document.getElementById('stats-content').innerHTML=`
     <div class="section-title">Base de données</div>
     <div class="kpi-grid fade-in">
       <div class="kpi accent"><div class="kpi-val">${nb.toLocaleString('fr')}</div><div class="kpi-label">Courses historique</div></div>
       <div class="kpi"><div class="kpi-val">${(nb*9).toLocaleString('fr')}</div><div class="kpi-label">Lignes estimées</div></div>
-      <div class="kpi"><div class="kpi-val">V6</div><div class="kpi-label">Version modèle</div></div>
-      <div class="kpi"><div class="kpi-val">6</div><div class="kpi-label">Dimensions</div></div>
+      <div class="kpi"><div class="kpi-val">V7</div><div class="kpi-label">Version modèle</div></div>
+      <div class="kpi"><div class="kpi-val">5</div><div class="kpi-label">Dimensions</div></div>
     </div>
     <div class="section-title">Précision locale</div>
     <div class="stat-block fade-in fd1">
@@ -1055,9 +1055,9 @@ function renderStats(nb, hist) {
       <div class="stat-block-title">Course courante (notes PMU)</div>
       ${buildDist()}
     </div>
-    <div class="section-title">Pondérations V6</div>
+    <div class="section-title">Pondérations V7</div>
     <div class="stat-block fade-in fd3">
-      <div class="stat-block-title">6 dimensions du score métier</div>
+      <div class="stat-block-title">5 dimensions du score métier</div>
       ${DIMS.map(d=>`<div class="acc-row"><div class="acc-label" style="width:120px;font-size:8px">${d.l}</div><div class="acc-track"><div class="acc-fill" style="width:${d.p*3.8}%;background:${d.c}"></div></div><div class="acc-pct" style="color:${d.c}">${d.p}%</div></div>`).join('')}
     </div>`;
   if (predictions&&chevaux.length>0) document.getElementById('result-section').style.display='block';

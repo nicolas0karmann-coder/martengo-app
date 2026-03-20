@@ -743,7 +743,7 @@ function renderAnalyse(data) {
   const isPlat = version.includes('plat');
   const isHaie = version.includes('haie');
   const DIMS = isPlat
-    ? [{k:'forme',l:'Forme',i:'🎵',c:'#c8942a',p:42},{k:'gains',l:'Gains',i:'💰',c:'#5c8cbf',p:38},{k:'jockey',l:'Jockey',i:'🏇',c:'#b5603a',p:24},{k:'handicap',l:'Handicap',i:'⚖️',c:'#8a6cbf',p:11}]
+    ? [{k:'forme',l:'Forme',i:'🎵',c:'#c8942a',p:42},{k:'adequation',l:'Adéquat.',i:'🎯',c:'#8a6cbf',p:20},{k:'jockey',l:'Jockey',i:'🏇',c:'#b5603a',p:19},{k:'gains',l:'Gains',i:'💰',c:'#5c8cbf',p:19}]
     : isHaie
     ? [{k:'gains',l:'Gains',i:'💰',c:'#5c8cbf',p:33},{k:'forme',l:'Forme',i:'🎵',c:'#c8942a',p:31},{k:'jockey',l:'Jockey',i:'🏇',c:'#b5603a',p:29},{k:'handicap',l:'Handicap',i:'⚖️',c:'#8a6cbf',p:25}]
     : isGalop
@@ -1027,7 +1027,7 @@ function renderStats(nb, hist) {
   const isPlatStats  = lastVersion.includes('plat');
   const isHaieStats  = lastVersion.includes('haie');
   const DIMS = isPlatStats
-    ? [{l:'Forme / Musique',p:42,c:'var(--gold)'},{l:'Gains / Palmarès',p:38,c:'#5c8cbf'},{l:'Jockey',p:24,c:'var(--copper)'},{l:'Handicap poids',p:11,c:'#8a6cbf'}]
+    ? [{l:'Forme / Musique',p:42,c:'var(--gold)'},{l:'Adéquation',p:20,c:'#8a6cbf'},{l:'Jockey',p:19,c:'var(--copper)'},{l:'Gains / Palmarès',p:19,c:'#5c8cbf'}]
     : isHaieStats
     ? [{l:'Gains / Palmarès',p:33,c:'#5c8cbf'},{l:'Forme / Musique',p:31,c:'var(--gold)'},{l:'Jockey obstacle',p:29,c:'var(--copper)'},{l:'Handicap poids',p:25,c:'#8a6cbf'}]
     : isGalopStats

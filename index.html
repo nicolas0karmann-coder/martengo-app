@@ -612,9 +612,9 @@ function renderSelections(data, pmuMap) {
     // MONTE : SG top1 cote 2→4
     selCoteMin=2; selCoteMax=4; selFourchette='2→4'; selTypePari='SG';
   }
-  // Tri par note_pmu puis départage par scores XGBoost
-  // Départage par proba_pmu (proba brute XGBoost) si égalité de note
-  const tous_enrichis = data.tous.map(h => ({
+  // Compatibilité : data.chevaux (V8) ou data.tous (ancien)
+  const source = data.chevaux || data.tous || [];
+  const tous_enrichis = source.map(h => ({
     ...h,
     scores: pmuMap[h.numero]?.scores || h.scores || {},
     note_pmu: pmuMap[h.numero]?.note_pmu ?? h.note_pmu,
@@ -627,7 +627,7 @@ function renderSelections(data, pmuMap) {
   });
   // ── Indice de confiance global (winner card uniquement) ──
   // 60% note du leader (niveau absolu) + 40% écart note1 vs note2
-  const probaMax=Math.max(...sorted.map(h=>h.proba_absolu));
+  const probaMax=Math.max(...sorted.map(h=>h.proba_pmu||0));
   const noteLeader = sorted[0]?.note_pmu ?? sorted[0]?.note ?? 0;
   const note2nd    = sorted[1]?.note_pmu ?? sorted[1]?.note ?? 0;
   // ── Indice de confiance winner (gagnant) ──
@@ -688,7 +688,7 @@ function renderSelections(data, pmuMap) {
     if (h && cote >= 2 && cote <= 4) miseSel = h.numero;
   }
   const wc=sorted.map((h,i)=>({...h, nom:pmuMap[h.numero]?.nom||'',
-    barW: probaMax>0 ? Math.round(h.proba_absolu/probaMax*100) : 0,
+    barW: probaMax>0 ? Math.round((h.proba_pmu||0)/probaMax*100) : 0,
     tieTag: tieLeaders.has(h.numero) ? '⚡' : ''
   }));
   const g=wc[0];
@@ -1165,7 +1165,7 @@ async function envoyerResultats() {
     const res=await resp.json();
     try {
       const hist=JSON.parse(localStorage.getItem(LS_HIST)||'[]');
-      const top=predictions?.tous?[...predictions.tous].sort((a,b)=>b.proba_absolu-a.proba_absolu)[0]:null;
+      const top=predictions?.chevaux?[...predictions.chevaux].sort((a,b)=>b.proba_pmu-a.proba_pmu)[0]:null;
       const gag=cr.find(c=>c.rang_arrivee===1);
       hist.push({date,top1_ok:!!(top&&gag&&top.numero===gag.numero),top3_ok:!!(top&&cr.filter(c=>c.rang_arrivee<=3).some(c=>c.numero===top.numero))});
       localStorage.setItem(LS_HIST,JSON.stringify(hist.slice(-200)));

@@ -727,15 +727,17 @@ function renderSelections(data, pmuMap) {
           <div class="winner-conf-label" style="color:${confianceCouleur};opacity:.8">${confianceLabel}</div>
         </div>
       </div>
-      <div class="winner-card fade-in" style="margin-bottom:0;border-color:rgba(181,96,58,.3)">
-        <div class="winner-num" style="color:var(--copper);border-color:rgba(181,96,58,.3)">${sorted.slice(0,3).map(h=>h.numero).join('-')}</div>
-        <div class="winner-info">
-          <div class="winner-label" style="color:var(--copper)">Top 3 estimé</div>
-          <div class="winner-note">#3 note ${note3rd}/20</div>
-        </div>
-        <div class="winner-conf">
-          <div class="winner-conf-val" style="color:${conf3Couleur}">${indiceTop3}%</div>
-          <div class="winner-conf-label" style="color:${conf3Couleur};opacity:.8">${conf3Label}</div>
+      <div class="winner-card fade-in" style="margin-bottom:0;border-color:rgba(181,96,58,.3);flex-direction:column;gap:8px;padding:14px">
+        <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
+          <div>
+            <div class="winner-label" style="color:var(--copper)">Top 3 estimé</div>
+            <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--text-mid);margin-top:2px">${sorted.slice(0,3).map(h=>`#${h.numero}`).join(' · ')}</div>
+            <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);margin-top:2px">#3 note ${note3rd}/20</div>
+          </div>
+          <div style="text-align:right">
+            <div class="winner-conf-val" style="color:${conf3Couleur}">${indiceTop3}%</div>
+            <div class="winner-conf-label" style="color:${conf3Couleur};opacity:.8">${conf3Label}</div>
+          </div>
         </div>
       </div>
     </div>

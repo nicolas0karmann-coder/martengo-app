@@ -613,22 +613,17 @@ function renderSelections(data, pmuMap) {
     selCoteMin=2; selCoteMax=4; selFourchette='2→4'; selTypePari='SG';
   }
   // Tri par note_pmu puis départage par scores XGBoost
-  function scoreDepart(h) {
-    const sc = pmuMap[h.numero]?.scores || h.scores || {};
-    if (selIsPlat)
-      return (sc.forme||0)*0.363 + (sc.gains||0)*0.329 + (sc.jockey||sc.duo||0)*0.211 + (sc.handicap||0)*0.097;
-    return (sc.forme||0)*0.553 + (sc.adequation||0)*0.187 + (sc.gains||0)*0.181 + (sc.duo||0)*0.079;
-  }
-  // Fusion : enrichir data.tous avec les scores de pmuMap avant le tri
+  // Départage par proba_pmu (proba brute XGBoost) si égalité de note
   const tous_enrichis = data.tous.map(h => ({
     ...h,
     scores: pmuMap[h.numero]?.scores || h.scores || {},
     note_pmu: pmuMap[h.numero]?.note_pmu ?? h.note_pmu,
+    proba_pmu: pmuMap[h.numero]?.proba_pmu ?? h.proba_pmu ?? 0,
     nom: pmuMap[h.numero]?.nom || h.nom || ''
   }));
   const sorted=tous_enrichis.sort((a,b)=>{
     if (b.note_pmu !== a.note_pmu) return b.note_pmu - a.note_pmu;
-    return scoreDepart(b) - scoreDepart(a); // départage XGBoost si égalité
+    return (b.proba_pmu||0) - (a.proba_pmu||0); // départage par proba brute XGBoost
   });
   // ── Indice de confiance global (winner card uniquement) ──
   // 60% note du leader (niveau absolu) + 40% écart note1 vs note2
@@ -728,15 +723,10 @@ function badge60j(c60) {
 }
 // ── Analyse V8 ──
 function renderAnalyse(data) {
-  // Même fonction de départage que renderSelections
-  function scoreDepart(h) {
-    const sc = h.scores || {};
-    return (sc.forme||0)*0.553 + (sc.adequation||0)*0.187 + (sc.gains||0)*0.181 + (sc.duo||0)*0.079;
-  }
-  // Tri identique : note_pmu puis départage XGBoost
+  // Tri par note_pmu puis départage par proba_pmu (proba brute XGBoost)
   const liste=[...data.chevaux].sort((a,b)=>{
     if (b.note_pmu !== a.note_pmu) return b.note_pmu - a.note_pmu;
-    return scoreDepart(b) - scoreDepart(a);
+    return (b.proba_pmu||0) - (a.proba_pmu||0);
   });
   // Leaders des groupes d'égalité (seuls à recevoir ⚡)
   const tieLeaders = new Set();

@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Martengo">
 <meta name="theme-color" content="#080808">
-<title>Martengo · Prédiction Hippique</title>
+<title>Martengo · Prédiction</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Space+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
 <style>
@@ -217,7 +217,7 @@ input[readonly]{opacity:.5;cursor:default}
   <div class="header">
     <div class="header-brand">
       <div class="header-title">Martengo</div>
-      <div class="header-sub">Prédiction Hippique</div>
+      <div class="header-sub">Prédiction trot attelé</div>
     </div>
     <div class="header-status">
       <div class="dot loading" id="status-dot"></div>
@@ -612,9 +612,9 @@ function renderSelections(data, pmuMap) {
     // MONTE : SG top1 cote 2→4
     selCoteMin=2; selCoteMax=4; selFourchette='2→4'; selTypePari='SG';
   }
-  // Compatibilité : data.chevaux (V8) ou data.tous (ancien)
-  const source = data.chevaux || data.tous || [];
-  const tous_enrichis = source.map(h => ({
+  // Tri par note_pmu puis départage par scores XGBoost
+  // Départage par proba_pmu (proba brute XGBoost) si égalité de note
+  const tous_enrichis = data.tous.map(h => ({
     ...h,
     scores: pmuMap[h.numero]?.scores || h.scores || {},
     note_pmu: pmuMap[h.numero]?.note_pmu ?? h.note_pmu,
@@ -627,31 +627,15 @@ function renderSelections(data, pmuMap) {
   });
   // ── Indice de confiance global (winner card uniquement) ──
   // 60% note du leader (niveau absolu) + 40% écart note1 vs note2
-  const probaMax=Math.max(...sorted.map(h=>h.proba_pmu||0));
+  const probaMax=Math.max(...sorted.map(h=>h.proba_absolu));
   const noteLeader = sorted[0]?.note_pmu ?? sorted[0]?.note ?? 0;
   const note2nd    = sorted[1]?.note_pmu ?? sorted[1]?.note ?? 0;
-  // ── Indice de confiance winner (gagnant) ──
   const sNote  = (noteLeader - 1) / 19;
   const sEcart = Math.min((noteLeader - note2nd) / 10, 1);
   const indiceGlobal = Math.round((sNote * 0.60 + sEcart * 0.40) * 100);
 
-  // ── Indice de confiance top 3 ──
-  // Basé sur l'écart entre le 3ème et le 4ème cheval
-  const cotesAll = sorted.map(h => h.rapport ?? h.cote ?? 99);
-  const note3rd = sorted[2]?.note_pmu ?? sorted[2]?.note ?? 0;
-  const note4th = sorted[3]?.note_pmu ?? sorted[3]?.note ?? 0;
-  const sNote3  = (note3rd - 1) / 19;
-  const sEcart3 = Math.min((note3rd - note4th) / 10, 1);
-  const indiceTop3 = Math.round((sNote3 * 0.60 + sEcart3 * 0.40) * 100);
-
-  // Couleur top3 : alignement rang note 3ème vs rang cote
-  const cote3rd = sorted[2]?.rapport ?? sorted[2]?.cote ?? 99;
-  const rangCote3rd = cotesAll.slice().sort((a,b)=>a-b).indexOf(cote3rd) + 1;
-  const ecartRang3 = Math.abs(3 - rangCote3rd);
-  const conf3Couleur = ecartRang3 <= 1 ? '#3a9162' : ecartRang3 <= 4 ? '#c8942a' : '#c0392b';
-  const conf3Label   = ecartRang3 <= 1 ? 'marché confirme' : ecartRang3 <= 4 ? 'légère divergence' : 'divergence marché';
-
   // Couleur : alignement rang note leader vs rang cote dans le peloton
+  const cotesAll = sorted.map(h => h.rapport ?? h.cote ?? 99);
   const coteLeader = sorted[0]?.rapport ?? sorted[0]?.cote ?? 99;
   const rangCoteLeader = cotesAll.slice().sort((a,b)=>a-b).indexOf(coteLeader) + 1;
   const ecartRang = Math.abs(1 - rangCoteLeader);
@@ -688,7 +672,7 @@ function renderSelections(data, pmuMap) {
     if (h && cote >= 2 && cote <= 4) miseSel = h.numero;
   }
   const wc=sorted.map((h,i)=>({...h, nom:pmuMap[h.numero]?.nom||'',
-    barW: probaMax>0 ? Math.round((h.proba_pmu||0)/probaMax*100) : 0,
+    barW: probaMax>0 ? Math.round(h.proba_absolu/probaMax*100) : 0,
     tieTag: tieLeaders.has(h.numero) ? '⚡' : ''
   }));
   const g=wc[0];
@@ -697,15 +681,14 @@ function renderSelections(data, pmuMap) {
     const hl=i<5, jk=i>=5, cls=i<3?'sel-circle highlight':jk?'sel-circle joker':'sel-circle';
     const isMiseSel = h.numero === miseSel;
     const circleStyle = isMiseSel ? 'border-color:#3a9162;color:#3a9162;font-weight:900' : '';
-    const onclickCheval = `event.stopPropagation();goTo('analyse');setTimeout(()=>{const el=document.getElementById('analyse-cheval-${h.numero}');if(el){el.scrollIntoView({behavior:'smooth',block:'center'});el.style.transition='background .3s';el.style.background='rgba(200,148,42,.12)';setTimeout(()=>el.style.background='',1500);}},200)`;
     return `<div class="sel-row fade-in fd${Math.min(i+1,4)}" style="opacity:${hl?'1':'.5'};${isMiseSel?'background:rgba(58,145,98,.06);border-radius:8px;margin:0 -4px;padding:0 4px':''}">
       <div class="sel-rank">${LABELS[i]||(i+1)+'ème'}</div>
       <div style="position:relative;flex-shrink:0">
-        <div class="${cls}" style="${circleStyle};cursor:pointer" onclick="${onclickCheval}">${h.numero}</div>
+        <div class="${cls}" style="${circleStyle}">${h.numero}</div>
         ${h.tieTag?`<div style="position:absolute;top:-6px;right:-6px;font-size:10px;line-height:1" title="Départagé par scores XGBoost">${h.tieTag}</div>`:''}
         ${isMiseSel?`<div style="position:absolute;top:-6px;left:-6px;font-size:10px;line-height:1" title="${selTypePari==='SG'?'Simple Gagnant':'Simple Placé'} ${selFourchette}">💰</div>`:''}
       </div>
-      <div class="sel-body" style="cursor:pointer" onclick="${onclickCheval}">
+      <div class="sel-body">
         ${h.nom?`<div class="sel-name">${h.nom}</div>`:''}
         <div class="sel-cote">cote ${h.rapport} · note ${h.note}/20</div>
         <div class="sel-bar-track"><div class="${hl?'sel-bar-fill':'sel-bar-fill dim'}" style="width:${h.barW}%"></div></div>
@@ -714,31 +697,16 @@ function renderSelections(data, pmuMap) {
   }
   document.getElementById('selections-content').innerHTML=`
     <div class="pred-meta fade-in">${sorted.length} partants · ${currentDate||"Aujourd'hui"}</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-      <div class="winner-card fade-in" style="margin-bottom:0">
-        <div class="winner-num">${g.numero}</div>
-        <div class="winner-info">
-          <div class="winner-label">Gagnant estimé</div>
-          ${g.nom?`<div class="winner-name">${g.nom}</div>`:''}
-          <div class="winner-note">Note ${g.note}/20 · Cote ${g.rapport}</div>
-        </div>
-        <div class="winner-conf">
-          <div class="winner-conf-val" style="color:${confianceCouleur}">${indiceGlobal}%</div>
-          <div class="winner-conf-label" style="color:${confianceCouleur};opacity:.8">${confianceLabel}</div>
-        </div>
+    <div class="winner-card fade-in">
+      <div class="winner-num">${g.numero}</div>
+      <div class="winner-info">
+        <div class="winner-label">Gagnant estimé</div>
+        ${g.nom?`<div class="winner-name">${g.nom}</div>`:''}
+        <div class="winner-note">Note ${g.note}/20 · Cote ${g.rapport}</div>
       </div>
-      <div class="winner-card fade-in" style="margin-bottom:0;border-color:rgba(181,96,58,.3);flex-direction:column;gap:8px;padding:14px">
-        <div style="display:flex;align-items:center;justify-content:space-between;width:100%">
-          <div>
-            <div class="winner-label" style="color:var(--copper)">Top 3 estimé</div>
-            <div style="font-family:'Space Mono',monospace;font-size:11px;color:var(--text-mid);margin-top:2px">${sorted.slice(0,3).map(h=>`#${h.numero}`).join(' · ')}</div>
-            <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);margin-top:2px">#3 note ${note3rd}/20</div>
-          </div>
-          <div style="text-align:right">
-            <div class="winner-conf-val" style="color:${conf3Couleur}">${indiceTop3}%</div>
-            <div class="winner-conf-label" style="color:${conf3Couleur};opacity:.8">${conf3Label}</div>
-          </div>
-        </div>
+      <div class="winner-conf">
+        <div class="winner-conf-val" style="color:${confianceCouleur}">${indiceGlobal}%</div>
+        <div class="winner-conf-label" style="color:${confianceCouleur};opacity:.8">${confianceLabel}</div>
       </div>
     </div>
     <div class="section-title">Top 3</div>
@@ -829,7 +797,7 @@ function renderAnalyse(data) {
     const isMise = h.numero === misePlacea;
     const cardBorder = isMise ? 'border:2px solid #3a9162;box-shadow:0 0 12px rgba(58,145,98,.3)' : '';
     const miseBadge = isMise ? '<div style="font-family:monospace;font-size:9px;font-weight:700;color:#3a9162;background:rgba(58,145,98,.15);border:1px solid rgba(58,145,98,.4);border-radius:4px;padding:3px 8px;margin-top:6px;text-align:center;letter-spacing:1px">💶 MISER EN PLACÉ</div>' : '';
-    return `<div id="analyse-cheval-${h.numero}" class="analyse-card ${i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':''} fade-in fd${Math.min(i+1,4)}" style="${cardBorder}">
+    return `<div class="analyse-card ${i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':''} fade-in fd${Math.min(i+1,4)}" style="${cardBorder}">
       <div class="analyse-header">
         <div class="analyse-avatar" style="border-color:${isMise?'#3a9162':rc};color:${isMise?'#3a9162':rc};${isMise?'font-weight:900':''}">${h.numero}</div>
         <div class="analyse-info">
@@ -975,28 +943,16 @@ async function chargerDashboard() {
     </div>`;
 
     if (dashSortMode === 'heure') {
-      // Tri par heure — prochaine course en haut
-      const now = new Date();
-      const nowStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+      // Tri par heure
       const sorted = [...courses].sort((a,b) => a.heure.localeCompare(b.heure));
-
-      // Trouver la prochaine course (heure >= maintenant)
-      const prochaine = sorted.find(co => co.heure.substring(0,5) >= nowStr);
-      const prochaineKey = prochaine ? `${prochaine.r}-${prochaine.c}` : null;
-
       let lastHeure = '';
       for (const co of sorted) {
         const h = co.heure.substring(0,5);
-        const isProchaine = prochaineKey === `${co.r}-${co.c}`;
-        if (isProchaine) {
-          html += `<div class="dash-reunion" style="color:var(--gold);border-left:2px solid var(--gold);padding-left:8px">⏭ Prochaine course · ${h}</div>`;
-          lastHeure = h;
-        } else if (h !== lastHeure) {
+        if (h !== lastHeure) {
           html += `<div class="dash-reunion">🕐 ${h}</div>`;
           lastHeure = h;
         }
-        const isPassed = h < nowStr;
-        html += `<div style="opacity:${isPassed?'0.45':'1'}">${renderRow(co, allResults[`${co.r}-${co.c}`])}</div>`;
+        html += renderRow(co, allResults[`${co.r}-${co.c}`]);
       }
     } else {
       // Grouper par réunion
@@ -1097,25 +1053,6 @@ function renderStats(nb, hist) {
       <div class="stat-block-title">Course courante (notes PMU)</div>
       ${buildDist()}
     </div>
-    <div class="section-title">Stratégies de paris</div>
-    <div class="stat-block fade-in fd4">
-      <div class="stat-block-title">3 niveaux selon objectif</div>
-      <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;font-family:'Space Mono',monospace;font-size:10px">
-        <div style="background:rgba(58,145,98,.08);border:1px solid rgba(58,145,98,.25);border-radius:8px;padding:10px 12px">
-          <div style="color:#3a9162;font-weight:700;letter-spacing:1px;margin-bottom:4px">🛡 SÉCURITÉ</div>
-          <div style="color:var(--text-mid);line-height:1.8">#1 modèle + favori marché + cote 3→5<br>~19 paris/sem · Win ~47% · ROI +77%<br><span style="color:#3a9162">98% semaines positives</span></div>
-        </div>
-        <div style="background:rgba(200,148,42,.08);border:1px solid rgba(200,148,42,.25);border-radius:8px;padding:10px 12px">
-          <div style="color:var(--gold);font-weight:700;letter-spacing:1px;margin-bottom:4px">📈 OPPORTUNITÉ</div>
-          <div style="color:var(--text-mid);line-height:1.8">#1 modèle + cote 5→8 (sans condition marché)<br>~36 paris/sem · Win ~38% · ROI +137%<br><span style="color:var(--gold)">ROI maximal</span></div>
-        </div>
-        <div style="background:rgba(181,96,58,.08);border:1px solid rgba(181,96,58,.25);border-radius:8px;padding:10px 12px">
-          <div style="color:var(--copper);font-weight:700;letter-spacing:1px;margin-bottom:4px">💥 GROS COUP</div>
-          <div style="color:var(--text-mid);line-height:1.8">#1 modèle + cote 8→15<br>~44 paris/sem · Win ~30% · ROI +219%<br><span style="color:var(--copper)">Risqué, semaines irrégulières</span></div>
-        </div>
-        <div style="color:var(--text-dim);font-size:9px;line-height:1.6;margin-top:2px">⚠️ ROI estimés sur historique V7 — à revalider avec données V8 en production (2-3 mois)</div>
-      </div>
-    </div>
     <div class="section-title">Pondérations V8</div>
     <div class="stat-block fade-in fd3">
       <div class="stat-block-title">20 features brutes V8</div>
@@ -1167,7 +1104,7 @@ async function envoyerResultats() {
     const res=await resp.json();
     try {
       const hist=JSON.parse(localStorage.getItem(LS_HIST)||'[]');
-      const top=predictions?.chevaux?[...predictions.chevaux].sort((a,b)=>b.proba_pmu-a.proba_pmu)[0]:null;
+      const top=predictions?.tous?[...predictions.tous].sort((a,b)=>b.proba_absolu-a.proba_absolu)[0]:null;
       const gag=cr.find(c=>c.rang_arrivee===1);
       hist.push({date,top1_ok:!!(top&&gag&&top.numero===gag.numero),top3_ok:!!(top&&cr.filter(c=>c.rang_arrivee<=3).some(c=>c.numero===top.numero))});
       localStorage.setItem(LS_HIST,JSON.stringify(hist.slice(-200)));

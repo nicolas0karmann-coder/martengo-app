@@ -637,6 +637,7 @@ function renderSelections(data, pmuMap) {
 
   // ── Indice de confiance top 3 ──
   // Basé sur l'écart entre le 3ème et le 4ème cheval
+  const cotesAll = sorted.map(h => h.rapport ?? h.cote ?? 99);
   const note3rd = sorted[2]?.note_pmu ?? sorted[2]?.note ?? 0;
   const note4th = sorted[3]?.note_pmu ?? sorted[3]?.note ?? 0;
   const sNote3  = (note3rd - 1) / 19;
@@ -651,7 +652,6 @@ function renderSelections(data, pmuMap) {
   const conf3Label   = ecartRang3 <= 1 ? 'marché confirme' : ecartRang3 <= 4 ? 'légère divergence' : 'divergence marché';
 
   // Couleur : alignement rang note leader vs rang cote dans le peloton
-  const cotesAll = sorted.map(h => h.rapport ?? h.cote ?? 99);
   const coteLeader = sorted[0]?.rapport ?? sorted[0]?.cote ?? 99;
   const rangCoteLeader = cotesAll.slice().sort((a,b)=>a-b).indexOf(coteLeader) + 1;
   const ecartRang = Math.abs(1 - rangCoteLeader);

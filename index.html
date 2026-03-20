@@ -758,7 +758,7 @@ function renderAnalyse(data) {
     ? [{k:'gains',l:'Gains',i:'💰',c:'#5c8cbf',p:33},{k:'forme',l:'Forme',i:'🎵',c:'#c8942a',p:31},{k:'jockey',l:'Jockey',i:'🏇',c:'#b5603a',p:29},{k:'handicap',l:'Handicap',i:'⚖️',c:'#8a6cbf',p:25}]
     : isGalop
     ? [{k:'forme',l:'Forme',i:'🎵',c:'#c8942a',p:39},{k:'duo',l:'Duo jockey',i:'🤝',c:'#b5603a',p:14},{k:'gains',l:'Gains',i:'💰',c:'#5c8cbf',p:36},{k:'handicap',l:'Handicap',i:'⚖️',c:'#8a6cbf',p:11}]
-    : [{k:'forme',l:'Forme',i:'🎵',c:'#c8942a',p:50},{k:'duo',l:'Duo',i:'🤝',c:'#b5603a',p:8},{k:'gains',l:'Gains',i:'💰',c:'#5c8cbf',p:16},{k:'adequation',l:'Adéquat.',i:'🎯',c:'#8a6cbf',p:18}];
+    : [{k:'duo',l:'Duo',i:'🤝',c:'#b5603a',p:45},{k:'forme',l:'Forme',i:'🎵',c:'#c8942a',p:22},{k:'adequation',l:'Adéquat.',i:'🎯',c:'#8a6cbf',p:18},{k:'gains',l:'Gains',i:'💰',c:'#5c8cbf',p:15}];
   const notesM={}; chevaux.forEach(c=>{notesM[c.numero]=c.note;});
 
   // ── Trouver le cheval à miser selon la stratégie par discipline ──
@@ -1042,14 +1042,14 @@ function renderStats(nb, hist) {
     ? [{l:'Gains / Palmarès',p:33,c:'#5c8cbf'},{l:'Forme / Musique',p:31,c:'var(--gold)'},{l:'Jockey obstacle',p:29,c:'var(--copper)'},{l:'Handicap poids',p:25,c:'#8a6cbf'}]
     : isGalopStats
     ? [{l:'Forme / Musique',p:39,c:'var(--gold)'},{l:'Gains / Palmarès',p:36,c:'#5c8cbf'},{l:'Duo cheval/jockey',p:14,c:'var(--copper)'},{l:'Handicap poids',p:11,c:'#8a6cbf'}]
-    : [{l:'Forme / Musique',p:50,c:'var(--gold)'},{l:'Adéquation course',p:18,c:'#8a6cbf'},{l:'Gains / Palmarès',p:16,c:'#5c8cbf'},{l:'Duo cheval/driver',p:8,c:'var(--copper)'}];
+    : [{l:'Duo / Driver',p:45,c:'var(--copper)'},{l:'Forme / Musique',p:22,c:'var(--gold)'},{l:'Adéquation',p:18,c:'#8a6cbf'},{l:'Gains / Palmarès',p:15,c:'#5c8cbf'}];
   document.getElementById('stats-content').innerHTML=`
     <div class="section-title">Base de données</div>
     <div class="kpi-grid fade-in">
       <div class="kpi accent"><div class="kpi-val">${nb.toLocaleString('fr')}</div><div class="kpi-label">Courses historique</div></div>
       <div class="kpi"><div class="kpi-val">${(nb*9).toLocaleString('fr')}</div><div class="kpi-label">Lignes estimées</div></div>
       <div class="kpi"><div class="kpi-val">V7</div><div class="kpi-label">Version modèle</div></div>
-      <div class="kpi"><div class="kpi-val">4</div><div class="kpi-label">Dimensions</div></div>
+      <div class="kpi"><div class="kpi-val">20</div><div class="kpi-label">Features</div></div>
     </div>
     <div class="section-title">Précision locale</div>
     <div class="stat-block fade-in fd1">
@@ -1063,9 +1063,9 @@ function renderStats(nb, hist) {
       <div class="stat-block-title">Course courante (notes PMU)</div>
       ${buildDist()}
     </div>
-    <div class="section-title">Pondérations V7</div>
+    <div class="section-title">Pondérations V8</div>
     <div class="stat-block fade-in fd3">
-      <div class="stat-block-title">4 dimensions du score métier</div>
+      <div class="stat-block-title">20 features brutes V8</div>
       ${DIMS.map(d=>`<div class="acc-row"><div class="acc-label" style="width:120px;font-size:8px">${d.l}</div><div class="acc-track"><div class="acc-fill" style="width:${d.p*3.8}%;background:${d.c}"></div></div><div class="acc-pct" style="color:${d.c}">${d.p}%</div></div>`).join('')}
     </div>`;
   if (predictions&&chevaux.length>0) document.getElementById('result-section').style.display='block';

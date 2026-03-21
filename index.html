@@ -391,7 +391,6 @@ function goTo(screen) {
   currentScreen = screen;
   if (screen === 'stats') { chargerStats(); document.getElementById('badge-stats').classList.remove('show'); }
   if (screen === 'dashboard') { document.getElementById('badge-dashboard').classList.remove('show'); }
-  if (screen === 'couple') { chargerCouple(); }
 }
 function setBadge(show) { document.getElementById('badge-stats').classList.toggle('show', show && currentScreen !== 'stats'); }
 

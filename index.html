@@ -651,42 +651,61 @@ function renderSelections(data, pmuMap) {
     if(gj>gi+1) tieLeaders.add(sorted[gi].numero);
     gi=gj;
   }
-  // Cheval à miser selon stratégie par discipline
-  let miseSel = null;
-  const minCoteSel = Math.min(...sorted.map(x => x.cote ?? pmuMap[x.numero]?.cote ?? 99));
+  // ── Nouvelle stratégie sans cote ──────────────────────────
+  // ATTELÉ : SP toujours + SG si écart note>=3 ET avis entraîneur positif
+  // MONTE  : SP si écart note>=3
+  // PLAT   : ⛔ ne pas jouer
+  // HAIE   : SP toujours (observation)
+
+  const top1      = sorted[0];
+  const note1     = top1?.note_pmu ?? top1?.note ?? 0;
+  const note2     = sorted[1]?.note_pmu ?? sorted[1]?.note ?? 0;
+  const ecart12   = note1 - note2;
+  const avis1     = top1?.avis ?? pmuMap[top1?.numero]?.avis ?? 0;
+
+  let signalSP = false;  // jouer SP
+  let signalSG = false;  // jouer SG en plus
+  let signalLabel = '';
+  let signalColor = 'var(--text-dim)';
+
   if (selIsPlat) {
-    const h = sorted[0];
-    const cote = h?.cote ?? pmuMap[h?.numero]?.cote ?? 0;
-    if (h && cote >= 1 && cote <= 4) miseSel = h.numero;
+    // PLAT : ne pas jouer
+    signalSP = false; signalSG = false;
+    signalLabel = '⛔ PASSER';
+    signalColor = 'var(--text-dim)';
   } else if (selIsHaie) {
-    const h = sorted[0];
-    const cote = h?.cote ?? pmuMap[h?.numero]?.cote ?? 0;
-    if (h && cote >= 4 && cote <= 8) miseSel = h.numero;
+    // HAIE : SP toujours
+    signalSP = true; signalSG = false;
+    signalLabel = '💰 SP';
+    signalColor = '#3a9162';
   } else if (!selIsGalop) {
-    const h = sorted[0];
-    const cote = h?.cote ?? pmuMap[h?.numero]?.cote ?? 0;
-    if (h && cote >= 3 && cote <= 5 && Math.abs(cote - minCoteSel) < 0.1) miseSel = h.numero;
+    // ATTELÉ : SP toujours + SG si écart>=3 ET avis positif
+    signalSP = true;
+    signalSG = (ecart12 >= 3 && avis1 === 1);
+    signalLabel = signalSG ? '💰💰 SG + SP' : '💰 SP';
+    signalColor = signalSG ? '#c8942a' : '#3a9162';
   } else {
-    const h = sorted[0];
-    const cote = h?.cote ?? pmuMap[h?.numero]?.cote ?? 0;
-    if (h && cote >= 2 && cote <= 4) miseSel = h.numero;
+    // MONTE : SP si écart>=3
+    signalSP = (ecart12 >= 3);
+    signalSG = false;
+    signalLabel = signalSP ? '💰 SP' : '👁 SURVEILLER';
+    signalColor = signalSP ? '#3a9162' : 'var(--gold)';
   }
   const wc=sorted.map((h,i)=>({...h, nom:pmuMap[h.numero]?.nom||'',
-    barW: probaMax>0 ? Math.round(h.proba_absolu/probaMax*100) : 0,
+    barW: probaMax>0 ? Math.round((h.proba_pmu||0)/probaMax*100) : 0,
     tieTag: tieLeaders.has(h.numero) ? '⚡' : ''
   }));
   const g=wc[0];
   const LABELS=['🥇 Gagnant','🥈 2ème','🥉 3ème','4ème','5ème','🃏 Joker 1','🃏 Joker 2'];
   function row(h,i){
     const hl=i<5, jk=i>=5, cls=i<3?'sel-circle highlight':jk?'sel-circle joker':'sel-circle';
-    const isMiseSel = h.numero === miseSel;
-    const circleStyle = isMiseSel ? 'border-color:#3a9162;color:#3a9162;font-weight:900' : '';
-    return `<div class="sel-row fade-in fd${Math.min(i+1,4)}" style="opacity:${hl?'1':'.5'};${isMiseSel?'background:rgba(58,145,98,.06);border-radius:8px;margin:0 -4px;padding:0 4px':''}">
+    const isMise = i === 0 && (signalSP || signalSG);
+    const circleStyle = isMise ? `border-color:${signalColor};color:${signalColor};font-weight:900` : '';
+    return `<div class="sel-row fade-in fd${Math.min(i+1,4)}" style="opacity:${hl?'1':'.5'};${isMise?`background:rgba(58,145,98,.06);border-radius:8px;margin:0 -4px;padding:0 4px`:''}">
       <div class="sel-rank">${LABELS[i]||(i+1)+'ème'}</div>
       <div style="position:relative;flex-shrink:0">
         <div class="${cls}" style="${circleStyle}">${h.numero}</div>
-        ${h.tieTag?`<div style="position:absolute;top:-6px;right:-6px;font-size:10px;line-height:1" title="Départagé par scores XGBoost">${h.tieTag}</div>`:''}
-        ${isMiseSel?`<div style="position:absolute;top:-6px;left:-6px;font-size:10px;line-height:1" title="${selTypePari==='SG'?'Simple Gagnant':'Simple Placé'} ${selFourchette}">💰</div>`:''}
+        ${h.tieTag?`<div style="position:absolute;top:-6px;right:-6px;font-size:10px;line-height:1">⚡</div>`:''}
       </div>
       <div class="sel-body">
         ${h.nom?`<div class="sel-name">${h.nom}</div>`:''}
@@ -703,6 +722,7 @@ function renderSelections(data, pmuMap) {
         <div class="winner-label">Gagnant estimé</div>
         ${g.nom?`<div class="winner-name">${g.nom}</div>`:''}
         <div class="winner-note">Note ${g.note}/20 · Cote ${g.rapport}</div>
+        <div style="margin-top:6px;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;color:${signalColor};letter-spacing:1px">${signalLabel}</div>
       </div>
       <div class="winner-conf">
         <div class="winner-conf-val" style="color:${confianceCouleur}">${indiceGlobal}%</div>
@@ -751,41 +771,44 @@ function renderAnalyse(data) {
     : [{k:'duo',l:'Duo',i:'🤝',c:'#b5603a',p:45},{k:'forme',l:'Forme',i:'🎵',c:'#c8942a',p:22},{k:'adequation',l:'Adéquat.',i:'🎯',c:'#8a6cbf',p:18},{k:'gains',l:'Gains',i:'💰',c:'#5c8cbf',p:15}];
   const notesM={}; chevaux.forEach(c=>{notesM[c.numero]=c.note;});
 
-  // ── Trouver le cheval à miser selon la stratégie par discipline ──
-  // ATTELE : Simple Gagnant — modèle=favori marché, cote 3→6
-  // PLAT   : Simple Gagnant — top1, cote 1→4
-  // HAIE   : Simple Placé  — top5, cote 4→8
-  // MONTE/autres : Simple Placé — top5, cote 4→10
-  let misePlacea = null;
-  let typePariBest = 'SP';  // SP=Simple Placé, SG=Simple Gagnant
-  let fourchetteLabel = '4→10';
+  // ── Nouvelle stratégie sans cote ──────────────────────────
+  const top1a    = liste[0];
+  const note1a   = top1a?.note_pmu ?? 0;
+  const note2a   = liste[1]?.note_pmu ?? 0;
+  const ecart12a = note1a - note2a;
+  const avis1a   = top1a?.avis ?? 0;
 
-  const minCoteAnalyse = Math.min(...liste.map(h => h.cote ?? 99));
+  let signalSPa = false;
+  let signalSGa = false;
+  let misePlacea = null;
+  let typePariBest = 'SP';
+  let fourchetteLabel = '';
+  let signalColorA = '#3a9162';
+
   if (isPlat) {
-    // PLAT : SG top1 cote 1→4
-    typePariBest = 'SG'; fourchetteLabel = '1→4';
-    const h = liste[0];
-    if (h && (h.cote ?? 0) >= 1 && (h.cote ?? 0) <= 4) misePlacea = h.numero;
+    signalSPa = false; signalSGa = false;
+    fourchetteLabel = '⛔ Ne pas jouer';
+    signalColorA = 'var(--text-dim)';
   } else if (isHaie) {
-    // HAIE : SG top1 cote 4→8
-    typePariBest = 'SG'; fourchetteLabel = '4→8';
-    const h = liste[0];
-    if (h && (h.cote ?? 0) >= 4 && (h.cote ?? 0) <= 8) misePlacea = h.numero;
+    signalSPa = true; signalSGa = false;
+    misePlacea = top1a?.numero;
+    typePariBest = 'SP'; fourchetteLabel = 'SP sur #1';
+    signalColorA = '#3a9162';
   } else if (!isGalop) {
-    // ATTELE : SG top1=favori marché ET cote 3→5
-    typePariBest = 'SG'; fourchetteLabel = '3→5';
-    const top1 = liste[0];
-    if (top1) {
-      const cote = top1.cote ?? 0;
-      if (cote >= 3 && cote <= 5 && Math.abs(cote - minCoteAnalyse) < 0.1) {
-        misePlacea = top1.numero;
-      }
-    }
+    // ATTELÉ
+    signalSPa = true;
+    signalSGa = (ecart12a >= 3 && avis1a === 1);
+    misePlacea = top1a?.numero;
+    typePariBest = signalSGa ? 'SG+SP' : 'SP';
+    fourchetteLabel = signalSGa ? 'SP + SG (écart≥3 + avis✅)' : 'SP sur #1';
+    signalColorA = signalSGa ? '#c8942a' : '#3a9162';
   } else {
-    // MONTE : SG top1 cote 2→4
-    typePariBest = 'SG'; fourchetteLabel = '2→4';
-    const h = liste[0];
-    if (h && (h.cote ?? 0) >= 2 && (h.cote ?? 0) <= 4) misePlacea = h.numero;
+    // MONTE
+    signalSPa = (ecart12a >= 3);
+    signalSGa = false;
+    misePlacea = signalSPa ? top1a?.numero : null;
+    typePariBest = 'SP'; fourchetteLabel = signalSPa ? 'SP sur #1 (écart≥3)' : 'Écart insuffisant';
+    signalColorA = signalSPa ? '#3a9162' : 'var(--gold)';
   }
 
   const cards=liste.map((h,i)=>{
@@ -795,8 +818,8 @@ function renderAnalyse(data) {
     const nm=notesM[h.numero]; const dw=(nm!==undefined&&nm!==''&&nm!==h.note_pmu)?`<div class="note-diff-warn">⚡ Note utilisée: ${nm} (PMU: ${h.note_pmu})</div>`:'';
     const tieTag=tieLeaders.has(h.numero)?'<span style="font-size:11px;margin-left:4px" title="Départagé par scores XGBoost">⚡</span>':'';
     const isMise = h.numero === misePlacea;
-    const cardBorder = isMise ? 'border:2px solid #3a9162;box-shadow:0 0 12px rgba(58,145,98,.3)' : '';
-    const miseBadge = isMise ? '<div style="font-family:monospace;font-size:9px;font-weight:700;color:#3a9162;background:rgba(58,145,98,.15);border:1px solid rgba(58,145,98,.4);border-radius:4px;padding:3px 8px;margin-top:6px;text-align:center;letter-spacing:1px">💶 MISER EN PLACÉ</div>' : '';
+    const cardBorder = isMise ? `border:2px solid ${signalColorA};box-shadow:0 0 12px rgba(58,145,98,.3)` : '';
+    const miseBadge = isMise ? `<div style="font-family:monospace;font-size:9px;font-weight:700;color:${signalColorA};background:rgba(58,145,98,.15);border:1px solid rgba(58,145,98,.4);border-radius:4px;padding:3px 8px;margin-top:6px;text-align:center;letter-spacing:1px">${signalSGa?'💰💰 SG + SP':'💰 SP'}</div>` : '';
     return `<div class="analyse-card ${i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':''} fade-in fd${Math.min(i+1,4)}" style="${cardBorder}">
       <div class="analyse-header">
         <div class="analyse-avatar" style="border-color:${isMise?'#3a9162':rc};color:${isMise?'#3a9162':rc};${isMise?'font-weight:900':''}">${h.numero}</div>
@@ -816,9 +839,9 @@ function renderAnalyse(data) {
       </div>
     </div>`;
   }).join('');
-  const miseBannerHtml = misePlacea
-    ? `<div style="background:rgba(58,145,98,.12);border:1px solid rgba(58,145,98,.4);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-family:monospace;font-size:10px;color:#3a9162;letter-spacing:1px">💰 ${typePariBest==='SG'?'SIMPLE GAGNANT':'SIMPLE PLACÉ'} RECOMMANDÉ → Cheval <strong>#${misePlacea}</strong> · cote ${liste.find(h=>h.numero===misePlacea)?.cote??'—'} · fourchette ${fourchetteLabel}</div>`
-    : `<div style="background:rgba(100,100,100,.08);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-family:monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px">⛔ Aucun cheval dans la fourchette cote ${fourchetteLabel}</div>`;
+  const miseBannerHtml = (signalSPa || signalSGa) && misePlacea
+    ? `<div style="background:rgba(58,145,98,.12);border:1px solid ${signalColorA};border-radius:8px;padding:10px 14px;margin-bottom:14px;font-family:monospace;font-size:10px;color:${signalColorA};letter-spacing:1px">${signalSGa?'💰💰':'💰'} ${fourchetteLabel} → Cheval <strong>#${misePlacea}</strong></div>`
+    : `<div style="background:rgba(100,100,100,.08);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-family:monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px">⛔ ${fourchetteLabel||'Aucun signal'}</div>`;
   document.getElementById('analyse-content').innerHTML=`<div class="pred-meta fade-in">${liste.length} chevaux · ${data.date||currentDate||''} <span class="version-badge">${version}</span></div>${miseBannerHtml}${cards}`;
 }
 
@@ -852,19 +875,27 @@ async function chargerDashboard() {
   const dateGeny = today.getFullYear() + '-' + pad(today.getMonth()+1) + '-' + pad(today.getDate());
   const DISC_LABELS = {'TROT_ATTELE':'ATTELÉ','ATTELE':'ATTELÉ','PLAT':'PLAT','HAIE':'HAIE','MONTE':'MONTÉ','STEEPLECHASE':'STEEPLE','CROSS':'CROSS'};
 
-  function getSignal(disc, cote, estFavori) {
-    if (disc==='PLAT' && cote>=1 && cote<=4) return 'go';
-    if (disc==='HAIE' && cote>=4 && cote<=8) return 'go';
-    if (disc==='MONTE' && cote>=2 && cote<=4) return 'go';
-    if ((disc==='ATTELE'||disc==='TROT_ATTELE') && cote>=3 && cote<=5 && estFavori) return 'go';
-    if (cote>0) return 'watch';
-    return 'skip';
+  function getSignal(disc, chevaux) {
+    if (!chevaux?.length) return 'skip';
+    const discNorm = disc==='TROT_ATTELE'?'ATTELE':disc;
+    const top1  = chevaux[0];
+    const note1 = top1?.note_pmu ?? 0;
+    const note2 = chevaux[1]?.note_pmu ?? 0;
+    const ecart = note1 - note2;
+    const avis  = top1?.avis ?? 0;
+
+    if (discNorm === 'PLAT') return 'skip';
+    if (discNorm === 'HAIE') return 'go_sp';
+    if (discNorm === 'MONTE') return ecart >= 3 ? 'go_sp' : 'watch';
+    // ATTELÉ
+    if (ecart >= 3 && avis === 1) return 'go_sg_sp';
+    return 'go_sp';
   }
-  function getPariLabel(disc) {
-    if (disc==='HAIE') return 'SG 4→8';
-    if (disc==='PLAT') return 'SG 1→4';
-    if (disc==='MONTE') return 'SG 2→4';
-    return 'SG 3→5★';
+  function getPariLabel(signal) {
+    if (signal === 'go_sg_sp') return '💰💰 SG+SP';
+    if (signal === 'go_sp')    return '💰 SP';
+    if (signal === 'watch')    return '👁 SURVEILLER';
+    return '⛔ PASSER';
   }
 
   try {
@@ -916,20 +947,14 @@ async function chargerDashboard() {
       }
       const top1 = d.chevaux[0];
       const cote = top1.cote ?? 0;
-      const minCote = Math.min(...d.chevaux.map(h=>h.cote??99));
-      const estFavori = Math.abs(cote-minCote) < 0.1;
-      const signal = getSignal(disc, cote, estFavori);
-      const coteEnZoneJaune = (discNorm==='PLAT'&&cote>=1&&cote<=6) ||
-                               (discNorm==='HAIE'&&cote>=3&&cote<=10) ||
-                               (discNorm==='MONTE'&&cote>=2&&cote<=6) ||
-                               ((discNorm==='ATTELE')&&cote>=2&&cote<=7);
-      const signalFinal = signal==='go' ? 'go' : coteEnZoneJaune ? 'watch' : 'skip';
-      const signalTxt = signalFinal==='go' ? `💰 ${getPariLabel(discNorm)}` : signalFinal==='watch' ? '👁 SURVEILLER' : '⛔ SKIP';
-      const coteColor = signalFinal==='go'?'#3a9162':signalFinal==='watch'?'var(--gold)':'var(--text-mid)';
+      const signal = getSignal(disc, d.chevaux);
+      const signalFinal = signal;
+      const signalTxt = getPariLabel(signal);
+      const coteColor = signal==='go_sg_sp'?'#c8942a':signal==='go_sp'?'#3a9162':signal==='watch'?'var(--gold)':'var(--text-mid)';
       return `<div class="dash-row" onclick="${onclick}">
         <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
-        <div><div class="dash-cheval">#${top1.numero} ${top1.nom||''}</div><div class="dash-disc">${DISC_LABELS[disc]||disc} · ${co.dist}m${estFavori?' ⭐':''}</div></div>
-        <div style="text-align:right"><div class="dash-cote" style="color:${coteColor}">${cote?cote.toFixed(1):'—'}</div><div class="dash-signal ${signalFinal}">${signalTxt}</div></div>
+        <div><div class="dash-cheval">#${top1.numero} ${top1.nom||''}</div><div class="dash-disc">${DISC_LABELS[disc]||disc} · ${co.dist}m</div></div>
+        <div style="text-align:right"><div class="dash-cote" style="color:${coteColor}">${cote?cote.toFixed(1):'—'}</div><div class="dash-signal ${signal==='go_sg_sp'||signal==='go_sp'?'go':signal}" style="color:${coteColor}">${signalTxt}</div></div>
       </div>`;
     };
 

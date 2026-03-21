@@ -321,8 +321,8 @@ input[readonly]{opacity:.5;cursor:default}
       <div id="couple-content">
         <div class="empty">
           <div class="empty-icon">🔗</div>
-          Signaux Couplé Placé et Couplé Gagnant<br>
-          <button class="btn full" onclick="chargerCouple()" style="margin-top:16px;font-size:11px">Charger les couplés →</button>
+          Signaux Couplé Placé, Couplé Gagnant et Trio<br>
+          <button class="btn full" onclick="chargerCouple()" style="margin-top:16px;font-size:11px">Charger CP · CG · Trio →</button>
         </div>
       </div>
     </div>
@@ -1097,7 +1097,7 @@ async function chargerCouple() {
       const onclick  = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
       const chevaux  = d?.chevaux || [];
 
-      if (chevaux.length < 2) {
+      if (chevaux.length < 3) {
         return `<div class="dash-row" onclick="${onclick}">
           <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
           <div><div class="dash-cheval" style="color:var(--text-dim)">Non disponible</div><div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m</div></div>
@@ -1111,52 +1111,54 @@ async function chargerCouple() {
         return (b.proba_pmu||0) - (a.proba_pmu||0);
       });
 
-      const h1    = sorted[0];
-      const h2    = sorted[1];
+      const h1 = sorted[0], h2 = sorted[1], h3 = sorted[2];
       const note1 = h1.note_pmu ?? 0;
       const note2 = h2.note_pmu ?? 0;
       const ecart = note1 - note2;
 
-      // Signal CP et CG selon discipline et écart
-      let signalCP = false;
-      let signalCG = false;
+      // Signaux selon discipline et écart
+      let signalCP = false, signalCG = false, signalTrio = false;
 
       if (disc === 'ATTELE') {
-        signalCP = true;           // CP toujours en ATTELÉ
-        signalCG = ecart >= 2;     // CG si écart>=2
+        signalCP   = true;         // CP toujours
+        signalCG   = ecart >= 2;   // CG si écart>=2
+        signalTrio = true;         // Trio toujours
       } else if (disc === 'MONTE') {
-        signalCP = ecart >= 3;     // CP si écart>=3 (même règle que SP MONTE)
-        signalCG = false;
+        signalCP   = ecart >= 3;   // CP si écart>=3
+        signalCG   = false;
+        signalTrio = ecart >= 3;   // Trio si écart>=3
       } else if (disc === 'HAIE') {
-        signalCP = true;           // CP toujours en HAIE
-        signalCG = false;
+        signalCP   = true;         // CP toujours
+        signalCG   = false;
+        signalTrio = true;         // Trio toujours
       }
 
-      // Badge signal
-      let signalHtml = '';
-      if (signalCG && signalCP) {
-        signalHtml = `<div class="dash-signal go" style="color:#c8942a;font-size:9px">💰💰 CG+CP</div>`;
-      } else if (signalCP) {
-        signalHtml = `<div class="dash-signal go" style="color:#3a9162;font-size:9px">💰 CP</div>`;
-      } else {
-        signalHtml = `<div class="dash-signal skip" style="font-size:9px">⛔ PASSER</div>`;
-      }
+      // Badges signaux
+      const badges = [];
+      if (signalCG)   badges.push(`<span style="background:rgba(200,148,42,.15);border:1px solid rgba(200,148,42,.4);border-radius:4px;padding:2px 5px;color:#c8942a;font-size:8px;font-weight:700">CG</span>`);
+      if (signalCP)   badges.push(`<span style="background:rgba(58,145,98,.15);border:1px solid rgba(58,145,98,.4);border-radius:4px;padding:2px 5px;color:#3a9162;font-size:8px;font-weight:700">CP</span>`);
+      if (signalTrio) badges.push(`<span style="background:rgba(181,96,58,.15);border:1px solid rgba(181,96,58,.4);border-radius:4px;padding:2px 5px;color:var(--copper);font-size:8px;font-weight:700">TRIO</span>`);
 
       const nom1 = h1.nom ? h1.nom.split(' ')[0] : `#${h1.numero}`;
       const nom2 = h2.nom ? h2.nom.split(' ')[0] : `#${h2.numero}`;
+      const nom3 = h3.nom ? h3.nom.split(' ')[0] : `#${h3.numero}`;
+
+      const signauxHtml = badges.length
+        ? `<div style="display:flex;gap:3px;justify-content:flex-end;flex-wrap:wrap">💰 ${badges.join(' ')}</div>`
+        : `<div class="dash-signal skip" style="font-size:9px">⛔ PASSER</div>`;
 
       return `<div class="dash-row" onclick="${onclick}">
         <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
         <div>
-          <div class="dash-cheval">#${h1.numero} ${nom1} <span style="color:var(--text-dim)">×</span> #${h2.numero} ${nom2}</div>
-          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · écart ${ecart}</div>
+          <div class="dash-cheval" style="font-size:10px">#${h1.numero} ${nom1} · #${h2.numero} ${nom2} · #${h3.numero} ${nom3}</div>
+          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · écart ${ecart} · ${sorted.length} part.</div>
         </div>
-        <div style="text-align:right">${signalHtml}</div>
+        <div style="text-align:right;min-width:80px">${signauxHtml}</div>
       </div>`;
     };
 
     let html = `<div class="dash-refresh">
-      <span>🔗 ${courses.length} courses · Couplés</span>
+      <span>🔗 ${courses.length} courses · CP · CG · Trio</span>
       <button onclick="coupleCharge=false;chargerCouple()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
     </div>`;
 

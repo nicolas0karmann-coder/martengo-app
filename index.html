@@ -225,11 +225,12 @@ input[readonly]{opacity:.5;cursor:default}
     </div>
   </div>
 
-  <nav class="nav" style="grid-template-columns:repeat(5,1fr)">
+  <nav class="nav" style="grid-template-columns:repeat(6,1fr)">
     <button class="nav-btn active" onclick="goTo('saisie')" id="tab-saisie"><span class="nav-icon">✏️</span>Saisie</button>
     <button class="nav-btn" onclick="goTo('selections')" id="tab-selections"><span class="nav-icon">🎯</span>Sélect.</button>
     <button class="nav-btn" onclick="goTo('analyse')" id="tab-analyse"><span class="nav-icon">🔬</span>Analyse</button>
     <button class="nav-btn" onclick="goTo('dashboard')" id="tab-dashboard"><span class="nav-icon">📋</span>Journée<span class="nav-badge" id="badge-dashboard"></span></button>
+    <button class="nav-btn" onclick="goTo('couple')" id="tab-couple"><span class="nav-icon">🔗</span>Couplé</button>
     <button class="nav-btn" onclick="goTo('stats')" id="tab-stats">
       <span class="nav-icon">📊</span>Stats
       <span class="nav-badge" id="badge-stats"></span>
@@ -315,6 +316,17 @@ input[readonly]{opacity:.5;cursor:default}
       </div>
     </div>
 
+    <!-- COUPLÉ -->
+    <div class="screen" id="screen-couple">
+      <div id="couple-content">
+        <div class="empty">
+          <div class="empty-icon">🔗</div>
+          Signaux Couplé Placé et Couplé Gagnant<br>
+          <button class="btn full" onclick="chargerCouple()" style="margin-top:16px;font-size:11px">Charger les couplés →</button>
+        </div>
+      </div>
+    </div>
+
     <div class="screen" id="screen-stats">
       <div id="stats-content">
         <div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement…</span></div>
@@ -331,7 +343,7 @@ input[readonly]{opacity:.5;cursor:default}
 <script>
 const API_URL = "https://martengo-api-v5.onrender.com";
 const LS_SAISIE = 'martengo_v3', LS_HIST = 'martengo_hist';
-const SCREENS = ['saisie','selections','analyse','dashboard','stats'];
+const SCREENS = ['saisie','selections','analyse','dashboard','couple','stats'];
 
 let chevaux = [], predictions = null, notesPMU = {}, notesPMUData = null;
 let currentDate = '', horseCounter = 0, apiPrete = false, currentScreen = 'saisie';
@@ -379,6 +391,7 @@ function goTo(screen) {
   currentScreen = screen;
   if (screen === 'stats') { chargerStats(); document.getElementById('badge-stats').classList.remove('show'); }
   if (screen === 'dashboard') { document.getElementById('badge-dashboard').classList.remove('show'); }
+  if (screen === 'couple') { chargerCouple(); }
 }
 function setBadge(show) { document.getElementById('badge-stats').classList.toggle('show', show && currentScreen !== 'stats'); }
 
@@ -1028,6 +1041,144 @@ async function testerConnexion() {
   }
   html += '</div><div style="padding:0 14px"><button class="btn full" onclick="chargerDashboard()" style="font-size:11px">↺ Réessayer dashboard</button></div>';
   el.innerHTML = html;
+}
+
+// ── Couplé ──
+let coupleCharge = false;
+async function chargerCouple() {
+  if (coupleCharge) return;
+  const el = document.getElementById('couple-content');
+  el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement couplés…</span></div>';
+
+  const today = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
+  const DISC_LABELS = {'TROT_ATTELE':'ATTELÉ','ATTELE':'ATTELÉ','PLAT':'PLAT','HAIE':'HAIE','MONTE':'MONTÉ'};
+  const DISC_OK = ['ATTELE','TROT_ATTELE','MONTE','HAIE'];
+
+  try {
+    const resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
+    if (!resp.ok) throw new Error('Programme indisponible');
+    const data = await resp.json();
+    const courses = (data.courses || []).filter(c => {
+      const d = c.disc === 'TROT_ATTELE' ? 'ATTELE' : c.disc;
+      return DISC_OK.includes(d);
+    }).map(c => ({r: c.r_num, c: c.c_num, disc: c.disc, dist: c.dist, lieu: c.lieu, heure: c.heure}));
+
+    if (!courses.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">🔗</div>Aucune course ATTELÉ/MONTE/HAIE aujourd\'hui</div>';
+      return;
+    }
+
+    // Charger les notes
+    const allResults = {};
+    const total = courses.length;
+    let loaded = 0;
+    const updateProgress = () => {
+      const pct = Math.round(loaded/total*100);
+      el.innerHTML = `<div class="dash-progress">Chargement couplés… ${loaded}/${total} (${pct}%)<div class="dash-progress-bar"><div class="dash-progress-fill" style="width:${pct}%"></div></div></div>`;
+    };
+    updateProgress();
+
+    for (let i=0; i<courses.length; i+=5) {
+      await Promise.all(courses.slice(i,i+5).map(async co => {
+        try {
+          const r = await fetch(`${API_URL}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
+          if (r.ok) allResults[`${co.r}-${co.c}`] = await r.json();
+        } catch(e) {}
+        loaded++;
+        updateProgress();
+      }));
+    }
+
+    coupleCharge = true;
+
+    const renderRowCouple = (co, d) => {
+      const disc     = co.disc === 'TROT_ATTELE' ? 'ATTELE' : co.disc;
+      const onclick  = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
+      const chevaux  = d?.chevaux || [];
+
+      if (chevaux.length < 2) {
+        return `<div class="dash-row" onclick="${onclick}">
+          <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
+          <div><div class="dash-cheval" style="color:var(--text-dim)">Non disponible</div><div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m</div></div>
+          <div><div class="dash-signal skip">⛔ SKIP</div></div>
+        </div>`;
+      }
+
+      // Trier par note_pmu
+      const sorted = [...chevaux].sort((a,b) => {
+        if (b.note_pmu !== a.note_pmu) return b.note_pmu - a.note_pmu;
+        return (b.proba_pmu||0) - (a.proba_pmu||0);
+      });
+
+      const h1    = sorted[0];
+      const h2    = sorted[1];
+      const note1 = h1.note_pmu ?? 0;
+      const note2 = h2.note_pmu ?? 0;
+      const ecart = note1 - note2;
+
+      // Signal CP et CG selon discipline et écart
+      let signalCP = false;
+      let signalCG = false;
+
+      if (disc === 'ATTELE') {
+        signalCP = true;           // CP toujours en ATTELÉ
+        signalCG = ecart >= 2;     // CG si écart>=2
+      } else if (disc === 'MONTE') {
+        signalCP = ecart >= 3;     // CP si écart>=3 (même règle que SP MONTE)
+        signalCG = false;
+      } else if (disc === 'HAIE') {
+        signalCP = true;           // CP toujours en HAIE
+        signalCG = false;
+      }
+
+      // Badge signal
+      let signalHtml = '';
+      if (signalCG && signalCP) {
+        signalHtml = `<div class="dash-signal go" style="color:#c8942a;font-size:9px">💰💰 CG+CP</div>`;
+      } else if (signalCP) {
+        signalHtml = `<div class="dash-signal go" style="color:#3a9162;font-size:9px">💰 CP</div>`;
+      } else {
+        signalHtml = `<div class="dash-signal skip" style="font-size:9px">⛔ PASSER</div>`;
+      }
+
+      const nom1 = h1.nom ? h1.nom.split(' ')[0] : `#${h1.numero}`;
+      const nom2 = h2.nom ? h2.nom.split(' ')[0] : `#${h2.numero}`;
+
+      return `<div class="dash-row" onclick="${onclick}">
+        <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
+        <div>
+          <div class="dash-cheval">#${h1.numero} ${nom1} <span style="color:var(--text-dim)">×</span> #${h2.numero} ${nom2}</div>
+          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · écart ${ecart}</div>
+        </div>
+        <div style="text-align:right">${signalHtml}</div>
+      </div>`;
+    };
+
+    let html = `<div class="dash-refresh">
+      <span>🔗 ${courses.length} courses · Couplés</span>
+      <button onclick="coupleCharge=false;chargerCouple()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
+    </div>`;
+
+    // Grouper par réunion
+    const byR = {};
+    for (const co of courses) {
+      if (!byR[co.r]) byR[co.r] = {lieu: co.lieu, courses: []};
+      byR[co.r].courses.push(co);
+    }
+    for (const [rNum, rd] of Object.entries(byR)) {
+      html += `<div class="dash-reunion">R${rNum} · ${rd.lieu}</div>`;
+      for (const co of rd.courses) {
+        html += renderRowCouple(co, allResults[`${co.r}-${co.c}`]);
+      }
+    }
+
+    el.innerHTML = html;
+
+  } catch(e) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>${e.message}<br><button class="btn secondary" onclick="coupleCharge=false;chargerCouple()" style="margin-top:12px;font-size:10px">↺ Réessayer</button></div>`;
+  }
 }
 
 // ── Stats ──

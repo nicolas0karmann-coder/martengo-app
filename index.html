@@ -679,9 +679,9 @@ function renderSelections(data, pmuMap) {
     signalLabel = '💰 SP';
     signalColor = '#3a9162';
   } else if (!selIsGalop) {
-    // ATTELÉ : SP toujours + SG si écart>=3 ET avis positif
+    // ATTELÉ : SP toujours + SG si écart>=3 (sans condition avis)
     signalSP = true;
-    signalSG = (ecart12 >= 3 && avis1 === 1);
+    signalSG = (ecart12 >= 3);
     signalLabel = signalSG ? '💰💰 SG + SP' : '💰 SP';
     signalColor = signalSG ? '#c8942a' : '#3a9162';
   } else {
@@ -795,12 +795,12 @@ function renderAnalyse(data) {
     typePariBest = 'SP'; fourchetteLabel = 'SP sur #1';
     signalColorA = '#3a9162';
   } else if (!isGalop) {
-    // ATTELÉ
+    // ATTELÉ : SP toujours + SG si écart>=3 (sans condition avis)
     signalSPa = true;
-    signalSGa = (ecart12a >= 3 && avis1a === 1);
+    signalSGa = (ecart12a >= 3);
     misePlacea = top1a?.numero;
     typePariBest = signalSGa ? 'SG+SP' : 'SP';
-    fourchetteLabel = signalSGa ? 'SP + SG (écart≥3 + avis✅)' : 'SP sur #1';
+    fourchetteLabel = signalSGa ? 'SP + SG (écart≥3)' : 'SP sur #1';
     signalColorA = signalSGa ? '#c8942a' : '#3a9162';
   } else {
     // MONTE
@@ -888,7 +888,7 @@ async function chargerDashboard() {
     if (discNorm === 'HAIE') return 'go_sp';
     if (discNorm === 'MONTE') return ecart >= 3 ? 'go_sp' : 'watch';
     // ATTELÉ
-    if (ecart >= 3 && avis === 1) return 'go_sg_sp';
+    if (ecart >= 3) return 'go_sg_sp';
     return 'go_sp';
   }
   function getPariLabel(signal) {

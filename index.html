@@ -1130,8 +1130,10 @@ async function chargerSafe() {
       const ecart = note1 - note2;
 
       // Stratégie Safe validée
-      const playSP = ecart >= 3;   // SP si écart >= 3
-      const playCP = ecart >= 2;   // CP si écart >= 2
+      const note3  = sorted[2]?.note_pmu ?? 0;
+      const ecart23 = note2 - note3;
+      const playSP = ecart >= 3;    // SP si écart12 >= 3
+      const playCP = ecart23 >= 2;  // CP si écart23 >= 2
       const nom1 = h1.nom ? h1.nom.split(' ')[0] : `#${h1.numero}`;
       const nom2 = h2.nom ? h2.nom.split(' ')[0] : `#${h2.numero}`;
 
@@ -1168,8 +1170,11 @@ async function chargerSafe() {
       if (!d?.chevaux?.length) continue;
       const sorted = [...d.chevaux].sort((a,b) => b.note_pmu-a.note_pmu);
       const ecart = (sorted[0]?.note_pmu??0) - (sorted[1]?.note_pmu??0);
+      const note2c = sorted[1]?.note_pmu ?? 0;
+      const note3c = sorted[2]?.note_pmu ?? 0;
+      const ecart23c = note2c - note3c;
       if (ecart >= 3) n_sp++;
-      if (ecart >= 2) n_cp++;
+      if (ecart23c >= 2) n_cp++;
     }
 
     let html = `<div class="dash-refresh">
@@ -1177,7 +1182,7 @@ async function chargerSafe() {
       <button onclick="safeCharge=false;chargerSafe()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
     </div>
     <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
-      SP si écart≥3 (ROI +33.5%) · CP si écart≥2 (ROI +49.2%) · validés 6 sem.
+      SP si écart12≥3 (ROI +33.5%) · CP si écart23≥2 (ROI +65.0%) · validés 6 sem.
     </div>`;
 
     for (const [rNum, rd] of Object.entries(byR)) {

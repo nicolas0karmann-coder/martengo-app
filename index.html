@@ -1453,16 +1453,20 @@ async function chargerCouple() {
       const nom3 = h3.nom ? h3.nom.split(' ')[0] : `#${h3.numero}`;
 
       const signauxHtml = badges.length
-        ? `<div style="display:flex;gap:3px;justify-content:flex-end;flex-wrap:wrap">💰 ${badges.join(' ')}</div>`
-        : `<div class="dash-signal skip" style="font-size:9px">⛔ PASSER</div>`;
+        ? `<div style="display:flex;gap:3px;flex-direction:column;align-items:flex-end">💰 ${badges.join('')}</div>`
+        : `<div class="dash-signal skip" style="font-size:8px">⛔ PASSER</div>`;
 
-      return `<div class="dash-row" onclick="${onclick}">
+      return `<div class="dash-row" onclick="${onclick}" style="grid-template-columns:48px 1fr;gap:6px">
         <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
-        <div>
-          <div class="dash-cheval" style="font-size:10px">#${h1.numero} ${nom1} · #${h2.numero} ${nom2} · #${h3.numero} ${nom3}</div>
-          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e23:${ecart23} e34:${ecart34} · ${sorted.length} part.</div>
+        <div style="min-width:0">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px">
+            <div style="min-width:0">
+              <div class="dash-cheval" style="font-size:10px">#${h1.numero} ${nom1} · #${h2.numero} ${nom2} · #${h3.numero} ${nom3}</div>
+              <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e23:${ecart23} e34:${ecart34} · ${sorted.length}p</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0">${signauxHtml}</div>
+          </div>
         </div>
-        <div style="text-align:right;min-width:80px">${signauxHtml}</div>
       </div>`;
     };
 

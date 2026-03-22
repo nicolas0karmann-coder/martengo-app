@@ -1415,30 +1415,31 @@ async function chargerCouple() {
       });
 
       const h1 = sorted[0], h2 = sorted[1], h3 = sorted[2];
+      const h4   = sorted[3] || null;
       const note1 = h1.note_pmu ?? 0;
       const note2 = h2.note_pmu ?? 0;
       const note3 = h3.note_pmu ?? 0;
+      const note4 = h4?.note_pmu ?? 0;
       const ecart12 = note1 - note2;
       const ecart23 = note2 - note3;
+      const ecart34 = note3 - note4;
       const ecart   = ecart12; // alias pour affichage
 
-      // Signaux selon discipline et écart
-      // CP : écart23 >= 2 (validé +65% ROI)
-      // CG : écart12 >= 2
+      // Signaux selon discipline
       let signalCP = false, signalCG = false, signalTrio = false;
 
       if (disc === 'ATTELE') {
-        signalCP   = ecart23 >= 2;   // CP si écart23>=2 (nouvelle stratégie validée)
-        signalCG   = ecart12 >= 2;   // CG si écart12>=2
-        signalTrio = true;           // Trio toujours
+        signalCP   = ecart23 >= 2;   // CP si écart23 >= 2
+        signalCG   = ecart23 >= 3;   // CG si écart23 >= 3
+        signalTrio = ecart34 >= 2;   // Trio si écart34 >= 2
       } else if (disc === 'MONTE') {
-        signalCP   = ecart23 >= 2;   // CP si écart23>=2
+        signalCP   = ecart23 >= 2;   // CP si écart23 >= 2
         signalCG   = false;
-        signalTrio = ecart12 >= 3;   // Trio si écart12>=3
+        signalTrio = ecart34 >= 2;   // Trio si écart34 >= 2
       } else if (disc === 'HAIE') {
-        signalCP   = ecart23 >= 2;   // CP si écart23>=2
-        signalCG   = false;
-        signalTrio = true;           // Trio toujours
+        signalCP   = ecart23 >= 2;   // CP si écart23 >= 2
+        signalCG   = ecart23 >= 3;   // CG si écart23 >= 3
+        signalTrio = ecart34 >= 2;   // Trio si écart34 >= 2
       }
 
       // Badges signaux
@@ -1459,7 +1460,7 @@ async function chargerCouple() {
         <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
         <div>
           <div class="dash-cheval" style="font-size:10px">#${h1.numero} ${nom1} · #${h2.numero} ${nom2} · #${h3.numero} ${nom3}</div>
-          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · écart12:${ecart12} écart23:${ecart23} · ${sorted.length} part.</div>
+          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e23:${ecart23} e34:${ecart34} · ${sorted.length} part.</div>
         </div>
         <div style="text-align:right;min-width:80px">${signauxHtml}</div>
       </div>`;

@@ -1570,19 +1570,21 @@ async function chargerCouple() {
       const ecart34 = note3 - note4;
       const ecart   = ecart12; // alias pour affichage
 
-      // Signaux selon discipline — stratégie validée 7 semaines
-      // CG si écart23 >= 2 · CP si écart34 >= 2
-      let signalCP = false, signalCG = false;
+      // Signaux selon discipline
+      let signalCP = false, signalCG = false, signalTrio = false;
 
       if (disc === 'ATTELE') {
-        signalCG = ecart23 >= 2;   // CG si écart23 >= 2  (ROI +70.5%)
-        signalCP = ecart34 >= 2;   // CP si écart34 >= 2  (ROI +86.1%)
+        signalCP   = ecart23 >= 2;   // CP si écart23 >= 2
+        signalCG   = ecart23 >= 3;   // CG si écart23 >= 3
+        signalTrio = ecart34 >= 2;   // Trio si écart34 >= 2
       } else if (disc === 'MONTE') {
-        signalCG = ecart23 >= 2;
-        signalCP = ecart34 >= 2;
+        signalCP   = ecart23 >= 2;   // CP si écart23 >= 2
+        signalCG   = false;
+        signalTrio = ecart34 >= 2;   // Trio si écart34 >= 2
       } else if (disc === 'HAIE') {
-        signalCG = ecart23 >= 2;
-        signalCP = ecart34 >= 2;
+        signalCP   = ecart23 >= 2;   // CP si écart23 >= 2
+        signalCG   = ecart23 >= 3;   // CG si écart23 >= 3
+        signalTrio = ecart34 >= 2;   // Trio si écart34 >= 2
       }
 
       // Badges signaux
@@ -1613,11 +1615,8 @@ async function chargerCouple() {
     };
 
     let html = `<div class="dash-refresh">
-      <span>🔗 ${courses.length} courses · CG · CP</span>
+      <span>🔗 ${courses.length} courses · CP · CG</span>
       <button onclick="coupleCharge=false;chargerCouple()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
-    </div>
-    <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
-      💰 CG si e23≥2 (ROI +70.5%) · CP si e34≥2 (ROI +86.1%) · validés 7 sem.
     </div>`;
 
     // Grouper par réunion
@@ -1716,8 +1715,8 @@ function renderStats(nb, hist) {
       <div style="color:var(--text-mid);margin-top:3px">TRIO #1-#2-#3 si e34 ≥ 2 <span style="color:var(--green)">ROI +530% · taux 25.8%</span></div>
 
       <div style="margin-top:10px;color:var(--gold);font-size:8px;letter-spacing:1px;text-transform:uppercase">🔗 Couplé — ATTELÉ + MONTÉ + HAIE</div>
-      <div style="color:var(--text-mid);margin-top:3px">CG si e23 ≥ 2 <span style="color:var(--green)">ROI +70.5%</span></div>
-      <div style="color:var(--text-mid)">CP si e34 ≥ 2 <span style="color:var(--green)">ROI +86.1%</span></div>
+      <div style="color:var(--text-mid);margin-top:3px">CP si e23 ≥ 2 <span style="color:var(--green)">ROI +65.0%</span></div>
+      <div style="color:var(--text-mid)">CG si e23 ≥ 3 <span style="color:var(--green)">ROI +39.8%</span></div>
 
       <div style="margin-top:10px;color:var(--text-dim);font-size:8px">e12 = note#1 − note#2 · e23 = note#2 − note#3 · e34 = note#3 − note#4</div>
     </div>`;

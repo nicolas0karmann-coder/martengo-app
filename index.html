@@ -1691,6 +1691,34 @@ function renderStats(nb, hist) {
     <div class="stat-block fade-in fd3">
       <div class="stat-block-title">20 features brutes V8</div>
       ${DIMS.map(d=>`<div class="acc-row"><div class="acc-label" style="width:120px;font-size:8px">${d.l}</div><div class="acc-track"><div class="acc-fill" style="width:${d.p*3.8}%;background:${d.c}"></div></div><div class="acc-pct" style="color:${d.c}">${d.p}%</div></div>`).join('')}
+    </div>
+    <div class="section-title">Stratégies validées</div>
+    <div class="stat-block fade-in fd4" style="font-family:'Space Mono',monospace;font-size:9px;line-height:1.9">
+      <div class="stat-block-title">Validées sur 7 semaines · ATTELE uniquement</div>
+
+      <div style="margin-top:10px;color:var(--gold);font-size:8px;letter-spacing:1px;text-transform:uppercase">📋 Journée — Toutes disciplines</div>
+      <div style="color:var(--text-mid);margin-top:3px">PLAT : SG top1 · cote 1→4</div>
+      <div style="color:var(--text-mid)">HAIE : SG top1 · cote 4→8</div>
+      <div style="color:var(--text-mid)">ATTELÉ : SG top1 = favori · cote 3→5</div>
+      <div style="color:var(--text-mid)">MONTÉ : SG top1 · cote 2→4</div>
+
+      <div style="margin-top:10px;color:var(--gold);font-size:8px;letter-spacing:1px;text-transform:uppercase">🛡️ Safe — ATTELÉ + MONTÉ</div>
+      <div style="color:var(--text-mid);margin-top:3px">SP si e12 ≥ 3 <span style="color:var(--green)">ROI +33.5%</span></div>
+      <div style="color:var(--text-mid)">CP si e23 ≥ 2 <span style="color:var(--green)">ROI +65.0%</span></div>
+
+      <div style="margin-top:10px;color:var(--gold);font-size:8px;letter-spacing:1px;text-transform:uppercase">⚔️ Offensif — ATTELÉ + MONTÉ</div>
+      <div style="color:var(--text-mid);margin-top:3px">⛔ PASSER si e12 &lt; 2</div>
+      <div style="color:var(--text-mid)">CP si e12 ≥ 2 <span style="color:var(--green)">ROI +49.2%</span></div>
+      <div style="color:var(--text-mid)">SP + CP si e12 ≥ 3 <span style="color:var(--green)">ROI +58.2%</span></div>
+
+      <div style="margin-top:10px;color:var(--gold);font-size:8px;letter-spacing:1px;text-transform:uppercase">🎯 Trio — ATTELÉ + MONTÉ + HAIE</div>
+      <div style="color:var(--text-mid);margin-top:3px">TRIO #1-#2-#3 si e34 ≥ 2 <span style="color:var(--green)">ROI +530% · taux 25.8%</span></div>
+
+      <div style="margin-top:10px;color:var(--gold);font-size:8px;letter-spacing:1px;text-transform:uppercase">🔗 Couplé — ATTELÉ + MONTÉ + HAIE</div>
+      <div style="color:var(--text-mid);margin-top:3px">CP si e23 ≥ 2 <span style="color:var(--green)">ROI +65.0%</span></div>
+      <div style="color:var(--text-mid)">CG si e23 ≥ 3 <span style="color:var(--green)">ROI +39.8%</span></div>
+
+      <div style="margin-top:10px;color:var(--text-dim);font-size:8px">e12 = note#1 − note#2 · e23 = note#2 − note#3 · e34 = note#3 − note#4</div>
     </div>`;
   if (predictions&&chevaux.length>0) document.getElementById('result-section').style.display='block';
 }

@@ -1302,7 +1302,7 @@ async function chargerSafe() {
       if (!playSP && !playCP) {
         return `<div class="dash-row" onclick="${onclick}" style="opacity:.5">
           <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
-          <div><div class="dash-cheval">#${h1.numero} ${nom1}</div><div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · écart ${ecart}pts</div></div>
+          <div><div class="dash-cheval">#${h1.numero} ${nom1}</div><div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · e12:${ecart}pts e23:${ecart23}pts</div></div>
           <div><div class="dash-signal skip">⛔ PASSER</div></div>
         </div>`;
       }
@@ -1317,7 +1317,7 @@ async function chargerSafe() {
         <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
         <div>
           <div class="dash-cheval" style="font-size:10px">#${h1.numero} ${nom1} · #${h2.numero} ${nom2}</div>
-          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · écart <strong>${ecart}pts</strong> · ${mise}€ à miser</div>
+          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e12:${ecart}pts e23:${ecart23}pts · ${mise}€ à miser</div>
         </div>
         <div style="text-align:right;min-width:85px">
           <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">${badges.join('')}</div>

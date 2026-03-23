@@ -367,7 +367,7 @@ input[readonly]{opacity:.5;cursor:default}
         <div class="empty">
           <div class="empty-icon">🔗</div>
           Signaux Couplé Placé, Couplé Gagnant et Trio<br>
-          <button class="btn full" onclick="chargerCouple()" style="margin-top:16px;font-size:11px">Charger CP · CG · Trio →</button>
+          <button class="btn full" onclick="chargerCouple()" style="margin-top:16px;font-size:11px">Charger CP · CG →</button>
         </div>
       </div>
     </div>
@@ -1447,17 +1447,13 @@ async function chargerTrio() {
         </div>`;
       }
 
-      return `<div class="dash-row" onclick="${onclick}" style="border-left:2px solid var(--copper)">
+      return `<div class="dash-row" onclick="${onclick}" style="border-left:2px solid var(--copper);grid-template-columns:48px 1fr">
         <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
         <div style="min-width:0">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px">
-            <div style="min-width:0">
-              <div class="dash-cheval" style="font-size:10px">#${h1.numero} ${nom1} · #${h2.numero} ${nom2} · #${h3.numero} ${nom3}</div>
-              <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e34:${ecart34}pts · ${sorted.length}p</div>
-            </div>
-            <div style="flex-shrink:0;text-align:right">
-              <span style="background:rgba(181,96,58,.2);border:1px solid rgba(181,96,58,.5);border-radius:4px;padding:3px 8px;color:var(--copper);font-size:9px;font-weight:700">🎯 TRIO</span>
-            </div>
+          <div class="dash-cheval" style="font-size:10px">#${h1.numero} ${nom1} · #${h2.numero} ${nom2} · #${h3.numero} ${nom3}</div>
+          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e34:${ecart34}pts · ${sorted.length}p</div>
+          <div style="margin-top:4px">
+            <span style="background:rgba(181,96,58,.2);border:1px solid rgba(181,96,58,.5);border-radius:4px;padding:2px 8px;color:var(--copper);font-size:8px;font-weight:700">🎯 TRIO #${h1.numero}-#${h2.numero}-#${h3.numero}</span>
           </div>
         </div>
       </div>`;
@@ -1595,7 +1591,6 @@ async function chargerCouple() {
       const badges = [];
       if (signalCG)   badges.push(`<span style="background:rgba(200,148,42,.15);border:1px solid rgba(200,148,42,.4);border-radius:4px;padding:2px 5px;color:#c8942a;font-size:8px;font-weight:700">CG</span>`);
       if (signalCP)   badges.push(`<span style="background:rgba(58,145,98,.15);border:1px solid rgba(58,145,98,.4);border-radius:4px;padding:2px 5px;color:#3a9162;font-size:8px;font-weight:700">CP</span>`);
-      if (signalTrio) badges.push(`<span style="background:rgba(181,96,58,.15);border:1px solid rgba(181,96,58,.4);border-radius:4px;padding:2px 5px;color:var(--copper);font-size:8px;font-weight:700">TRIO</span>`);
 
       const nom1 = h1.nom ? h1.nom.split(' ')[0] : `#${h1.numero}`;
       const nom2 = h2.nom ? h2.nom.split(' ')[0] : `#${h2.numero}`;
@@ -1620,7 +1615,7 @@ async function chargerCouple() {
     };
 
     let html = `<div class="dash-refresh">
-      <span>🔗 ${courses.length} courses · CP · CG · Trio</span>
+      <span>🔗 ${courses.length} courses · CP · CG</span>
       <button onclick="coupleCharge=false;chargerCouple()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
     </div>`;
 

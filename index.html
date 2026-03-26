@@ -225,7 +225,7 @@ input[readonly]{opacity:.5;cursor:default}
     </div>
   </div>
 
-  <nav class="nav" style="grid-template-columns:repeat(11,1fr)">
+  <nav class="nav" style="grid-template-columns:repeat(9,1fr)">
     <button class="nav-btn active" onclick="goTo('saisie')" id="tab-saisie"><span class="nav-icon">✏️</span>Saisie</button>
     <button class="nav-btn" onclick="goTo('selections')" id="tab-selections"><span class="nav-icon">🎯</span>Sélect.</button>
     <button class="nav-btn" onclick="goTo('analyse')" id="tab-analyse"><span class="nav-icon">🔬</span>Analyse</button>
@@ -234,8 +234,6 @@ input[readonly]{opacity:.5;cursor:default}
     <button class="nav-btn" onclick="goTo('offensif')" id="tab-offensif"><span class="nav-icon">⚔️</span>Offens.</button>
     <button class="nav-btn" onclick="goTo('trio')" id="tab-trio"><span class="nav-icon">🎯</span>Trio</button>
     <button class="nav-btn" onclick="goTo('couple')" id="tab-couple"><span class="nav-icon">🔗</span>Couplé</button>
-    <button class="nav-btn" onclick="goTo('ceinture')" id="tab-ceinture"><span class="nav-icon">🥋</span>Ceinture</button>
-    <button class="nav-btn" onclick="goTo('allin')" id="tab-allin"><span class="nav-icon">💥</span>All In</button>
     <button class="nav-btn" onclick="goTo('stats')" id="tab-stats">
       <span class="nav-icon">📊</span>Stats
       <span class="nav-badge" id="badge-stats"></span>
@@ -374,34 +372,6 @@ input[readonly]{opacity:.5;cursor:default}
       </div>
     </div>
 
-    <!-- CEINTURE -->
-    <div class="screen" id="screen-ceinture">
-      <div id="ceinture-content">
-        <div class="empty">
-          <div class="empty-icon">🥋</div>
-          Stratégie Ceinture — CP sécurisé<br>
-          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
-            CP si e24≥4 · ou CP si e23≥2 et e34≥2 · ATTELÉ + MONTÉ
-          </small>
-          <button class="btn full" onclick="chargerCeinture()" style="margin-top:16px;font-size:11px">Charger Ceinture →</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ALL IN -->
-    <div class="screen" id="screen-allin">
-      <div id="allin-content">
-        <div class="empty">
-          <div class="empty-icon">💥</div>
-          Stratégie All In — CP haute conviction<br>
-          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
-            CP si e14≥4 · écart top1→top4 dominant · ATTELÉ + MONTÉ
-          </small>
-          <button class="btn full" onclick="chargerAllIn()" style="margin-top:16px;font-size:11px">Charger All In →</button>
-        </div>
-      </div>
-    </div>
-
     <div class="screen" id="screen-stats">
       <div id="stats-content">
         <div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement…</span></div>
@@ -418,7 +388,7 @@ input[readonly]{opacity:.5;cursor:default}
 <script>
 const API_URL = "https://martengo-api-v5.onrender.com";
 const LS_SAISIE = 'martengo_v3', LS_HIST = 'martengo_hist';
-const SCREENS = ['saisie','selections','analyse','dashboard','safe','offensif','trio','couple','ceinture','allin','stats'];
+const SCREENS = ['saisie','selections','analyse','dashboard','safe','offensif','trio','couple','stats'];
 
 let chevaux = [], predictions = null, notesPMU = {}, notesPMUData = null;
 let currentDate = '', horseCounter = 0, apiPrete = false, currentScreen = 'saisie';
@@ -1669,276 +1639,6 @@ async function chargerCouple() {
   }
 }
 
-// ── Ceinture ──
-let ceintureCharge = false;
-async function chargerCeinture() {
-  if (ceintureCharge) return;
-  const el = document.getElementById('ceinture-content');
-  el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement Ceinture…</span></div>';
-  const today = new Date();
-  const pad = n => String(n).padStart(2,'0');
-  const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
-  const DISC_LABELS = {'TROT_ATTELE':'ATTELÉ','ATTELE':'ATTELÉ','PLAT':'PLAT','HAIE':'HAIE','MONTE':'MONTÉ'};
-  const DISC_OK = ['ATTELE','TROT_ATTELE','MONTE'];
-
-  try {
-    const resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
-    if (!resp.ok) throw new Error('Programme indisponible');
-    const data = await resp.json();
-    const courses = (data.courses || []).filter(c => {
-      const d = c.disc === 'TROT_ATTELE' ? 'ATTELE' : c.disc;
-      return DISC_OK.includes(d);
-    }).map(c => ({r: c.r_num, c: c.c_num, disc: c.disc, dist: c.dist, lieu: c.lieu, heure: c.heure}));
-
-    if (!courses.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-icon">🥋</div>Aucune course éligible aujourd\'hui</div>';
-      return;
-    }
-
-    const allResults = {};
-    const total = courses.length; let loaded = 0;
-    const updateProgress = () => {
-      const pct = Math.round(loaded/total*100);
-      el.innerHTML = `<div class="dash-progress">Chargement Ceinture… ${loaded}/${total} (${pct}%)<div class="dash-progress-bar"><div class="dash-progress-fill" style="width:${pct}%"></div></div></div>`;
-    };
-    updateProgress();
-    for (let i=0; i<courses.length; i+=5) {
-      await Promise.all(courses.slice(i,i+5).map(async co => {
-        try {
-          const r = await fetch(`${API_URL}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
-          if (r.ok) allResults[`${co.r}-${co.c}`] = await r.json();
-        } catch(e) {}
-        loaded++; updateProgress();
-      }));
-    }
-    ceintureCharge = true;
-
-    const byR = {};
-    for (const co of courses) {
-      if (!byR[co.r]) byR[co.r] = {lieu: co.lieu, courses:[]};
-      byR[co.r].courses.push(co);
-    }
-
-    const renderCeintureRow = (co, d) => {
-      const disc    = co.disc === 'TROT_ATTELE' ? 'ATTELE' : co.disc;
-      const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
-      const chevaux = d?.chevaux || [];
-
-      if (chevaux.length < 4) {
-        return `<div class="dash-row" onclick="${onclick}" style="opacity:.4">
-          <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
-          <div><div class="dash-cheval" style="color:var(--text-dim)">Moins de 4 partants</div><div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m</div></div>
-          <div><div class="dash-signal skip">⛔ SKIP</div></div>
-        </div>`;
-      }
-
-      const sorted = [...chevaux].sort((a,b) => {
-        if (b.note_pmu !== a.note_pmu) return b.note_pmu - a.note_pmu;
-        return (b.proba_pmu||0) - (a.proba_pmu||0);
-      });
-
-      const h1=sorted[0], h2=sorted[1], h3=sorted[2], h4=sorted[3];
-      const note2 = h2.note_pmu ?? 0;
-      const note3 = h3.note_pmu ?? 0;
-      const note4 = h4.note_pmu ?? 0;
-      const ecart24 = note2 - note4;  // e24 = note#2 − note#4
-      const ecart23 = note2 - note3;  // e23
-      const ecart34 = note3 - note4;  // e34
-
-      // Condition Ceinture : e24>=4 OU (e23>=2 ET e34>=2)
-      const signal24   = ecart24 >= 4;
-      const signalDual = ecart23 >= 2 && ecart34 >= 2;
-      const playCP     = signal24 || signalDual;
-
-      const nom1 = h1.nom ? h1.nom.split(' ')[0] : `#${h1.numero}`;
-      const nom2 = h2.nom ? h2.nom.split(' ')[0] : `#${h2.numero}`;
-
-      if (!playCP) {
-        return `<div class="dash-row" onclick="${onclick}" style="opacity:.35">
-          <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
-          <div><div class="dash-cheval">#${h1.numero} ${nom1}</div><div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e24:${ecart24}pts e23:${ecart23}pts e34:${ecart34}pts</div></div>
-          <div><div class="dash-signal skip">⛔ PASSER</div></div>
-        </div>`;
-      }
-
-      const motif = signal24 ? `e24:${ecart24}pts` : `e23:${ecart23}pts · e34:${ecart34}pts`;
-      const motifLabel = signal24 ? 'e24≥4' : 'e23≥2 + e34≥2';
-
-      return `<div class="dash-row" onclick="${onclick}" style="border-left:2px solid #8a6cbf">
-        <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
-        <div>
-          <div class="dash-cheval" style="font-size:10px">#${h1.numero} ${nom1} · #${h2.numero} ${nom2}</div>
-          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · ${motif}</div>
-        </div>
-        <div style="text-align:right;min-width:88px">
-          <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">
-            <span style="background:rgba(138,108,191,.15);border:1px solid rgba(138,108,191,.5);border-radius:4px;padding:2px 6px;color:#8a6cbf;font-size:8px;font-weight:700">🥋 CP</span>
-            <span style="font-family:'Space Mono',monospace;font-size:7px;color:var(--text-dim)">${motifLabel}</span>
-          </div>
-        </div>
-      </div>`;
-    };
-
-    let n_cp = 0, n_passer = 0;
-    for (const co of courses) {
-      const d = allResults[`${co.r}-${co.c}`];
-      if (!d?.chevaux?.length || d.chevaux.length < 4) continue;
-      const sorted = [...d.chevaux].sort((a,b) => b.note_pmu - a.note_pmu);
-      const e24 = (sorted[1]?.note_pmu??0) - (sorted[3]?.note_pmu??0);
-      const e23 = (sorted[1]?.note_pmu??0) - (sorted[2]?.note_pmu??0);
-      const e34 = (sorted[2]?.note_pmu??0) - (sorted[3]?.note_pmu??0);
-      if (e24 >= 4 || (e23 >= 2 && e34 >= 2)) n_cp++; else n_passer++;
-    }
-
-    let html = `<div class="dash-refresh">
-      <span>🥋 Ceinture · CP:${n_cp} Passés:${n_passer}</span>
-      <button onclick="ceintureCharge=false;chargerCeinture()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
-    </div>
-    <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
-      🥋 CP #1-#2 si e24≥4 · ou si e23≥2 et e34≥2
-    </div>`;
-
-    for (const [rNum, rd] of Object.entries(byR)) {
-      html += `<div class="dash-reunion">R${rNum} · ${rd.lieu}</div>`;
-      for (const co of rd.courses) {
-        html += renderCeintureRow(co, allResults[`${co.r}-${co.c}`]);
-      }
-    }
-    el.innerHTML = html;
-
-  } catch(e) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>${e.message}<br>
-    <button class="btn secondary" onclick="ceintureCharge=false;chargerCeinture()" style="margin-top:12px;font-size:10px">↺ Réessayer</button></div>`;
-  }
-}
-
-// ── All In ──
-let allInCharge = false;
-async function chargerAllIn() {
-  if (allInCharge) return;
-  const el = document.getElementById('allin-content');
-  el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement All In…</span></div>';
-  const today = new Date();
-  const pad = n => String(n).padStart(2,'0');
-  const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
-  const DISC_LABELS = {'TROT_ATTELE':'ATTELÉ','ATTELE':'ATTELÉ','PLAT':'PLAT','HAIE':'HAIE','MONTE':'MONTÉ'};
-  const DISC_OK = ['ATTELE','TROT_ATTELE','MONTE'];
-
-  try {
-    const resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
-    if (!resp.ok) throw new Error('Programme indisponible');
-    const data = await resp.json();
-    const courses = (data.courses || []).filter(c => {
-      const d = c.disc === 'TROT_ATTELE' ? 'ATTELE' : c.disc;
-      return DISC_OK.includes(d);
-    }).map(c => ({r: c.r_num, c: c.c_num, disc: c.disc, dist: c.dist, lieu: c.lieu, heure: c.heure}));
-
-    if (!courses.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-icon">💥</div>Aucune course éligible aujourd\'hui</div>';
-      return;
-    }
-
-    const allResults = {};
-    const total = courses.length; let loaded = 0;
-    const updateProgress = () => {
-      const pct = Math.round(loaded/total*100);
-      el.innerHTML = `<div class="dash-progress">Chargement All In… ${loaded}/${total} (${pct}%)<div class="dash-progress-bar"><div class="dash-progress-fill" style="width:${pct}%"></div></div></div>`;
-    };
-    updateProgress();
-    for (let i=0; i<courses.length; i+=5) {
-      await Promise.all(courses.slice(i,i+5).map(async co => {
-        try {
-          const r = await fetch(`${API_URL}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
-          if (r.ok) allResults[`${co.r}-${co.c}`] = await r.json();
-        } catch(e) {}
-        loaded++; updateProgress();
-      }));
-    }
-    allInCharge = true;
-
-    const byR = {};
-    for (const co of courses) {
-      if (!byR[co.r]) byR[co.r] = {lieu: co.lieu, courses:[]};
-      byR[co.r].courses.push(co);
-    }
-
-    const renderAllInRow = (co, d) => {
-      const disc    = co.disc === 'TROT_ATTELE' ? 'ATTELE' : co.disc;
-      const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
-      const chevaux = d?.chevaux || [];
-
-      if (chevaux.length < 4) {
-        return `<div class="dash-row" onclick="${onclick}" style="opacity:.4">
-          <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
-          <div><div class="dash-cheval" style="color:var(--text-dim)">Moins de 4 partants</div><div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m</div></div>
-          <div><div class="dash-signal skip">⛔ SKIP</div></div>
-        </div>`;
-      }
-
-      const sorted = [...chevaux].sort((a,b) => {
-        if (b.note_pmu !== a.note_pmu) return b.note_pmu - a.note_pmu;
-        return (b.proba_pmu||0) - (a.proba_pmu||0);
-      });
-
-      const h1=sorted[0], h2=sorted[1], h4=sorted[3];
-      const note1  = h1.note_pmu ?? 0;
-      const note4  = h4.note_pmu ?? 0;
-      const ecart14 = note1 - note4;  // e14 = note#1 − note#4
-
-      const nom1 = h1.nom ? h1.nom.split(' ')[0] : `#${h1.numero}`;
-      const nom2 = h2.nom ? h2.nom.split(' ')[0] : `#${h2.numero}`;
-
-      if (ecart14 < 4) {
-        return `<div class="dash-row" onclick="${onclick}" style="opacity:.35">
-          <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
-          <div><div class="dash-cheval">#${h1.numero} ${nom1}</div><div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e14:${ecart14}pts</div></div>
-          <div><div class="dash-signal skip">⛔ PASSER</div></div>
-        </div>`;
-      }
-
-      return `<div class="dash-row" onclick="${onclick}" style="border-left:2px solid #e05c5c">
-        <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
-        <div>
-          <div class="dash-cheval" style="font-size:10px">#${h1.numero} ${nom1} · #${h2.numero} ${nom2}</div>
-          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e14:${ecart14}pts · ${sorted.length}p</div>
-        </div>
-        <div style="text-align:right;min-width:80px">
-          <span style="background:rgba(224,92,92,.15);border:1px solid rgba(224,92,92,.5);border-radius:4px;padding:2px 6px;color:#e05c5c;font-size:8px;font-weight:700">💥 ALL IN CP</span>
-        </div>
-      </div>`;
-    };
-
-    let n_allin = 0, n_passer = 0;
-    for (const co of courses) {
-      const d = allResults[`${co.r}-${co.c}`];
-      if (!d?.chevaux?.length || d.chevaux.length < 4) continue;
-      const sorted = [...d.chevaux].sort((a,b) => b.note_pmu - a.note_pmu);
-      const e14 = (sorted[0]?.note_pmu??0) - (sorted[3]?.note_pmu??0);
-      if (e14 >= 4) n_allin++; else n_passer++;
-    }
-
-    let html = `<div class="dash-refresh">
-      <span>💥 All In · CP:${n_allin} Passés:${n_passer}</span>
-      <button onclick="allInCharge=false;chargerAllIn()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
-    </div>
-    <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
-      💥 CP #1-#2 si e14≥4 · écart dominant top1→top4
-    </div>`;
-
-    for (const [rNum, rd] of Object.entries(byR)) {
-      html += `<div class="dash-reunion">R${rNum} · ${rd.lieu}</div>`;
-      for (const co of rd.courses) {
-        html += renderAllInRow(co, allResults[`${co.r}-${co.c}`]);
-      }
-    }
-    el.innerHTML = html;
-
-  } catch(e) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>${e.message}<br>
-    <button class="btn secondary" onclick="allInCharge=false;chargerAllIn()" style="margin-top:12px;font-size:10px">↺ Réessayer</button></div>`;
-  }
-}
-
 // ── Stats ──
 let statsChargees=false;
 async function chargerStats() {
@@ -1966,14 +1666,14 @@ function renderStats(nb, hist) {
     ? [{l:'Forme / Musique',p:36,c:'var(--gold)'},{l:'Gains / Palmarès',p:24,c:'#5c8cbf'},{l:'Jockey obstacle',p:22,c:'var(--copper)'},{l:'Adéquation',p:18,c:'#8a6cbf'}]
     : isGalopStats
     ? [{l:'Duo / Jockey',p:39,c:'var(--copper)'},{l:'Gains / Palmarès',p:23,c:'#5c8cbf'},{l:'Adéquation',p:19,c:'#8a6cbf'},{l:'Forme / Musique',p:19,c:'var(--gold)'}]
-    : [{l:'Duo / Driver',p:45,c:'var(--copper)'},{l:'Forme / Musique',p:22,c:'var(--gold)'},{l:'Adéquation',p:18,c:'#8a6cbf'},{l:'Gains / Palmarès',p:15,c:'#5c8cbf'}];
+    : [{l:'Driver win rate',p:20,c:'var(--copper)'},{l:'Forme récente (top3_3c)',p:15,c:'var(--gold)'},{l:'Avis entraîneur',p:16,c:'#8a6cbf'},{l:'Duo momentum',p:5,c:'#5c8cbf'},{l:'Autres features',p:44,c:'var(--text-mid)'}];
   document.getElementById('stats-content').innerHTML=`
     <div class="section-title">Base de données</div>
     <div class="kpi-grid fade-in">
       <div class="kpi accent"><div class="kpi-val">${nb.toLocaleString('fr')}</div><div class="kpi-label">Courses historique</div></div>
       <div class="kpi"><div class="kpi-val">${(nb*9).toLocaleString('fr')}</div><div class="kpi-label">Lignes estimées</div></div>
-      <div class="kpi"><div class="kpi-val">V7</div><div class="kpi-label">Version modèle</div></div>
-      <div class="kpi"><div class="kpi-val">20</div><div class="kpi-label">Features</div></div>
+      <div class="kpi"><div class="kpi-val">V9</div><div class="kpi-label">Version modèle</div></div>
+      <div class="kpi"><div class="kpi-val">24</div><div class="kpi-label">Features</div></div>
     </div>
     <div class="section-title">Précision locale</div>
     <div class="stat-block fade-in fd1">
@@ -1987,9 +1687,9 @@ function renderStats(nb, hist) {
       <div class="stat-block-title">Course courante (notes PMU)</div>
       ${buildDist()}
     </div>
-    <div class="section-title">Pondérations V8</div>
+    <div class="section-title">Pondérations V9</div>
     <div class="stat-block fade-in fd3">
-      <div class="stat-block-title">20 features brutes V8</div>
+      <div class="stat-block-title">24 features brutes V9 — nouvelles : duo_momentum, top3_3courses, top3_60j</div>
       ${DIMS.map(d=>`<div class="acc-row"><div class="acc-label" style="width:120px;font-size:8px">${d.l}</div><div class="acc-track"><div class="acc-fill" style="width:${d.p*3.8}%;background:${d.c}"></div></div><div class="acc-pct" style="color:${d.c}">${d.p}%</div></div>`).join('')}
     </div>
     <div class="section-title">Stratégies validées</div>
@@ -2018,14 +1718,7 @@ function renderStats(nb, hist) {
       <div style="color:var(--text-mid);margin-top:3px">CP si e23 ≥ 2 <span style="color:var(--green)">ROI +65.0%</span></div>
       <div style="color:var(--text-mid)">CG si e23 ≥ 3 <span style="color:var(--green)">ROI +39.8%</span></div>
 
-      <div style="margin-top:10px;color:var(--gold);font-size:8px;letter-spacing:1px;text-transform:uppercase">🥋 Ceinture — ATTELÉ + MONTÉ</div>
-      <div style="color:var(--text-mid);margin-top:3px">CP si e24 ≥ 4 (note#2 − note#4)</div>
-      <div style="color:var(--text-mid)">CP si e23 ≥ 2 ET e34 ≥ 2</div>
-
-      <div style="margin-top:10px;color:var(--gold);font-size:8px;letter-spacing:1px;text-transform:uppercase">💥 All In — ATTELÉ + MONTÉ</div>
-      <div style="color:var(--text-mid);margin-top:3px">CP si e14 ≥ 4 (note#1 − note#4) · haute conviction</div>
-
-      <div style="margin-top:10px;color:var(--text-dim);font-size:8px">e12 = note#1 − note#2 · e23 = note#2 − note#3 · e34 = note#3 − note#4 · e14 = note#1 − note#4 · e24 = note#2 − note#4</div>
+      <div style="margin-top:10px;color:var(--text-dim);font-size:8px">e12 = note#1 − note#2 · e23 = note#2 − note#3 · e34 = note#3 − note#4</div>
     </div>`;
   if (predictions&&chevaux.length>0) document.getElementById('result-section').style.display='block';
 }

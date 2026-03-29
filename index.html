@@ -891,7 +891,7 @@ function renderAnalyse(data) {
       <div class="dim-grid">${DIMS.map(d=>{const v=sc[d.k]??0;return `<div class="dim-cell"><div class="dim-label">${d.i} ${d.l}<span style="float:right;opacity:.5;font-size:7px">${d.p}%</span></div><div class="dim-bar-track"><div class="dim-bar-fill" style="width:${v}%;background:${d.c}"></div></div><div class="dim-val" style="color:${d.c}">${v}</div></div>`;}).join('')}</div>
       <div class="analyse-footer">
         <span>⚠️ Taux disq.</span><span style="font-weight:700;color:${dc}">${h.taux_disq||0}%</span>
-        ${h.score_value&&h.score_value>0?`<span style="margin-left:10px;font-family:monospace;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;${h.score_value>=5?'background:rgba(58,145,98,.2);color:#3a9162;border:1px solid rgba(58,145,98,.4)':h.score_value>=3?'background:rgba(200,148,42,.12);color:var(--gold);border:1px solid rgba(200,148,42,.3)':'background:var(--bg3);color:var(--text-dim);border:1px solid var(--border)'}">VALUE ${h.score_value.toFixed(1)}</span>`:''}
+        ${h.score_value&&h.score_value>0?`<span style="margin-left:10px;font-family:monospace;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;${h.score_value>=40?'background:rgba(58,145,98,.2);color:#3a9162;border:1px solid rgba(58,145,98,.4)':h.score_value>=20?'background:rgba(200,148,42,.12);color:var(--gold);border:1px solid rgba(200,148,42,.3)':'background:var(--bg3);color:var(--text-dim);border:1px solid var(--border)'}">VALUE ${h.score_value}</span>`:''}
         <span style="margin-left:auto;font-size:8px;color:var(--text-dim);font-family:monospace;letter-spacing:0">${h.musique||''}</span>
       </div>
     </div>`;
@@ -1655,26 +1655,56 @@ async function chargerStats() {
 }
 function renderStats(nb, hist) {
   const n=hist.length, a1=n?Math.round(hist.filter(h=>h.top1_ok).length/n*100):0, a3=n?Math.round(hist.filter(h=>h.top3_ok).length/n*100):0;
-  // Pondérations selon discipline courante
   const lastVersion = notesPMUData?.version || '';
   const isGalopStats = lastVersion.includes('galop');
   const isPlatStats  = lastVersion.includes('plat');
   const isHaieStats  = lastVersion.includes('haie');
+  const isV15        = lastVersion.includes('v15') || lastVersion.includes('v14') || lastVersion.includes('ranking');
+
+  // Importances réelles V15 ranking
+  const DIMS_V15 = [
+    {l:'Chrono peloton',p:59,c:'var(--gold)'},
+    {l:'Driver / Duo',p:14,c:'var(--copper)'},
+    {l:'Forme récente',p:9,c:'#5c8cbf'},
+    {l:'Entraîneur / Avis',p:6,c:'#8a6cbf'},
+    {l:'Gains / Palmarès',p:6,c:'#5fcd8a'},
+    {l:'Conditions course',p:6,c:'var(--text-mid)'},
+  ];
   const DIMS = isPlatStats
     ? [{l:'Forme / Musique',p:42,c:'var(--gold)'},{l:'Adéquation',p:20,c:'#8a6cbf'},{l:'Jockey',p:19,c:'var(--copper)'},{l:'Gains / Palmarès',p:19,c:'#5c8cbf'}]
     : isHaieStats
     ? [{l:'Forme / Musique',p:36,c:'var(--gold)'},{l:'Gains / Palmarès',p:24,c:'#5c8cbf'},{l:'Jockey obstacle',p:22,c:'var(--copper)'},{l:'Adéquation',p:18,c:'#8a6cbf'}]
     : isGalopStats
     ? [{l:'Duo / Jockey',p:39,c:'var(--copper)'},{l:'Gains / Palmarès',p:23,c:'#5c8cbf'},{l:'Adéquation',p:19,c:'#8a6cbf'},{l:'Forme / Musique',p:19,c:'var(--gold)'}]
+    : isV15 ? DIMS_V15
     : [{l:'Duo / Driver',p:45,c:'var(--copper)'},{l:'Forme / Musique',p:22,c:'var(--gold)'},{l:'Adéquation',p:18,c:'#8a6cbf'},{l:'Gains / Palmarès',p:15,c:'#5c8cbf'}];
+
+  // Score value de la course courante
+  const chevValue = notesPMUData?.chevaux
+    ? [...notesPMUData.chevaux]
+        .filter(h=>h.score_value&&h.score_value>0)
+        .sort((a,b)=>b.score_value-a.score_value)
+    : [];
+
+  // Indice de confiance
+  const confiance   = notesPMUData?.confiance || null;
+  const plage       = notesPMUData?.plage || null;
+  const confColor   = confiance==='fort' ? '#3a9162' : confiance==='faible' ? '#b5603a' : 'var(--gold)';
+  const confDesc    = confiance==='fort'
+    ? 'Favori clair — le modèle voit une hiérarchie nette dans ce peloton.'
+    : confiance==='faible'
+    ? 'Course très ouverte — chronos et niveaux proches. Prudence sur les paris simples.'
+    : 'Course équilibrée — quelques chevaux se détachent sans domination franche.';
+
   document.getElementById('stats-content').innerHTML=`
     <div class="section-title">Base de données</div>
     <div class="kpi-grid fade-in">
       <div class="kpi accent"><div class="kpi-val">${nb.toLocaleString('fr')}</div><div class="kpi-label">Courses historique</div></div>
       <div class="kpi"><div class="kpi-val">${(nb*9).toLocaleString('fr')}</div><div class="kpi-label">Lignes estimées</div></div>
-      <div class="kpi"><div class="kpi-val">V7</div><div class="kpi-label">Version modèle</div></div>
-      <div class="kpi"><div class="kpi-val">20</div><div class="kpi-label">Features</div></div>
+      <div class="kpi"><div class="kpi-val">${isV15?'V15':isGalopStats?'Galop':'V8'}</div><div class="kpi-label">Version modèle</div></div>
+      <div class="kpi"><div class="kpi-val">${isV15?'31':'20'}</div><div class="kpi-label">Features</div></div>
     </div>
+
     <div class="section-title">Précision locale</div>
     <div class="stat-block fade-in fd1">
       <div class="stat-block-title">${n} prédiction${n!==1?'s':''} enregistrée${n!==1?'s':''}</div>
@@ -1682,18 +1712,57 @@ function renderStats(nb, hist) {
       :`<div class="acc-row"><div class="acc-label">Gagnant exact</div><div class="acc-track"><div class="acc-fill" style="width:${a1}%"></div></div><div class="acc-pct">${a1}%</div></div>
         <div class="acc-row"><div class="acc-label">Top 3 correct</div><div class="acc-track"><div class="acc-fill" style="width:${a3}%"></div></div><div class="acc-pct">${a3}%</div></div>`}
     </div>
-    <div class="section-title">Distribution notes</div>
+
+    ${confiance ? `
+    <div class="section-title">Confiance de la course</div>
     <div class="stat-block fade-in fd2">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <span style="font-family:'Space Mono',monospace;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim)">Indice</span>
+        <span style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;color:${confColor}">${(confiance||'').toUpperCase()}</span>
+      </div>
+      <div style="height:4px;background:var(--border);border-radius:2px;margin-bottom:10px;overflow:hidden">
+        <div style="height:100%;border-radius:2px;background:${confColor};width:${confiance==='fort'?'90':confiance==='faible'?'20':'55'}%"></div>
+      </div>
+      <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-mid);line-height:1.7">${confDesc}</div>
+      ${plage?`<div style="margin-top:8px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim)">Dispersion scores : ${plage.toFixed(2)} · seuils : &lt;1.24 faible · &gt;1.65 fort</div>`:''}
+    </div>` : ''}
+
+    ${chevValue.length>0 ? `
+    <div class="section-title">Score value</div>
+    <div class="stat-block fade-in fd3">
+      <div class="stat-block-title">note × log(cote) — outsiders sous-estimés</div>
+      ${chevValue.slice(0,5).map((h,i)=>{
+        const maxV = chevValue[0].score_value||1;
+        const pct  = Math.round(h.score_value/maxV*100);
+        const vc   = h.score_value>=40?'#3a9162':h.score_value>=20?'var(--gold)':'var(--text-mid)';
+        return `<div class="acc-row">
+          <div class="acc-label" style="width:130px;font-size:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">#${h.numero} ${h.nom||''}</div>
+          <div class="acc-track"><div class="acc-fill" style="width:${pct}%;background:${vc}"></div></div>
+          <div class="acc-pct" style="color:${vc};min-width:44px">${h.score_value}</div>
+        </div>`;
+      }).join('')}
+      <div style="margin-top:10px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);line-height:1.7">
+        Formule : note × log(cote)<br>
+        Valeur &gt; 40 = outsider fortement sous-estimé<br>
+        Valeur &gt; 20 = value intéressante à surveiller<br>
+        Le favori a toujours un score value faible.
+      </div>
+    </div>` : ''}
+
+    <div class="section-title">Distribution notes</div>
+    <div class="stat-block fade-in fd4">
       <div class="stat-block-title">Course courante (notes PMU)</div>
       ${buildDist()}
     </div>
-    <div class="section-title">Pondérations V8</div>
-    <div class="stat-block fade-in fd3">
-      <div class="stat-block-title">20 features brutes V8</div>
-      ${DIMS.map(d=>`<div class="acc-row"><div class="acc-label" style="width:120px;font-size:8px">${d.l}</div><div class="acc-track"><div class="acc-fill" style="width:${d.p*3.8}%;background:${d.c}"></div></div><div class="acc-pct" style="color:${d.c}">${d.p}%</div></div>`).join('')}
+
+    <div class="section-title">Pondérations modèle</div>
+    <div class="stat-block fade-in fd5">
+      <div class="stat-block-title">${isV15?'31 features · XGBoost Ranking V15':isGalopStats?'Modèle galop':'20 features brutes V8'}</div>
+      ${DIMS.map(d=>`<div class="acc-row"><div class="acc-label" style="width:140px;font-size:8px">${d.l}</div><div class="acc-track"><div class="acc-fill" style="width:${d.p*3.8}%;background:${d.c}"></div></div><div class="acc-pct" style="color:${d.c}">${d.p}%</div></div>`).join('')}
     </div>
+
     <div class="section-title">Stratégies validées</div>
-    <div class="stat-block fade-in fd4" style="font-family:'Space Mono',monospace;font-size:9px;line-height:1.9">
+    <div class="stat-block fade-in fd6" style="font-family:'Space Mono',monospace;font-size:9px;line-height:1.9">
       <div class="stat-block-title">Validées sur 7 semaines · ATTELE uniquement</div>
 
       <div style="margin-top:10px;color:var(--gold);font-size:8px;letter-spacing:1px;text-transform:uppercase">📋 Journée — Toutes disciplines</div>

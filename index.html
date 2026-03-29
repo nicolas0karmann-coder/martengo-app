@@ -819,7 +819,11 @@ function renderAnalyse(data) {
   // DIMS dynamiques selon la discipline
   const isPlat = version.includes('plat');
   const isHaie = version.includes('haie');
-  const DIMS = isPlat
+  const isPlatV4 = version.includes('plat_v4') || version.includes('plat_v3');
+  const DIMS = isPlatV4
+    // PLAT V4 — vraies dimensions du modèle ranking (sans cotes)
+    ? [{k:'forme',l:'Musique',i:'🎵',c:'#c8942a',p:22},{k:'jockey',l:'Jockey',i:'🏇',c:'#b5603a',p:18},{k:'historique',l:'Forme récente',i:'📈',c:'#5fcd8a',p:13},{k:'handicap',l:'Handicap',i:'⚖️',c:'#8a6cbf',p:9},{k:'niveau',l:'Niveau lot',i:'🎯',c:'#5c8cbf',p:11},{k:'gains',l:'Palmarès',i:'💰',c:'#888',p:9}]
+    : isPlat
     ? [{k:'forme',l:'Forme',i:'🎵',c:'#c8942a',p:42},{k:'handicap',l:'Handicap',i:'⚖️',c:'#8a6cbf',p:20},{k:'jockey',l:'Jockey',i:'🏇',c:'#b5603a',p:19},{k:'gains',l:'Gains',i:'💰',c:'#5c8cbf',p:19}]
     : isHaie
     ? [{k:'forme',l:'Forme',i:'🎵',c:'#c8942a',p:36},{k:'gains',l:'Gains',i:'💰',c:'#5c8cbf',p:24},{k:'jockey',l:'Jockey',i:'🏇',c:'#b5603a',p:22},{k:'handicap',l:'Handicap',i:'⚖️',c:'#8a6cbf',p:18}]
@@ -1662,6 +1666,16 @@ function renderStats(nb, hist) {
   const isV15        = lastVersion.includes('v15') || lastVersion.includes('v14') || lastVersion.includes('ranking');
 
   // Importances réelles V15 ranking
+  const DIMS_PLAT_V4 = [
+    {l:'Musique / Forme',p:22,c:'var(--gold)'},
+    {l:'Jockey peloton',p:18,c:'var(--copper)'},
+    {l:'Forme récente',p:13,c:'#5fcd8a'},
+    {l:'Niveau lot / Descente',p:11,c:'#5c8cbf'},
+    {l:'Handicap rating',p:9,c:'#8a6cbf'},
+    {l:'Palmarès / Gains',p:9,c:'#888780'},
+    {l:'Entraîneur',p:8,c:'#b5603a'},
+    {l:'Autres',p:10,c:'var(--text-dim)'},
+  ];
   const DIMS_V15 = [
     {l:'Chrono peloton',p:59,c:'var(--gold)'},
     {l:'Driver / Duo',p:14,c:'var(--copper)'},
@@ -1670,7 +1684,9 @@ function renderStats(nb, hist) {
     {l:'Gains / Palmarès',p:6,c:'#5fcd8a'},
     {l:'Conditions course',p:6,c:'var(--text-mid)'},
   ];
-  const DIMS = isPlatStats
+  const DIMS = isPlatStats && (lastVersion.includes('plat_v4') || lastVersion.includes('plat_v3'))
+    ? DIMS_PLAT_V4
+    : isPlatStats
     ? [{l:'Forme / Musique',p:42,c:'var(--gold)'},{l:'Adéquation',p:20,c:'#8a6cbf'},{l:'Jockey',p:19,c:'var(--copper)'},{l:'Gains / Palmarès',p:19,c:'#5c8cbf'}]
     : isHaieStats
     ? [{l:'Forme / Musique',p:36,c:'var(--gold)'},{l:'Gains / Palmarès',p:24,c:'#5c8cbf'},{l:'Jockey obstacle',p:22,c:'var(--copper)'},{l:'Adéquation',p:18,c:'#8a6cbf'}]

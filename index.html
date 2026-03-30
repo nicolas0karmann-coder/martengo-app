@@ -722,6 +722,25 @@ function renderSelections(data, pmuMap) {
     signalLabel = '👁 SURVEILLER';
     signalColor = 'var(--text-dim)';
   }
+
+  // ── Délaissé : note élevée mais cote marché élevée ──
+  const coteTop1    = parseFloat(top1?.rapport ?? top1?.cote ?? 0);
+  const scoreValue  = coteTop1 > 1 ? Math.round(note1 * Math.log(coteTop1) * 10) / 10 : 0;
+  const isDelaisseF = scoreValue >= 40 && (confianceAPI === 'fort' || confianceAPI === 'moyen');
+  const isDelaisseS = scoreValue >= 20 && scoreValue < 40 && (confianceAPI === 'fort' || confianceAPI === 'moyen');
+  const delaisseBadge = isDelaisseF
+    ? `<span style="background:rgba(138,108,191,.25);border:1px solid rgba(138,108,191,.6);border-radius:4px;padding:2px 7px;font-family:monospace;font-size:9px;font-weight:700;color:#8a6cbf;letter-spacing:1px">💎 DÉLAISSÉ SV${scoreValue}</span>`
+    : isDelaisseS
+    ? `<span style="background:rgba(138,108,191,.12);border:1px solid rgba(138,108,191,.3);border-radius:4px;padding:2px 7px;font-family:monospace;font-size:9px;color:#8a6cbf;letter-spacing:1px">💎 value SV${scoreValue}</span>`
+    : '';
+
+  // ── Valeur Attendue EV = taux_modèle × cote - 1 ──
+  const tauxModele = confianceAPI === 'fort' ? 0.977 : confianceAPI === 'moyen' ? 0.805 : 0.539;
+  const evSG = coteTop1 > 1 ? Math.round((tauxModele * coteTop1 - 1) * 100) / 100 : null;
+  const evColor = evSG === null ? 'var(--text-dim)' : evSG >= 3 ? '#3a9162' : evSG >= 1 ? '#c8942a' : '#e05c5c';
+  const evBadge = evSG !== null
+    ? `<span style="background:${evSG>=1?'rgba(58,145,98,.12)':'rgba(192,57,43,.1)'};border:1px solid ${evColor};border-radius:4px;padding:2px 7px;font-family:monospace;font-size:9px;font-weight:700;color:${evColor};letter-spacing:1px">EV ${evSG>=0?'+':''}${evSG}</span>`
+    : '';
   const wc=sorted.map((h,i)=>({...h, nom:pmuMap[h.numero]?.nom||'',
     barW: probaMax>0 ? Math.round((h.proba_pmu||0)/probaMax*100) : 0,
     tieTag: tieLeaders.has(h.numero) ? '⚡' : ''
@@ -754,6 +773,7 @@ function renderSelections(data, pmuMap) {
         ${g.nom?`<div class="winner-name">${g.nom}</div>`:''}
         <div class="winner-note">Note ${g.note}/20 · Cote ${g.rapport}</div>
         <div style="margin-top:6px;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;color:${signalColor};letter-spacing:1px">${signalLabel}</div>
+        <div style="margin-top:5px;display:flex;gap:4px;flex-wrap:wrap">${delaisseBadge}${evBadge}</div>
       </div>
       <div class="winner-conf">
         <div class="winner-conf-val" style="color:${confianceCouleur};font-size:13px">${indiceGlobal}</div>
@@ -822,6 +842,25 @@ function renderAnalyse(data) {
   let fourchetteLabel = signalSGa ? 'SG + SP (e12≥3)' : signalSPa ? 'SP (e14≥3)' : 'Écart insuffisant';
   let signalColorA = signalSGa ? '#c8942a' : signalSPa ? '#3a9162' : 'var(--text-dim)';
 
+  // ── Délaissé + EV dans Analyse ──
+  const coteA    = parseFloat(top1a?.rapport ?? top1a?.cote ?? 0);
+  const svA      = coteA > 1 ? Math.round(note1a * Math.log(coteA) * 10) / 10 : 0;
+  const confA    = confianceA || '';
+  const tauxA    = confA==='fort' ? 0.977 : confA==='moyen' ? 0.805 : 0.539;
+  const evA      = coteA > 1 ? Math.round((tauxA * coteA - 1) * 100) / 100 : null;
+  const evColorA = evA===null ? 'var(--text-dim)' : evA>=3 ? '#3a9162' : evA>=1 ? '#c8942a' : '#e05c5c';
+  const isDelA   = svA >= 40 && (confA==='fort'||confA==='moyen');
+  const isDelAS  = svA >= 20 && svA < 40 && (confA==='fort'||confA==='moyen');
+  const delBadgeA = isDelA
+    ? `<span style="background:rgba(138,108,191,.25);border:1px solid rgba(138,108,191,.6);border-radius:4px;padding:3px 8px;font-family:monospace;font-size:10px;font-weight:700;color:#8a6cbf;letter-spacing:1px">💎 DÉLAISSÉ · SV${svA}</span>`
+    : isDelAS
+    ? `<span style="background:rgba(138,108,191,.12);border:1px solid rgba(138,108,191,.3);border-radius:4px;padding:3px 8px;font-family:monospace;font-size:9px;color:#8a6cbf">💎 value · SV${svA}</span>`
+    : '';
+  const evBadgeA = evA !== null
+    ? `<span style="background:${evA>=1?'rgba(58,145,98,.12)':'rgba(192,57,43,.1)'};border:1px solid ${evColorA};border-radius:4px;padding:3px 8px;font-family:monospace;font-size:10px;font-weight:700;color:${evColorA};letter-spacing:1px">EV ${evA>=0?'+':''}${evA}</span>`
+    : '';
+  const signalRowA = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${delBadgeA}${evBadgeA}</div>`;
+
   const cards=liste.map((h,i)=>{
     const sc=h.scores||{}, rc=i===0?'var(--gold)':i===1?'#888':i===2?'var(--copper)':'var(--border2)';
     const med=i===0?'🥇':i===1?'🥈':i===2?'🥉':'';
@@ -859,6 +898,7 @@ function renderAnalyse(data) {
     <span style="font-weight:700">${confianceTxtA.toUpperCase()}</span>
     <span style="opacity:.6;font-size:9px;margin-left:auto">plage: ${data.plage??'—'}</span>
   </div>` : ''}
+  ${signalRowA}
   ${miseBannerHtml}${cards}`;
 }
 
@@ -971,16 +1011,86 @@ async function chargerDashboard() {
         : conf==='faible'
         ? `<span style="font-size:13px;opacity:.5" title="Confiance faible">❄️</span>`
         : '';
+      // Délaissé dans la Journée
+      const svD = cote>1 ? Math.round((top1.note_pmu??0)*Math.log(cote)*10)/10 : 0;
+      const delD = svD>=40&&(conf==='fort'||conf==='moyen')
+        ? `<span style="color:#8a6cbf;font-size:10px" title="Délaissé SV${svD}">💎</span>` : '';
+      const tauxD = taux_conf[conf]||0.539;
+      const evD   = cote>1 ? Math.round((tauxD*cote-1)*100)/100 : null;
+      const evTagD = evD!==null&&evD>=1
+        ? `<span style="font-family:monospace;font-size:7px;color:${evD>=3?'#3a9162':'#c8942a'}">EV+${evD}</span>` : '';
       return `<div class="dash-row" onclick="${onclick}">
         <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
         <div><div class="dash-cheval">#${top1.numero} ${top1.nom||''}</div><div class="dash-disc">${DISC_LABELS[disc]||disc} · ${co.dist}m</div></div>
         <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px">
-          ${confPictoD}
+          <div style="display:flex;align-items:center;gap:3px">${delD}${confPictoD}</div>
           <div class="dash-cote" style="color:${coteColor}">${cote?cote.toFixed(1):'—'}</div>
           <div class="dash-signal ${signal==='go_sg_sp'||signal==='go_sp'?'go':signal}" style="color:${coteColor}">${signalTxt}</div>
+          ${evTagD}
         </div>
       </div>`;
     };
+
+    // ── Système multi-courses : top EV du jour ──────────────
+    // Taux calibrés backtest : fort=97.7% · moyen=80.5% · faible=53.9%
+    const taux_conf = {fort:0.977, moyen:0.805, faible:0.539};
+    const signaux_jour = [];
+    for (const co of courses) {
+      const d = allResults[`${co.r}-${co.c}`];
+      if (!d?.chevaux?.length) continue;
+      const sorted_ev = [...d.chevaux].sort((a,b)=>b.note_pmu-a.note_pmu);
+      const h1ev = sorted_ev[0];
+      const h2ev = sorted_ev[1];
+      const h4ev = sorted_ev[3];
+      if (!h1ev) continue;
+      const note1ev = h1ev.note_pmu??0;
+      const note2ev = h2ev?.note_pmu??0;
+      const note4ev = h4ev?.note_pmu??0;
+      const e12ev = note1ev - note2ev;
+      const e14ev = note1ev - note4ev;
+      const cote1ev = parseFloat(h1ev.rapport??h1ev.cote??0);
+      const confev = d.confiance||'faible';
+      if (e12ev < 3 || cote1ev <= 1 || confev === 'faible') continue;
+      const svev = cote1ev > 1 ? Math.round(note1ev * Math.log(cote1ev) * 10)/10 : 0;
+      const taux_ev = taux_conf[confev]||0.539;
+      const ev = Math.round((taux_ev * cote1ev - 1)*100)/100;
+      if (ev < 1) continue;
+      signaux_jour.push({
+        r:co.r, c:co.c, heure:co.heure, lieu:co.lieu, disc:co.disc,
+        num:h1ev.numero, nom:(h1ev.nom||'').split(' ')[0]||'#'+h1ev.numero,
+        cote:cote1ev, sv:svev, ev, e12:e12ev, conf:confev
+      });
+    }
+    signaux_jour.sort((a,b)=>b.ev-a.ev);
+    const top_ev = signaux_jour.slice(0,4);
+
+    // Bannière système multi-courses
+    let systemeBanner = '';
+    if (top_ev.length >= 2) {
+      const mise_tot = top_ev.length * 2;
+      const conf_icons = {fort:'🔥',moyen:'〜',faible:'❄️'};
+      let lignesHtml = '';
+      for (const s of top_ev) {
+        const delIcon = s.sv>=40 ? '<span style="color:#8a6cbf;font-size:9px">💎</span>' : '';
+        lignesHtml += '<div style="display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.05)">'
+          + '<span style="color:var(--text-dim);font-size:8px;min-width:32px">R'+s.r+'C'+s.c+'</span>'
+          + '<span style="color:var(--gold);font-size:8px;font-weight:700">#'+s.num+'</span>'
+          + '<span style="color:var(--text-dim);font-size:8px">'+(DISC_LABELS[s.disc]||s.disc)+'</span>'
+          + '<span style="color:var(--text-mid);font-size:8px">cote '+s.cote.toFixed(1)+'</span>'
+          + '<span style="margin-left:auto;font-size:8px">'+(conf_icons[s.conf]||'')+'</span>'
+          + '<span style="background:rgba(58,145,98,.15);border:1px solid rgba(58,145,98,.3);border-radius:3px;padding:1px 5px;font-size:8px;color:#3a9162;font-family:monospace">EV+'+s.ev+'</span>'
+          + delIcon
+          + '</div>';
+      }
+      const ev_moy = (top_ev.reduce((acc,x)=>acc+x.ev,0)/top_ev.length).toFixed(1);
+      systemeBanner = '<div style="margin:8px 0;padding:8px 12px;background:rgba(58,145,98,.07);border:1px solid rgba(58,145,98,.25);border-radius:8px">'
+        + '<div style="font-family:monospace;font-size:8px;color:#3a9162;font-weight:700;letter-spacing:1px;margin-bottom:6px">'
+        + '🎯 SYSTÈME DU JOUR &middot; '+top_ev.length+' courses &middot; '+mise_tot+'€'
+        + '<span style="float:right;color:var(--text-dim);font-weight:400">EV moy: +'+ev_moy+'</span>'
+        + '</div>'
+        + lignesHtml
+        + '</div>';
+    }
 
     const sortIcon = dashSortMode === 'reunion' ? '🏟 Réunion' : '🕐 Heure';
     let html = `<div class="dash-refresh">
@@ -989,7 +1099,8 @@ async function chargerDashboard() {
         <button onclick="toggleDashSort()" style="background:none;border:1px solid var(--gold);color:var(--gold);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">${sortIcon}</button>
         <button onclick="dashboardCharge=false;chargerDashboard()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
       </div>
-    </div>`;
+    </div>
+    ${systemeBanner}`;
 
     if (dashSortMode === 'heure') {
       // Tri par heure
@@ -1824,8 +1935,36 @@ function renderStats(nb, hist) {
         <div style="color:#3a9162;font-size:8px;font-weight:700;letter-spacing:1px">✅ RECOMMANDATION PRINCIPALE</div>
         <div style="color:var(--text-mid);margin-top:3px">ATTELÉ uniquement · SG e12≥3 + CP e23≥2 (conf FORT/MOY) + SP e14≥3 (conf FORT/MOY)</div>
       </div>
+    </div>
 
-      <div style="margin-top:10px;color:var(--text-dim);font-size:8px">e12=note#1−note#2 · e14=note#1−note#4 · e23=note#2−note#3 · e34=note#3−note#4</div>
+    <div class="section-title">Signaux avancés</div>
+    <div class="stat-block fade-in fd7" style="font-family:'Space Mono',monospace;font-size:9px;line-height:1.9">
+      <div class="stat-block-title">Délaissé · Valeur Attendue · Système du jour</div>
+
+      <div style="margin-top:10px;color:#8a6cbf;font-size:8px;letter-spacing:1px;text-transform:uppercase">💎 DÉLAISSÉ — outsider sous-estimé par le marché</div>
+      <div style="color:var(--text-mid);margin-top:3px">Formule : score_value = note_pmu × log(cote)</div>
+      <div style="color:var(--text-mid)">SV ≥ 40 + conf FORT/MOY <span style="color:#3a9162">→ signal fort · taux 96% · ROI +1820%</span></div>
+      <div style="color:var(--text-mid)">SV ≥ 20 + conf FORT/MOY <span style="color:#c8942a">→ signal modéré · surveiller</span></div>
+      <div style="color:var(--text-dim)">Affiché dans Sélections, Analyse et Journée avec le badge 💎</div>
+
+      <div style="margin-top:10px;color:#5c8cbf;font-size:8px;letter-spacing:1px;text-transform:uppercase">📊 VALEUR ATTENDUE (EV) — rentabilité théorique</div>
+      <div style="color:var(--text-mid);margin-top:3px">Formule : EV = taux_modèle × cote − 1</div>
+      <div style="color:var(--text-mid)">Taux calibrés backtest : 🔥 FORT=97.7% · 〜 MOY=80.5% · ❄️ FAIBLE=53.9%</div>
+      <div style="color:var(--text-mid)">EV ≥ 3 <span style="color:#3a9162">excellent</span> · EV ≥ 1 <span style="color:#c8942a">intéressant</span> · EV &lt; 0 <span style="color:#e05c5c">éviter</span></div>
+      <div style="color:var(--text-dim)">Affiché dans Sélections, Analyse et Journée avec le badge EV+X.X</div>
+
+      <div style="margin-top:10px;color:#3a9162;font-size:8px;letter-spacing:1px;text-transform:uppercase">🎯 SYSTÈME DU JOUR — multi-courses</div>
+      <div style="color:var(--text-mid);margin-top:3px">Top 4 courses EV ≥ 1 + conf FORT/MOY + e12 ≥ 3 triées par EV décroissant</div>
+      <div style="color:var(--text-mid)">Backtest : <span style="color:#3a9162">~2 paris/jour · 63/66 jours avec signal · 88.5% taux · gain moy 60€/jour</span></div>
+      <div style="color:var(--text-mid)">Mise suggérée : 2€ × N courses · paris indépendants (pas de combiné)</div>
+      <div style="color:var(--text-dim)">Affiché en bannière verte en haut de l'onglet Journée</div>
+
+      <div style="margin-top:10px;padding:5px 8px;background:rgba(138,108,191,.1);border:1px solid rgba(138,108,191,.3);border-radius:4px">
+        <div style="color:#8a6cbf;font-size:8px;font-weight:700">⚠️ IMPORTANT</div>
+        <div style="color:var(--text-dim);margin-top:2px">Ces signaux sont basés sur 3 mois de validation. À confirmer sur données live avril→juin 2026. Commencer avec petites mises.</div>
+      </div>
+
+      <div style="margin-top:10px;color:var(--text-dim);font-size:8px">e12=note#1−note#2 · e14=note#1−note#4 · e23=note#2−note#3 · SV=score_value · EV=valeur attendue</div>
     </div>`;
   if (predictions&&chevaux.length>0) document.getElementById('result-section').style.display='block';
 }

@@ -800,6 +800,11 @@ function renderAnalyse(data) {
   }
   const version=data.version||'v6';
   const isGalop = version.includes('galop');
+  // Confiance depuis l'API
+  const confianceA   = data.confiance || '';
+  const confianceColA = confianceA==='fort' ? '#3a9162' : confianceA==='moyen' ? '#c8942a' : confianceA==='faible' ? '#888' : 'var(--text-dim)';
+  const confianceIconA = confianceA==='fort' ? '🔥' : confianceA==='moyen' ? '〜' : confianceA==='faible' ? '❄️' : '—';
+  const confianceTxtA  = confianceA==='fort' ? 'Confiance forte' : confianceA==='moyen' ? 'Confiance moyenne' : confianceA==='faible' ? 'Confiance faible' : '';
   // DIMS dynamiques selon la discipline
   const isPlat = version.includes('plat');
   const isHaie = version.includes('haie');
@@ -858,7 +863,13 @@ function renderAnalyse(data) {
   const miseBannerHtml = (signalSPa || signalSGa) && misePlacea
     ? `<div style="background:rgba(58,145,98,.12);border:1px solid ${signalColorA};border-radius:8px;padding:10px 14px;margin-bottom:14px;font-family:monospace;font-size:10px;color:${signalColorA};letter-spacing:1px">${signalSGa?'💰💰':'💰'} ${fourchetteLabel} → Cheval <strong>#${misePlacea}</strong></div>`
     : `<div style="background:rgba(100,100,100,.08);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-family:monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px">⛔ ${fourchetteLabel||'Aucun signal'}</div>`;
-  document.getElementById('analyse-content').innerHTML=`<div class="pred-meta fade-in">${liste.length} chevaux · ${data.date||currentDate||''} <span class="version-badge">${version}</span></div>${miseBannerHtml}${cards}`;
+  document.getElementById('analyse-content').innerHTML=`<div class="pred-meta fade-in">${liste.length} chevaux · ${data.date||currentDate||''} <span class="version-badge">${version}</span></div>
+  ${confianceTxtA ? `<div style="display:flex;align-items:center;gap:8px;padding:8px 14px;margin-bottom:10px;background:rgba(0,0,0,.15);border:1px solid ${confianceColA};border-radius:8px;font-family:'Space Mono',monospace;font-size:11px;color:${confianceColA};letter-spacing:1px">
+    <span style="font-size:16px">${confianceIconA}</span>
+    <span style="font-weight:700">${confianceTxtA.toUpperCase()}</span>
+    <span style="opacity:.6;font-size:9px;margin-left:auto">plage: ${data.plage??'—'}</span>
+  </div>` : ''}
+  ${miseBannerHtml}${cards}`;
 }
 
 // ── Dashboard Journée ──
@@ -893,19 +904,15 @@ async function chargerDashboard() {
 
   function getSignal(disc, chevaux) {
     if (!chevaux?.length) return 'skip';
-    const discNorm = disc==='TROT_ATTELE'?'ATTELE':disc;
-    const top1  = chevaux[0];
-    const note1 = top1?.note_pmu ?? 0;
-    const note2 = chevaux[1]?.note_pmu ?? 0;
-    const ecart = note1 - note2;
-    const avis  = top1?.avis ?? 0;
-
-    if (discNorm === 'PLAT') return 'skip';
-    if (discNorm === 'HAIE') return 'go_sp';
-    if (discNorm === 'MONTE') return ecart >= 3 ? 'go_sp' : 'watch';
-    // ATTELÉ
-    if (ecart >= 3) return 'go_sg_sp';
-    return 'go_sp';
+    const sorted = [...chevaux].sort((a,b) => b.note_pmu - a.note_pmu);
+    const note1 = sorted[0]?.note_pmu ?? 0;
+    const note2 = sorted[1]?.note_pmu ?? 0;
+    const note4 = sorted[3]?.note_pmu ?? 0;
+    const e12   = note1 - note2;
+    const e14   = note1 - note4;
+    if (e12 >= 3) return 'go_sg_sp';
+    if (e14 >= 3) return 'go_sp';
+    return 'watch';
   }
   function getPariLabel(signal) {
     if (signal === 'go_sg_sp') return '💰💰 SG+SP';

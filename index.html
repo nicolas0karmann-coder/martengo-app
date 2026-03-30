@@ -1127,23 +1127,27 @@ async function chargerOffensif() {
       const nom1    = h1.nom ? h1.nom.split(' ')[0] : `#${h1.numero}`;
       const nom2    = h2.nom ? h2.nom.split(' ')[0] : `#${h2.numero}`;
       const confiance = d?.confiance || '';
-      const confianceTag = confiance === 'fort'
-        ? `<span style="color:#3a9162;font-size:8px;font-weight:700">● FORT</span>`
+      const confPicto = confiance === 'fort'
+        ? `<span style="font-size:14px" title="Confiance forte">🔥</span>`
         : confiance === 'moyen'
-        ? `<span style="color:#c8942a;font-size:8px;font-weight:700">● MOY</span>`
-        : `<span style="color:var(--text-dim);font-size:8px">● faible</span>`;
+        ? `<span style="font-size:14px" title="Confiance moyenne">〜</span>`
+        : `<span style="font-size:14px;opacity:.5" title="Confiance faible">❄️</span>`;
+      const confColor2 = confiance === 'fort' ? '#3a9162' : confiance === 'moyen' ? '#c8942a' : 'var(--text-dim)';
 
       // Stratégie universelle toutes disciplines
       // SP si écart 1→4 >= 3 · SG si écart 1→2 >= 3
       const playSP = ecart14 >= 3;
       const playSG = ecart12 >= 3;
 
-      // PASSER si aucun signal ET confiance faible
+      // PASSER si aucun signal
       if (!playSP && !playSG) {
         return `<div class="dash-row" onclick="${onclick}" style="opacity:.4">
           <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
-          <div><div class="dash-cheval">#${h1.numero} ${nom1}</div><div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e12:${ecart12} e14:${ecart14} ${confianceTag}</div></div>
-          <div><div class="dash-signal skip">⛔ PASSER</div></div>
+          <div><div class="dash-cheval">#${h1.numero} ${nom1}</div><div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e12:${ecart12} e14:${ecart14}</div></div>
+          <div style="text-align:right;min-width:60px;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+            ${confPicto}
+            <div class="dash-signal skip" style="font-size:8px">⛔ PASSER</div>
+          </div>
         </div>`;
       }
 
@@ -1156,10 +1160,13 @@ async function chargerOffensif() {
         <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
         <div>
           <div class="dash-cheval" style="font-size:10px">#${h1.numero} ${nom1} · #${h2.numero} ${nom2}</div>
-          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e12:${ecart12} e14:${ecart14} · ${confianceTag} · ${mise}€</div>
+          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e12:${ecart12} e14:${ecart14} · ${mise}€</div>
         </div>
         <div style="text-align:right;min-width:90px">
-          <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">${badges.join('')}</div>
+          <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">
+            ${confPicto}
+            ${badges.join('')}
+          </div>
         </div>
       </div>`;
     };
@@ -1278,17 +1285,20 @@ async function chargerSafe() {
       const nom1 = h1.nom ? h1.nom.split(' ')[0] : `#${h1.numero}`;
       const nom2 = h2.nom ? h2.nom.split(' ')[0] : `#${h2.numero}`;
       const confiances = d?.confiance || '';
-      const confianceTagS = confiances === 'fort'
-        ? `<span style="color:#3a9162;font-size:8px;font-weight:700">● FORT</span>`
+      const confPictoS = confiances === 'fort'
+        ? `<span style="font-size:14px" title="Confiance forte">🔥</span>`
         : confiances === 'moyen'
-        ? `<span style="color:#c8942a;font-size:8px;font-weight:700">● MOY</span>`
-        : `<span style="color:var(--text-dim);font-size:8px">● faible</span>`;
+        ? `<span style="font-size:14px" title="Confiance moyenne">〜</span>`
+        : `<span style="font-size:14px;opacity:.5" title="Confiance faible">❄️</span>`;
 
       if (!playSP && !playSG) {
         return `<div class="dash-row" onclick="${onclick}" style="opacity:.5">
           <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
-          <div><div class="dash-cheval">#${h1.numero} ${nom1}</div><div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · e12:${ecart} e14:${ecart14s} ${confianceTagS}</div></div>
-          <div><div class="dash-signal skip">⛔ PASSER</div></div>
+          <div><div class="dash-cheval">#${h1.numero} ${nom1}</div><div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · e12:${ecart} e14:${ecart14s}</div></div>
+          <div style="text-align:right;min-width:60px;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+            ${confPictoS}
+            <div class="dash-signal skip" style="font-size:8px">⛔ PASSER</div>
+          </div>
         </div>`;
       }
 
@@ -1302,10 +1312,13 @@ async function chargerSafe() {
         <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
         <div>
           <div class="dash-cheval" style="font-size:10px">#${h1.numero} ${nom1} · #${h2.numero} ${nom2}</div>
-          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e12:${ecart} e14:${ecart14s} · ${confianceTagS} · ${mise}€</div>
+          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e12:${ecart} e14:${ecart14s} · ${mise}€</div>
         </div>
         <div style="text-align:right;min-width:85px">
-          <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">${badges.join('')}</div>
+          <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">
+            ${confPictoS}
+            ${badges.join('')}
+          </div>
         </div>
       </div>`;
     };

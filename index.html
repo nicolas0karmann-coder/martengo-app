@@ -971,13 +971,24 @@ async function chargerDashboard() {
       const top1 = d.chevaux[0];
       const cote = top1.cote ?? 0;
       const signal = getSignal(disc, d.chevaux);
-      const signalFinal = signal;
       const signalTxt = getPariLabel(signal);
       const coteColor = signal==='go_sg_sp'?'#c8942a':signal==='go_sp'?'#3a9162':signal==='watch'?'var(--gold)':'var(--text-mid)';
+      const conf = d?.confiance || '';
+      const confPictoD = conf==='fort'
+        ? `<span style="font-size:13px" title="Confiance forte">🔥</span>`
+        : conf==='moyen'
+        ? `<span style="font-size:13px" title="Confiance moyenne">〜</span>`
+        : conf==='faible'
+        ? `<span style="font-size:13px;opacity:.5" title="Confiance faible">❄️</span>`
+        : '';
       return `<div class="dash-row" onclick="${onclick}">
         <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
         <div><div class="dash-cheval">#${top1.numero} ${top1.nom||''}</div><div class="dash-disc">${DISC_LABELS[disc]||disc} · ${co.dist}m</div></div>
-        <div style="text-align:right"><div class="dash-cote" style="color:${coteColor}">${cote?cote.toFixed(1):'—'}</div><div class="dash-signal ${signal==='go_sg_sp'||signal==='go_sp'?'go':signal}" style="color:${coteColor}">${signalTxt}</div></div>
+        <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+          ${confPictoD}
+          <div class="dash-cote" style="color:${coteColor}">${cote?cote.toFixed(1):'—'}</div>
+          <div class="dash-signal ${signal==='go_sg_sp'||signal==='go_sp'?'go':signal}" style="color:${coteColor}">${signalTxt}</div>
+        </div>
       </div>`;
     };
 

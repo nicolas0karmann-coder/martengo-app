@@ -230,7 +230,7 @@ input[readonly]{opacity:.5;cursor:default}
     <button class="nav-btn" onclick="goTo('selections')" id="tab-selections"><span class="nav-icon">🎯</span>Sélect.</button>
     <button class="nav-btn" onclick="goTo('analyse')" id="tab-analyse"><span class="nav-icon">🔬</span>Analyse</button>
     <button class="nav-btn" onclick="goTo('dashboard')" id="tab-dashboard"><span class="nav-icon">📋</span>Journée<span class="nav-badge" id="badge-dashboard"></span></button>
-    <button class="nav-btn" onclick="goTo('safe')" id="tab-safe"><span class="nav-icon">🛡️</span>Safe</button>
+    <button class="nav-btn" onclick="safeCharge=false;goTo('safe')" id="tab-safe"><span class="nav-icon">🛡️</span>Safe</button>
     <button class="nav-btn" onclick="goTo('trio')" id="tab-trio"><span class="nav-icon">🎯</span>Trio</button>
     <button class="nav-btn" onclick="goTo('couple')" id="tab-couple"><span class="nav-icon">🔗</span>Couplé</button>
     <button class="nav-btn" onclick="goTo('stats')" id="tab-stats">
@@ -329,11 +329,11 @@ input[readonly]{opacity:.5;cursor:default}
       <div id="safe-content">
         <div class="empty">
           <div class="empty-icon">🛡️</div>
-          Paris validés sur 6 semaines<br>
+          🛡️ ATTELÉ uniquement · Backtest validé Jan→Mars 2026<br>
           <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
-            SP si écart12≥3 · CP si écart23≥2 · ATTELÉ + MONTÉ
+            SG e12≥3 conf🔥/〜 · SP e14≥3 conf🔥/〜 · ⛔ conf❄️ = PASSER
           </small>
-          <button class="btn full" onclick="chargerSafe()" style="margin-top:16px;font-size:11px">Charger Safe →</button>
+          <button class="btn full" onclick="safeCharge=false;chargerSafe()" style="margin-top:16px;font-size:11px">Charger Safe →</button>
         </div>
       </div>
     </div>

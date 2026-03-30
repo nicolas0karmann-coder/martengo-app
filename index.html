@@ -320,16 +320,8 @@ input[readonly]{opacity:.5;cursor:default}
 
     <!-- COUPLÉ -->
     <!-- OFFENSIF -->
-    <div class="screen" id="screen-offensif" style="display:none"></div>      <div id="offensif-content">
-        <div class="empty">
-          <div class="empty-icon">⚔️</div>
-          Stratégie offensive — plus de volume<br>
-          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
-            SP toujours · CP si écart12≥2
-          </small>
-          <button class="btn full" onclick="chargerOffensif()" style="margin-top:16px;font-size:11px">Charger Offensif →</button>
-        </div>
-      </div>
+    <div class="screen" id="screen-offensif" style="display:none">
+      <div id="offensif-content"></div>
     </div>
 
     <!-- SAFE -->
@@ -1646,14 +1638,22 @@ async function chargerCouple() {
 
 // ── Stats ──
 let statsChargees=false;
+let statsHistData = null; // données historiques (chargées une fois)
+let statsNbCourses = 0;
+
 async function chargerStats() {
+  // Toujours re-rendre si on a déjà les données historiques
+  if (statsChargees && statsHistData !== null) {
+    renderStats(statsNbCourses, statsHistData);
+    return;
+  }
   if (statsChargees) return;
   document.getElementById('stats-content').innerHTML='<div class="loading-block"><div class="spinner spinner-gold"></div><span>Calcul…</span></div>';
   try {
     const resp=await fetch(`${API_URL}/health`,{signal:AbortSignal.timeout(10000)});
     const data=resp.ok?await resp.json():{};
     const hist=JSON.parse(localStorage.getItem(LS_HIST)||'[]');
-    renderStats(data.courses||0,hist); statsChargees=true;
+    renderStats(data.courses||0,hist); statsNbCourses=data.courses||0; statsHistData=hist; statsChargees=true;
   } catch {
     document.getElementById('stats-content').innerHTML=`<div class="empty"><div class="empty-icon">⚠️</div>Impossible de charger<br><div style="margin-top:12px;"><button class="btn secondary" onclick="statsChargees=false;chargerStats();" style="font-size:10px;">↺ Réessayer</button></div></div>`;
   }
@@ -1878,7 +1878,7 @@ async function envoyerResultats() {
       localStorage.setItem(LS_HIST,JSON.stringify(hist.slice(-200)));
     } catch {}
     toast(`✓ Enregistré · ${res.nb_courses} courses`,'success');
-    statsChargees=false; setBadge(false);
+    statsChargees=false; statsHistData=null; setBadge(false);
     if (navigator.vibrate) navigator.vibrate([30,50,30]);
     document.getElementById('result-content').innerHTML=`<div class="empty"><div class="empty-icon">✅</div>Course du ${date} enregistrée<br><span style="font-size:9px;color:var(--text-dim)">${res.nb_lignes} lignes · ${res.nb_courses} courses</span></div>`;
     viderCourse();

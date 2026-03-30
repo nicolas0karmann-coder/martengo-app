@@ -1154,7 +1154,7 @@ async function chargerOffensif() {
 
       const mise   = (playSG ? 2 : 0) + (playSP ? 1 : 0);
       const badges = [];
-      if (playSG) badges.push(`<span style="background:rgba(200,148,42,.2);border:1px solid rgba(200,148,42,.5);border-radius:4px;padding:2px 6px;color:#c8942a;font-size:8px;font-weight:700">💰💰 SG #${h1.numero}</span>`);
+      if (playSG) badges.push(`<span style="background:rgba(200,148,42,.2);border:1px solid rgba(200,148,42,.5);border-radius:4px;padding:2px 6px;color:#c8942a;font-size:8px;font-weight:700">💰 SG #${h1.numero}</span>`);
       if (playSP) badges.push(`<span style="background:rgba(58,145,98,.2);border:1px solid rgba(58,145,98,.4);border-radius:4px;padding:2px 6px;color:#3a9162;font-size:8px;font-weight:700">💰 SP #${h1.numero}</span>`);
 
       return `<div class="dash-row" onclick="${onclick}" style="border-left:2px solid ${playSG?'#c8942a':'#3a9162'}">
@@ -1214,8 +1214,8 @@ async function chargerSafe() {
   const today = new Date();
   const pad = n => String(n).padStart(2,'0');
   const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
-  const DISC_LABELS = {'TROT_ATTELE':'ATTELÉ','ATTELE':'ATTELÉ','PLAT':'PLAT','HAIE':'HAIE','MONTE':'MONTÉ'};
-  const DISC_OK = ['ATTELE','TROT_ATTELE','PLAT','HAIE','MONTE'];
+  const DISC_LABELS = {'TROT_ATTELE':'ATTELÉ','ATTELE':'ATTELÉ'};
+  const DISC_OK = ['ATTELE','TROT_ATTELE'];  // ATTELÉ uniquement — backtest validé
 
   try {
     const resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
@@ -1279,13 +1279,13 @@ async function chargerSafe() {
       const ecart  = note1 - note2;
       const ecart14s = note1 - note4s;
 
-      // Stratégie universelle toutes disciplines
-      // SP si écart 1→4 >= 3 · SG si écart 1→2 >= 3
-      const playSP = ecart14s >= 3;
-      const playSG = ecart >= 3;
+      // Stratégie backtest validée — ATTELÉ uniquement
+      // SG si e12≥3 ET conf FORT ou MOYEN · SP si e14≥3 ET conf FORT ou MOYEN
+      const confiances = d?.confiance || '';
+      const playSG = ecart >= 3 && confiances !== 'faible';
+      const playSP = ecart14s >= 3 && confiances !== 'faible';
       const nom1 = h1.nom ? h1.nom.split(' ')[0] : `#${h1.numero}`;
       const nom2 = h2.nom ? h2.nom.split(' ')[0] : `#${h2.numero}`;
-      const confiances = d?.confiance || '';
       const confPictoS = confiances === 'fort'
         ? `<span style="font-size:14px" title="Confiance forte">🔥</span>`
         : confiances === 'moyen'
@@ -1337,11 +1337,11 @@ async function chargerSafe() {
     }
 
     let html = `<div class="dash-refresh">
-      <span>🛡️ Safe · ${courses.length} courses · SG:${n_sg} SP:${n_sp}</span>
+      <span>🛡️ Safe ATTELÉ · ${courses.length} courses · SG:${n_sg} SP:${n_sp}</span>
       <button onclick="safeCharge=false;chargerSafe()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
     </div>
     <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
-      💰💰 SG si e12≥3 · 💰 SP si e14≥3 · ⛔ PASSER si aucun signal · toutes disciplines
+      💰 SG e12≥3 conf🔥/〜 <span style="color:#3a9162">ROI +620%→+892%</span> · 💰 SP e14≥3 conf🔥/〜 <span style="color:#3a9162">ROI +36%→+42%</span> · ⛔ conf❄️ = PASSER · ATTELÉ uniquement
     </div>`;
 
     for (const [rNum, rd] of Object.entries(byR)) {
@@ -1498,7 +1498,7 @@ async function chargerCouple() {
   const pad = n => String(n).padStart(2,'0');
   const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
   const DISC_LABELS = {'TROT_ATTELE':'ATTELÉ','ATTELE':'ATTELÉ','PLAT':'PLAT','HAIE':'HAIE','MONTE':'MONTÉ'};
-  const DISC_OK = ['ATTELE','TROT_ATTELE','PLAT','HAIE','MONTE'];
+  const DISC_OK = ['ATTELE','TROT_ATTELE'];
 
   try {
     const resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
@@ -1567,27 +1567,24 @@ async function chargerCouple() {
       const ecart34 = note3 - note4;
       const ecart   = ecart12; // alias pour affichage
 
-      // Signaux selon discipline
+      // Stratégie backtest validée — ATTELÉ uniquement
+      // CP si e23≥2 (conf FORT/MOY : ROI +78%→+93%) · CG si e23≥3
+      const confCouple   = d?.confiance || '';
+      const confPictoCP = confCouple === 'fort'
+        ? `<span style="font-size:12px">🔥</span>`
+        : confCouple === 'moyen'
+        ? `<span style="font-size:12px">〜</span>`
+        : `<span style="font-size:12px;opacity:.5">❄️</span>`;
       let signalCP = false, signalCG = false, signalTrio = false;
-
-      if (disc === 'ATTELE') {
-        signalCP   = ecart23 >= 2;   // CP si écart23 >= 2
-        signalCG   = ecart23 >= 3;   // CG si écart23 >= 3
-        signalTrio = ecart34 >= 3;   // Trio si écart34 >= 2
-      } else if (disc === 'MONTE') {
-        signalCP   = ecart23 >= 2;   // CP si écart23 >= 2
-        signalCG   = false;
-        signalTrio = ecart34 >= 3;   // Trio si écart34 >= 2
-      } else if (disc === 'HAIE') {
-        signalCP   = ecart23 >= 2;   // CP si écart23 >= 2
-        signalCG   = ecart23 >= 3;   // CG si écart23 >= 3
-        signalTrio = ecart34 >= 3;   // Trio si écart34 >= 2
-      }
+      signalCP   = ecart23 >= 2;
+      signalCG   = ecart23 >= 3;
+      signalTrio = ecart34 >= 3;
 
       // Badges signaux
       const badges = [];
-      if (signalCG)   badges.push(`<span style="background:rgba(200,148,42,.15);border:1px solid rgba(200,148,42,.4);border-radius:4px;padding:2px 5px;color:#c8942a;font-size:8px;font-weight:700">CG</span>`);
-      if (signalCP)   badges.push(`<span style="background:rgba(58,145,98,.15);border:1px solid rgba(58,145,98,.4);border-radius:4px;padding:2px 5px;color:#3a9162;font-size:8px;font-weight:700">CP</span>`);
+      badges.push(confPictoCP);
+      if (signalCG)   badges.push(`<span style="background:rgba(200,148,42,.15);border:1px solid rgba(200,148,42,.4);border-radius:4px;padding:2px 5px;color:#c8942a;font-size:8px;font-weight:700">💰 CG</span>`);
+      if (signalCP)   badges.push(`<span style="background:rgba(58,145,98,.15);border:1px solid rgba(58,145,98,.4);border-radius:4px;padding:2px 5px;color:#3a9162;font-size:8px;font-weight:700">💰 CP</span>`);
 
       const nom1 = h1.nom ? h1.nom.split(' ')[0] : `#${h1.numero}`;
       const nom2 = h2.nom ? h2.nom.split(' ')[0] : `#${h2.numero}`;
@@ -1612,8 +1609,11 @@ async function chargerCouple() {
     };
 
     let html = `<div class="dash-refresh">
-      <span>🔗 ${courses.length} courses · CP · CG</span>
+      <span>🔗 Couplé ATTELÉ · ${courses.length} courses</span>
       <button onclick="coupleCharge=false;chargerCouple()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
+    </div>
+    <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
+      💰 CP si e23≥2 conf🔥/〜 <span style="color:#3a9162">ROI +78%→+93%</span> · 💰 CG si e23≥3 · ATTELÉ uniquement
     </div>`;
 
     // Grouper par réunion
@@ -1801,30 +1801,31 @@ function renderStats(nb, hist) {
 
     <div class="section-title">Stratégies validées</div>
     <div class="stat-block fade-in fd6" style="font-family:'Space Mono',monospace;font-size:9px;line-height:1.9">
-      <div class="stat-block-title">Validées sur 7 semaines · ATTELE uniquement</div>
+      <div class="stat-block-title">Backtest Jan→Mars 2026 · période de validation (données jamais vues)</div>
 
-      <div style="margin-top:10px;color:var(--gold);font-size:8px;letter-spacing:1px;text-transform:uppercase">📋 Journée — Toutes disciplines</div>
-      <div style="color:var(--text-mid);margin-top:3px">💰💰 SG si e12 ≥ 3 · toutes disciplines</div>
-      <div style="color:var(--text-mid)">💰 SP si e14 ≥ 3 · toutes disciplines</div>
-      <div style="color:var(--text-mid)">⛔ PASSER si aucun signal</div>
+      <div style="margin-top:10px;color:var(--gold);font-size:8px;letter-spacing:1px;text-transform:uppercase">🏇 ATTELÉ — 1 976 courses testées</div>
+      <div style="color:var(--text-mid);margin-top:3px">💰 SG si e12 ≥ 3 <span style="color:#3a9162">ROI +339% à +725%</span> · taux 57% · 347 paris</div>
+      <div style="color:var(--text-mid)">💰 CP si e23 ≥ 2 · conf FORT/MOY <span style="color:#3a9162">ROI +78% à +93%</span> · 1137 paris</div>
+      <div style="color:var(--text-mid)">💰 SP si e14 ≥ 3 · conf FORT/MOY <span style="color:#3a9162">ROI +36% à +42%</span> · 1314 paris</div>
+      <div style="color:#e05c5c">⛔ SP conf FAIBLE → ROI -7.7% · éviter</div>
 
-      <div style="margin-top:10px;color:var(--gold);font-size:8px;letter-spacing:1px;text-transform:uppercase">🛡️ Safe — toutes disciplines</div>
-      <div style="color:var(--text-mid);margin-top:3px">SG si e12 ≥ 3 <span style="color:var(--green)">ROI +33.5%</span></div>
-      <div style="color:var(--text-mid)">SP si e14 ≥ 3 <span style="color:var(--green)">ROI validé</span></div>
+      <div style="margin-top:10px;color:var(--gold);font-size:8px;letter-spacing:1px;text-transform:uppercase">🚧 HAIE — 184 courses (données limitées)</div>
+      <div style="color:var(--text-mid);margin-top:3px">💰 SG si e12 ≥ 3 · conf FORT/MOY <span style="color:#3a9162">ROI +114% à +175%</span> · 64 paris</div>
+      <div style="color:var(--text-dim)">SP et CP non rentables</div>
 
-      <div style="margin-top:10px;color:var(--gold);font-size:8px;letter-spacing:1px;text-transform:uppercase">⚔️ Offensif — toutes disciplines</div>
-      <div style="color:var(--text-mid);margin-top:3px">💰💰 SG si e12 ≥ 3 <span style="color:var(--green)">ROI +58.2%</span></div>
-      <div style="color:var(--text-mid)">💰 SP si e14 ≥ 3 <span style="color:var(--green)">ROI +49.2%</span></div>
-      <div style="color:var(--text-mid)">⛔ PASSER si aucun signal</div>
+      <div style="margin-top:10px;color:var(--gold);font-size:8px;letter-spacing:1px;text-transform:uppercase">🐴 MONTE — 248 courses (données limitées)</div>
+      <div style="color:var(--text-mid);margin-top:3px">💰 SG si e12 ≥ 3 <span style="color:#3a9162">ROI +42%</span> global · résultats instables</div>
+      <div style="color:var(--text-dim)">SP et CP non rentables</div>
 
-      <div style="margin-top:10px;color:var(--gold);font-size:8px;letter-spacing:1px;text-transform:uppercase">🎯 Trio — ATTELÉ + MONTÉ + HAIE</div>
-      <div style="color:var(--text-mid);margin-top:3px">TRIO #1-#2-#3 si e34 ≥ 3 <span style="color:var(--green)">ROI +530% · taux 25.8%</span></div>
+      <div style="margin-top:10px;color:#e05c5c;font-size:8px;letter-spacing:1px;text-transform:uppercase">❌ PLAT — Ne pas parier</div>
+      <div style="color:var(--text-dim);margin-top:3px">Toutes stratégies négatives · modèle insuffisant pour battre le marché</div>
 
-      <div style="margin-top:10px;color:var(--gold);font-size:8px;letter-spacing:1px;text-transform:uppercase">🔗 Couplé — ATTELÉ + MONTÉ + HAIE</div>
-      <div style="color:var(--text-mid);margin-top:3px">CP si e23 ≥ 2 <span style="color:var(--green)">ROI +65.0%</span></div>
-      <div style="color:var(--text-mid)">CG si e23 ≥ 3 <span style="color:var(--green)">ROI +39.8%</span></div>
+      <div style="margin-top:12px;padding:6px 8px;background:rgba(58,145,98,.1);border:1px solid rgba(58,145,98,.3);border-radius:4px">
+        <div style="color:#3a9162;font-size:8px;font-weight:700;letter-spacing:1px">✅ RECOMMANDATION PRINCIPALE</div>
+        <div style="color:var(--text-mid);margin-top:3px">ATTELÉ uniquement · SG e12≥3 + CP e23≥2 (conf FORT/MOY) + SP e14≥3 (conf FORT/MOY)</div>
+      </div>
 
-      <div style="margin-top:10px;color:var(--text-dim);font-size:8px">e12 = note#1 − note#2 · e14 = note#1 − note#4 · e23 = note#2 − note#3 · e34 = note#3 − note#4</div>
+      <div style="margin-top:10px;color:var(--text-dim);font-size:8px">e12=note#1−note#2 · e14=note#1−note#4 · e23=note#2−note#3 · e34=note#3−note#4</div>
     </div>`;
   if (predictions&&chevaux.length>0) document.getElementById('result-section').style.display='block';
 }

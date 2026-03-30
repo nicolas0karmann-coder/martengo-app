@@ -231,7 +231,6 @@ input[readonly]{opacity:.5;cursor:default}
     <button class="nav-btn" onclick="goTo('analyse')" id="tab-analyse"><span class="nav-icon">🔬</span>Analyse</button>
     <button class="nav-btn" onclick="goTo('dashboard')" id="tab-dashboard"><span class="nav-icon">📋</span>Journée<span class="nav-badge" id="badge-dashboard"></span></button>
     <button class="nav-btn" onclick="goTo('safe')" id="tab-safe"><span class="nav-icon">🛡️</span>Safe</button>
-    <button class="nav-btn" onclick="goTo('offensif')" id="tab-offensif"><span class="nav-icon">⚔️</span>Offens.</button>
     <button class="nav-btn" onclick="goTo('trio')" id="tab-trio"><span class="nav-icon">🎯</span>Trio</button>
     <button class="nav-btn" onclick="goTo('couple')" id="tab-couple"><span class="nav-icon">🔗</span>Couplé</button>
     <button class="nav-btn" onclick="goTo('stats')" id="tab-stats">
@@ -321,8 +320,7 @@ input[readonly]{opacity:.5;cursor:default}
 
     <!-- COUPLÉ -->
     <!-- OFFENSIF -->
-    <div class="screen" id="screen-offensif">
-      <div id="offensif-content">
+    <div class="screen" id="screen-offensif" style="display:none"></div>      <div id="offensif-content">
         <div class="empty">
           <div class="empty-icon">⚔️</div>
           Stratégie offensive — plus de volume<br>
@@ -355,7 +353,7 @@ input[readonly]{opacity:.5;cursor:default}
           <div class="empty-icon">🎯</div>
           Trio désordre validé sur 7 semaines<br>
           <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
-            #1 #2 #3 dans le top3 · si écart34≥2 · ROI +530%
+            #1 #2 #3 dans le top3 · si écart34≥3 · ROI +530%
           </small>
           <button class="btn full" onclick="chargerTrio()" style="margin-top:16px;font-size:11px">Charger Trio →</button>
         </div>
@@ -1225,7 +1223,7 @@ async function chargerSafe() {
   const pad = n => String(n).padStart(2,'0');
   const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
   const DISC_LABELS = {'TROT_ATTELE':'ATTELÉ','ATTELE':'ATTELÉ','PLAT':'PLAT','HAIE':'HAIE','MONTE':'MONTÉ'};
-  const DISC_OK = ['ATTELE','TROT_ATTELE','MONTE'];
+  const DISC_OK = ['ATTELE','TROT_ATTELE','PLAT','HAIE','MONTE'];
 
   try {
     const resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
@@ -1351,7 +1349,7 @@ async function chargerSafe() {
       <button onclick="safeCharge=false;chargerSafe()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
     </div>
     <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
-      SP si écart12≥3 (ROI +33.5%) · CP si écart23≥2 (ROI +65.0%) · validés 6 sem.
+      💰💰 SG si e12≥3 · 💰 SP si e14≥3 · ⛔ PASSER si aucun signal · toutes disciplines
     </div>`;
 
     for (const [rNum, rd] of Object.entries(byR)) {
@@ -1376,8 +1374,8 @@ async function chargerTrio() {
   const today = new Date();
   const pad = n => String(n).padStart(2,'0');
   const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
-  const DISC_LABELS = {'TROT_ATTELE':'ATTELÉ','ATTELE':'ATTELÉ','HAIE':'HAIE','MONTE':'MONTÉ'};
-  const DISC_OK = ['ATTELE','TROT_ATTELE','MONTE','HAIE'];
+  const DISC_LABELS = {'TROT_ATTELE':'ATTELÉ','ATTELE':'ATTELÉ','PLAT':'PLAT','HAIE':'HAIE','MONTE':'MONTÉ'};
+  const DISC_OK = ['ATTELE','TROT_ATTELE','PLAT','HAIE','MONTE'];
 
   try {
     const resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
@@ -1443,7 +1441,7 @@ async function chargerTrio() {
       const nom2 = h2.nom ? h2.nom.split(' ')[0] : `#${h2.numero}`;
       const nom3 = h3.nom ? h3.nom.split(' ')[0] : `#${h3.numero}`;
 
-      if (ecart34 < 2) {
+      if (ecart34 < 3) {
         return `<div class="dash-row" onclick="${onclick}" style="opacity:.35">
           <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
           <div>
@@ -1473,7 +1471,7 @@ async function chargerTrio() {
       if (!d?.chevaux?.length || d.chevaux.length < 4) continue;
       const sorted = [...d.chevaux].sort((a,b) => b.note_pmu-a.note_pmu);
       const ecart34 = (sorted[2]?.note_pmu??0) - (sorted[3]?.note_pmu??0);
-      if (ecart34 >= 2) n_trio++; else n_passer++;
+      if (ecart34 >= 3) n_trio++; else n_passer++;
     }
 
     let html = `<div class="dash-refresh">
@@ -1481,7 +1479,7 @@ async function chargerTrio() {
       <button onclick="trioCharge=false;chargerTrio()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
     </div>
     <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
-      🎯 TRIO si écart34≥2 · ROI +530% · taux 25.8% · validé 7/7 sem.
+      🎯 TRIO si e34≥3 · toutes disciplines · ROI +530%
     </div>`;
 
     for (const [rNum, rd] of Object.entries(byR)) {
@@ -1508,7 +1506,7 @@ async function chargerCouple() {
   const pad = n => String(n).padStart(2,'0');
   const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
   const DISC_LABELS = {'TROT_ATTELE':'ATTELÉ','ATTELE':'ATTELÉ','PLAT':'PLAT','HAIE':'HAIE','MONTE':'MONTÉ'};
-  const DISC_OK = ['ATTELE','TROT_ATTELE','MONTE'];
+  const DISC_OK = ['ATTELE','TROT_ATTELE','PLAT','HAIE','MONTE'];
 
   try {
     const resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
@@ -1583,15 +1581,15 @@ async function chargerCouple() {
       if (disc === 'ATTELE') {
         signalCP   = ecart23 >= 2;   // CP si écart23 >= 2
         signalCG   = ecart23 >= 3;   // CG si écart23 >= 3
-        signalTrio = ecart34 >= 2;   // Trio si écart34 >= 2
+        signalTrio = ecart34 >= 3;   // Trio si écart34 >= 2
       } else if (disc === 'MONTE') {
         signalCP   = ecart23 >= 2;   // CP si écart23 >= 2
         signalCG   = false;
-        signalTrio = ecart34 >= 2;   // Trio si écart34 >= 2
+        signalTrio = ecart34 >= 3;   // Trio si écart34 >= 2
       } else if (disc === 'HAIE') {
         signalCP   = ecart23 >= 2;   // CP si écart23 >= 2
         signalCG   = ecart23 >= 3;   // CG si écart23 >= 3
-        signalTrio = ecart34 >= 2;   // Trio si écart34 >= 2
+        signalTrio = ecart34 >= 3;   // Trio si écart34 >= 2
       }
 
       // Badges signaux
@@ -1820,7 +1818,7 @@ function renderStats(nb, hist) {
       <div style="color:var(--text-mid)">⛔ PASSER si aucun signal</div>
 
       <div style="margin-top:10px;color:var(--gold);font-size:8px;letter-spacing:1px;text-transform:uppercase">🎯 Trio — ATTELÉ + MONTÉ + HAIE</div>
-      <div style="color:var(--text-mid);margin-top:3px">TRIO #1-#2-#3 si e34 ≥ 2 <span style="color:var(--green)">ROI +530% · taux 25.8%</span></div>
+      <div style="color:var(--text-mid);margin-top:3px">TRIO #1-#2-#3 si e34 ≥ 3 <span style="color:var(--green)">ROI +530% · taux 25.8%</span></div>
 
       <div style="margin-top:10px;color:var(--gold);font-size:8px;letter-spacing:1px;text-transform:uppercase">🔗 Couplé — ATTELÉ + MONTÉ + HAIE</div>
       <div style="color:var(--text-mid);margin-top:3px">CP si e23 ≥ 2 <span style="color:var(--green)">ROI +65.0%</span></div>

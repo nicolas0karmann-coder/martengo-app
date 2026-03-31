@@ -1708,6 +1708,14 @@ async function chargerCouple() {
         ? ''
         : '<span style="background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);border-radius:4px;padding:2px 5px;color:#e05c5c;font-size:7px;font-weight:700">⚠️ INDÉCIS</span>';
 
+      // Badge JEUNES CHEVAUX — si #1 a peu de courses en base → pronostic peu fiable
+      const nbCoursesBase = h1.nb_courses_base ?? 0;
+      const jeunesBadge = nbCoursesBase < 5
+        ? '<span style="background:rgba(138,108,191,.15);border:1px solid rgba(138,108,191,.4);border-radius:4px;padding:2px 5px;color:#8a6cbf;font-size:7px;font-weight:700">⚠️ JEUNE</span>'
+        : nbCoursesBase < 10
+        ? '<span style="background:rgba(181,96,58,.1);border:1px solid rgba(181,96,58,.3);border-radius:4px;padding:2px 5px;color:var(--copper);font-size:7px;font-weight:700">⚠️ PEU DE DONNÉES</span>'
+        : '';
+
       const badges = [];
       badges.push(confPictoCP);
       if (isSignal) {
@@ -1715,6 +1723,7 @@ async function chargerCouple() {
         badges.push('<span style="background:rgba(58,145,98,.2);border:1px solid rgba(58,145,98,.4);border-radius:4px;padding:2px 6px;color:#3a9162;font-size:8px;font-weight:700">💰 CP 2€</span>');
       }
       if (gapBadge) badges.push(gapBadge);
+      if (jeunesBadge) badges.push(jeunesBadge);
 
       const nom1 = h1.nom ? h1.nom.split(' ')[0] : `#${h1.numero}`;
       const nom2 = h2.nom ? h2.nom.split(' ')[0] : `#${h2.numero}`;
@@ -1730,7 +1739,7 @@ async function chargerCouple() {
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px">
             <div style="min-width:0">
               <div class="dash-cheval" style="font-size:10px">#${h1.numero} ${nom1} · #${h2.numero} ${nom2} · #${h3.numero} ${nom3}</div>
-              <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e23:${ecart23} · ${sorted.length}p${plage>0?' · gap:'+plage.toFixed(2):''}</div>
+              <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e23:${ecart23} · ${sorted.length}p${plage>0?' · gap:'+plage.toFixed(2):''}${nbCoursesBase>0?' · base:'+nbCoursesBase+'c':''}</div>
             </div>
             <div style="text-align:right;flex-shrink:0">${signauxHtml}</div>
           </div>

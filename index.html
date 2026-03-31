@@ -861,7 +861,13 @@ function renderAnalyse(data) {
     : '';
   // Badge JEUNE dans Analyse — cheval #1 peu de courses en base
   const nbBaseA = top1a?.nb_courses_base ?? top1a?.nb_courses ?? 0;
-  const jeuneBadgeA = nbBaseA > 0 && nbBaseA < 5
+  // Réunion jeunes dans Analyse
+  const nbPeuA = liste.filter(h => (h.nb_courses_base??h.nb_courses??0) > 0
+                                 && (h.nb_courses_base??h.nb_courses??0) < 10).length;
+  const isReunionJeunesA = liste.length > 0 && nbPeuA / liste.length > 0.7;
+  const jeuneBadgeA = isReunionJeunesA
+    ? `<span style="background:rgba(138,108,191,.2);border:1px solid rgba(138,108,191,.5);border-radius:4px;padding:3px 8px;font-family:monospace;font-size:10px;font-weight:700;color:#8a6cbf;letter-spacing:1px">⚠️ RÉUNION JEUNES · ${nbPeuA}/${liste.length} chevaux &lt;10 courses · pronostics peu fiables</span>`
+    : nbBaseA > 0 && nbBaseA < 5
     ? `<span style="background:rgba(138,108,191,.2);border:1px solid rgba(138,108,191,.5);border-radius:4px;padding:3px 8px;font-family:monospace;font-size:9px;font-weight:700;color:#8a6cbf">⚠️ JEUNE · ${nbBaseA} courses en base · pronostic peu fiable</span>`
     : nbBaseA >= 5 && nbBaseA < 10
     ? `<span style="background:rgba(181,96,58,.1);border:1px solid rgba(181,96,58,.4);border-radius:4px;padding:3px 8px;font-family:monospace;font-size:9px;color:var(--copper)">⚠️ PEU DE DONNÉES · ${nbBaseA} courses en base</span>`
@@ -1719,12 +1725,19 @@ async function chargerCouple() {
         : '<span style="background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);border-radius:4px;padding:2px 5px;color:#e05c5c;font-size:7px;font-weight:700">⚠️ INDÉCIS</span>';
 
       // Badge JEUNES CHEVAUX — si #1 a peu de courses en base → pronostic peu fiable
-      // nb_courses_base : depuis API (après déploiement) ou fallback via mus_nb_courses
+      // nb_courses_base : depuis API ou fallback
       const nbCoursesBase = h1.nb_courses_base ?? h1.nb_courses ?? 0;
-      const jeunesBadge = nbCoursesBase < 5
+      // Détection RÉUNION JEUNES : >70% des chevaux ont < 10 courses en base
+      const nbPeu = sorted.filter(h => (h.nb_courses_base ?? h.nb_courses ?? 0) > 0
+                                    && (h.nb_courses_base ?? h.nb_courses ?? 0) < 10).length;
+      const isReunionJeunes = sorted.length > 0 && nbPeu / sorted.length > 0.7;
+      // Badge JEUNE : sur le cheval #1 ou sur toute la réunion
+      const jeunesBadge = isReunionJeunes
+        ? '<span style="background:rgba(138,108,191,.2);border:1px solid rgba(138,108,191,.5);border-radius:4px;padding:2px 5px;color:#8a6cbf;font-size:7px;font-weight:700">⚠️ RÉU. JEUNES</span>'
+        : nbCoursesBase < 5
         ? '<span style="background:rgba(138,108,191,.15);border:1px solid rgba(138,108,191,.4);border-radius:4px;padding:2px 5px;color:#8a6cbf;font-size:7px;font-weight:700">⚠️ JEUNE</span>'
         : nbCoursesBase < 10
-        ? '<span style="background:rgba(181,96,58,.1);border:1px solid rgba(181,96,58,.3);border-radius:4px;padding:2px 5px;color:var(--copper);font-size:7px;font-weight:700">⚠️ PEU DE DONNÉES</span>'
+        ? '<span style="background:rgba(181,96,58,.1);border:1px solid rgba(181,96,58,.3);border-radius:4px;padding:2px 5px;color:var(--copper);font-size:7px;font-weight:700">⚠️ PEU DONNÉES</span>'
         : '';
 
       const badges = [];

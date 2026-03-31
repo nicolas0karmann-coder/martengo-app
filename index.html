@@ -1961,7 +1961,17 @@ function renderStats(nb, hist) {
 
     <div class="section-title">Signaux avancés</div>
     <div class="stat-block fade-in fd7" style="font-family:'Space Mono',monospace;font-size:9px;line-height:1.9">
-      <div class="stat-block-title">Délaissé · Valeur Attendue · Système du jour</div>
+      <div class="stat-block-title">Score Gap · Délaissé · Valeur Attendue · Système du jour</div>
+
+      <div style="margin-top:10px;color:#c8942a;font-size:8px;letter-spacing:1px;text-transform:uppercase">📐 SCORE GAP — écart de score XGBoost entre #1 et #2</div>
+      <div style="color:var(--text-mid);margin-top:3px">Formule : gap = score_modèle(#1) − score_modèle(#2)</div>
+      <div style="color:var(--text-mid)">Validé backtest Jan→Mars 2026 · ATTELÉ · 1 749 courses</div>
+      <div style="color:var(--text-mid);margin-top:4px">🔥 gap &gt; 1.877 <span style="color:#c8942a">TRÈS DÉCISIF · ROI +2071% · MaxDD -9€ · 71 jours actifs</span></div>
+      <div style="color:var(--text-mid)">✅ gap &gt; 1.396 <span style="color:#3a9162">DÉCISIF · ROI +1999% · MaxDD 0€ · 88 jours positifs sur 88</span></div>
+      <div style="color:var(--text-mid)">〜 gap 0.135→1.396 <span style="color:var(--text-dim)">normal · ROI +1659% · jouer normalement</span></div>
+      <div style="color:var(--text-mid)">⚠️ gap &lt; 0.135 <span style="color:#e05c5c">INDÉCIS · ROI +1522% · MaxDD -84€ · modèle hésite · réduire mise</span></div>
+      <div style="color:var(--text-dim);margin-top:2px">Cas particulier : conf MOYEN + gap &gt; 1.396 → ROI +2607% · +117€/course 🔥</div>
+      <div style="color:var(--text-dim)">Affiché dans l'onglet Couplé avec les badges 🔥/✅/⚠️</div>
 
       <div style="margin-top:10px;color:#8a6cbf;font-size:8px;letter-spacing:1px;text-transform:uppercase">💎 DÉLAISSÉ — outsider sous-estimé par le marché</div>
       <div style="color:var(--text-mid);margin-top:3px">Formule : score_value = note_pmu × log(cote)</div>

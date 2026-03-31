@@ -888,7 +888,13 @@ function renderAnalyse(data) {
       <div class="dim-grid">${DIMS.map(d=>{const v=sc[d.k]??0;return `<div class="dim-cell"><div class="dim-label">${d.i} ${d.l}<span style="float:right;opacity:.5;font-size:7px">${d.p}%</span></div><div class="dim-bar-track"><div class="dim-bar-fill" style="width:${v}%;background:${d.c}"></div></div><div class="dim-val" style="color:${d.c}">${v}</div></div>`;}).join('')}</div>
       <div class="analyse-footer">
         <span>⚠️ Taux disq.</span><span style="font-weight:700;color:${dc}">${h.taux_disq||0}%</span>
-
+        ${h.flag_chrono==='faible'
+          ? '<span style="margin-left:8px;background:rgba(224,92,92,.15);border:1px solid rgba(224,92,92,.4);border-radius:3px;padding:1px 5px;font-size:7px;color:#e05c5c;font-weight:700">🔴 CHRONO FAIBLE · '+Math.round(h.rk_brut||0)+'</span>'
+          : h.flag_chrono==='fort'
+          ? '<span style="margin-left:8px;background:rgba(58,145,98,.15);border:1px solid rgba(58,145,98,.4);border-radius:3px;padding:1px 5px;font-size:7px;color:#3a9162;font-weight:700">🟢 BON CHRONO · '+Math.round(h.rk_brut||0)+'</span>'
+          : h.flag_chrono==='inconnu'
+          ? '<span style="margin-left:8px;background:rgba(100,100,100,.1);border:1px solid rgba(100,100,100,.3);border-radius:3px;padding:1px 5px;font-size:7px;color:var(--text-dim)">❓ CHRONO INCONNU</span>'
+          : ''}
         <span style="margin-left:auto;font-size:8px;color:var(--text-dim);font-family:monospace;letter-spacing:0">${h.musique||''}</span>
       </div>
     </div>`;
@@ -1704,6 +1710,15 @@ async function chargerCouple() {
       const plage = d?.plage ?? 0;
       // Score gap thresholds validés backtest Jan→Mars 2026
       // gap < 0.135 → INDÉCIS (drawdown -84€) · gap > 1.396 → DÉCISIF · gap > 1.877 → TRÈS DÉCISIF
+      // Badge chrono #1
+      const chronoBadge1 = h1.flag_chrono === 'faible'
+        ? '<span style="background:rgba(224,92,92,.15);border:1px solid rgba(224,92,92,.4);border-radius:4px;padding:2px 5px;color:#e05c5c;font-size:7px;font-weight:700">🔴 CHRONO FAIBLE</span>'
+        : h1.flag_chrono === 'fort'
+        ? '<span style="background:rgba(58,145,98,.15);border:1px solid rgba(58,145,98,.4);border-radius:4px;padding:2px 5px;color:#3a9162;font-size:7px;font-weight:700">🟢 BON CHRONO</span>'
+        : h1.flag_chrono === 'inconnu'
+        ? '<span style="background:rgba(100,100,100,.1);border:1px solid rgba(100,100,100,.3);border-radius:4px;padding:2px 5px;color:var(--text-dim);font-size:7px">❓ CHRONO INCONNU</span>'
+        : '';
+
       const gapBadge = plage > 1.877
         ? '<span style="background:rgba(200,148,42,.2);border:1px solid rgba(200,148,42,.5);border-radius:4px;padding:2px 5px;color:#c8942a;font-size:7px;font-weight:700">🔥 DÉCISIF</span>'
         : plage > 1.396
@@ -1724,6 +1739,7 @@ async function chargerCouple() {
         badges.push('<span style="background:rgba(58,145,98,.2);border:1px solid rgba(58,145,98,.4);border-radius:4px;padding:2px 6px;color:#3a9162;font-size:8px;font-weight:700">💰 CP 2€</span>');
       }
       if (gapBadge) badges.push(gapBadge);
+      if (chronoBadge1) badges.push(chronoBadge1);
 
 
       const nom1 = h1.nom ? h1.nom.split(' ')[0] : `#${h1.numero}`;

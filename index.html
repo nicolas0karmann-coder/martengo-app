@@ -1613,7 +1613,7 @@ async function chargerCouple() {
   const pad = n => String(n).padStart(2,'0');
   const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
   const DISC_LABELS = {'TROT_ATTELE':'ATTELÉ','ATTELE':'ATTELÉ','PLAT':'PLAT','HAIE':'HAIE','MONTE':'MONTÉ'};
-  const DISC_OK = ['ATTELE','TROT_ATTELE'];
+  const DISC_OK = ['ATTELE','TROT_ATTELE','MONTE'];
 
   try {
     const resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
@@ -1625,7 +1625,7 @@ async function chargerCouple() {
     }).map(c => ({r: c.r_num, c: c.c_num, disc: c.disc, dist: c.dist, lieu: c.lieu, heure: c.heure}));
 
     if (!courses.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-icon">🔗</div>Aucune course ATTELÉ/MONTE/HAIE aujourd\'hui</div>';
+      el.innerHTML = '<div class="empty"><div class="empty-icon">🔗</div>Aucune course ATTELÉ/MONTÉ aujourd\'hui</div>';
       return;
     }
 
@@ -1683,10 +1683,13 @@ async function chargerCouple() {
       const ecart   = ecart12; // alias pour affichage
 
       // Stratégie validée vrais rapports PMU Jan→Mars 2026
-      // CG + CP sur TOUTES confiances · taux CG 51-74% · ROI +1095%→+1463%
-      // Confiance FORT=73.7% · MOYEN=59.8% · FAIBLE=51.4% → toutes rentables
+      // ATTELÉ : CG+CP toutes confiances · ROI +1095%→+1463%
+      // MONTÉ  : CG+CP conf FORT/MOYEN uniquement · ROI +68%→+90% · drawdown -78€ si FAIBLE
       const confCouple = d?.confiance || '';
-      const isSignal   = true;  // toutes les courses ATTELÉ
+      const isMonte    = co.disc === 'MONTE';
+      const isSignal   = isMonte
+        ? (confCouple === 'fort' || confCouple === 'moyen')
+        : true;  // ATTELÉ : toutes confiances
       const confPictoCP = confCouple === 'fort'
         ? '<span style="font-size:14px">🔥</span>'
         : confCouple === 'moyen'
@@ -1705,7 +1708,9 @@ async function chargerCouple() {
       const nom2 = h2.nom ? h2.nom.split(' ')[0] : `#${h2.numero}`;
       const nom3 = h3.nom ? h3.nom.split(' ')[0] : `#${h3.numero}`;
 
-      const signauxHtml = '<div style="display:flex;gap:3px;flex-direction:column;align-items:flex-end">' + badges.join('') + '</div>';
+      const signauxHtml = isSignal
+        ? '<div style="display:flex;gap:3px;flex-direction:column;align-items:flex-end">' + badges.join('') + '</div>'
+        : '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">' + confPictoCP + '<div class="dash-signal skip" style="font-size:8px">⛔ PASSER</div></div>';
 
       return `<div class="dash-row" onclick="${onclick}" style="grid-template-columns:48px 1fr;gap:6px">
         <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
@@ -1726,7 +1731,7 @@ async function chargerCouple() {
       <button onclick="coupleCharge=false;chargerCouple()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
     </div>
     <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
-      💰 CG 1€ + CP 2€ sur toutes les courses <span style="color:#3a9162">ROI +1095%→+1463% · taux CG 51→74% · vrais rapports PMU</span> · ATTELÉ uniquement · toutes confiances
+      💰 CG 1€ + CP 2€ · ATTELÉ toutes conf <span style="color:#3a9162">ROI +1095%→+1463%</span> · MONTÉ conf🔥/〜 <span style="color:#c8942a">ROI +68%→+90%</span> · vrais rapports PMU
     </div>`;
 
     // Grouper par réunion

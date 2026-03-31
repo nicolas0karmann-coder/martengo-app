@@ -1544,27 +1544,40 @@ async function chargerTrio() {
       const nom2 = h2.nom ? h2.nom.split(' ')[0] : `#${h2.numero}`;
       const nom3 = h3.nom ? h3.nom.split(' ')[0] : `#${h3.numero}`;
 
-      if (ecart34 < 3) {
-        return `<div class="dash-row" onclick="${onclick}" style="opacity:.35">
-          <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
-          <div>
-            <div class="dash-cheval" style="font-size:10px">#${h1.numero} ${nom1} · #${h2.numero} ${nom2} · #${h3.numero} ${nom3}</div>
-            <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e34:${ecart34}pts</div>
-          </div>
-          <div><div class="dash-signal skip">⛔ PASSER</div></div>
-        </div>`;
+      // Stratégie validée vrais rapports PMU Jan→Mars 2026
+      // TRIO si e34≥2 ET conf MOYEN → ROI +563% · 0.50€ mise
+      const confTrio = d?.confiance || '';
+      const trioSignal = ecart34 >= 2 && (confTrio === 'moyen' || confTrio === 'fort');
+      const confPictoTrio = confTrio === 'fort'
+        ? '<span style="font-size:14px">🔥</span>'
+        : confTrio === 'moyen'
+        ? '<span style="font-size:14px">〜</span>'
+        : '<span style="font-size:14px;opacity:.3">❄️</span>';
+
+      if (!trioSignal) {
+        return '<div class="dash-row" onclick="' + onclick + '" style="opacity:.35">'
+          + '<div><div class="dash-course">R' + co.r + 'C' + co.c + '</div><div style="font-size:9px;color:var(--text-dim)">' + co.heure + '</div></div>'
+          + '<div><div class="dash-cheval" style="font-size:10px">#' + h1.numero + ' ' + nom1 + ' · #' + h2.numero + ' ' + nom2 + ' · #' + h3.numero + ' ' + nom3 + '</div>'
+          + '<div class="dash-disc">' + (DISC_LABELS[co.disc]||co.disc) + ' · ' + co.dist + 'm · e34:' + ecart34 + ' · ' + confPictoTrio + '</div></div>'
+          + '<div><div class="dash-signal skip" style="font-size:8px">⛔ PASSER</div></div>'
+          + '</div>';
       }
 
-      return `<div class="dash-row" onclick="${onclick}" style="border-left:2px solid var(--copper);grid-template-columns:48px 1fr">
-        <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
-        <div style="min-width:0">
-          <div class="dash-cheval" style="font-size:10px">#${h1.numero} ${nom1} · #${h2.numero} ${nom2} · #${h3.numero} ${nom3}</div>
-          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e34:${ecart34}pts · ${sorted.length}p</div>
-          <div style="margin-top:4px">
-            <span style="background:rgba(181,96,58,.2);border:1px solid rgba(181,96,58,.5);border-radius:4px;padding:2px 8px;color:var(--copper);font-size:8px;font-weight:700">🎯 TRIO #${h1.numero}-#${h2.numero}-#${h3.numero}</span>
-          </div>
-        </div>
-      </div>`;
+      return '<div class="dash-row" onclick="' + onclick + '" style="border-left:2px solid #8a6cbf;grid-template-columns:48px 1fr">'
+        + '<div><div class="dash-course">R' + co.r + 'C' + co.c + '</div><div style="font-size:9px;color:var(--text-dim)">' + co.heure + '</div></div>'
+        + '<div style="min-width:0">'
+        + '<div style="display:flex;justify-content:space-between;align-items:flex-start">'
+        + '<div>'
+        + '<div class="dash-cheval" style="font-size:10px">#' + h1.numero + ' ' + nom1 + ' · #' + h2.numero + ' ' + nom2 + ' · #' + h3.numero + ' ' + nom3 + '</div>'
+        + '<div class="dash-disc">' + (DISC_LABELS[co.disc]||co.disc) + ' · ' + co.dist + 'm · e34:' + ecart34 + ' · ' + sorted.length + 'p</div>'
+        + '<div style="margin-top:4px;display:flex;gap:4px;align-items:center">'
+        + confPictoTrio
+        + '<span style="background:rgba(138,108,191,.2);border:1px solid rgba(138,108,191,.5);border-radius:4px;padding:2px 8px;color:#8a6cbf;font-size:8px;font-weight:700">🎯 TRIO 0.50€ · #' + h1.numero + '-#' + h2.numero + '-#' + h3.numero + '</span>'
+        + '</div>'
+        + '</div>'
+        + '</div>'
+        + '</div>'
+        + '</div>';
     };
 
     // Compteur
@@ -1574,7 +1587,7 @@ async function chargerTrio() {
       if (!d?.chevaux?.length || d.chevaux.length < 4) continue;
       const sorted = [...d.chevaux].sort((a,b) => b.note_pmu-a.note_pmu);
       const ecart34 = (sorted[2]?.note_pmu??0) - (sorted[3]?.note_pmu??0);
-      if (ecart34 >= 3) n_trio++; else n_passer++;
+      if (ecart34 >= 2) n_trio++; else n_passer++;
     }
 
     let html = `<div class="dash-refresh">
@@ -1582,7 +1595,7 @@ async function chargerTrio() {
       <button onclick="trioCharge=false;chargerTrio()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
     </div>
     <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
-      🎯 TRIO si e34≥3 · toutes disciplines · ROI +530%
+      🎯 TRIO 0.50€ si e34≥2 + conf🔥/〜 <span style="color:#8a6cbf">ROI +563% · vrais rapports PMU · ATTELÉ uniquement</span> · ⛔ conf❄️
     </div>`;
 
     for (const [rNum, rd] of Object.entries(byR)) {
@@ -1678,32 +1691,31 @@ async function chargerCouple() {
       const ecart34 = note3 - note4;
       const ecart   = ecart12; // alias pour affichage
 
-      // Stratégie backtest validée — ATTELÉ uniquement
-      // CP si e23≥2 (conf FORT/MOY : ROI +78%→+93%) · CG si e23≥3
-      const confCouple   = d?.confiance || '';
+      // Stratégie validée vrais rapports PMU Jan→Mars 2026
+      // CG + CP si e23≥2 ET conf FORT uniquement → ROI +547% · drawdown -73€
+      const confCouple = d?.confiance || '';
+      const isSignal   = ecart23 >= 2 && confCouple === 'fort';
       const confPictoCP = confCouple === 'fort'
-        ? `<span style="font-size:12px">🔥</span>`
+        ? '<span style="font-size:14px">🔥</span>'
         : confCouple === 'moyen'
-        ? `<span style="font-size:12px">〜</span>`
-        : `<span style="font-size:12px;opacity:.5">❄️</span>`;
-      let signalCP = false, signalCG = false, signalTrio = false;
-      signalCP   = ecart23 >= 2;
-      signalCG   = ecart23 >= 3;
-      signalTrio = ecart34 >= 3;
+        ? '<span style="font-size:14px;opacity:.6">〜</span>'
+        : '<span style="font-size:14px;opacity:.3">❄️</span>';
 
-      // Badges signaux
+      // Badges signaux — CG+CP ensemble si signal
       const badges = [];
       badges.push(confPictoCP);
-      if (signalCG)   badges.push(`<span style="background:rgba(200,148,42,.15);border:1px solid rgba(200,148,42,.4);border-radius:4px;padding:2px 5px;color:#c8942a;font-size:8px;font-weight:700">💰 CG</span>`);
-      if (signalCP)   badges.push(`<span style="background:rgba(58,145,98,.15);border:1px solid rgba(58,145,98,.4);border-radius:4px;padding:2px 5px;color:#3a9162;font-size:8px;font-weight:700">💰 CP</span>`);
+      if (isSignal) {
+        badges.push('<span style="background:rgba(200,148,42,.2);border:1px solid rgba(200,148,42,.5);border-radius:4px;padding:2px 6px;color:#c8942a;font-size:8px;font-weight:700">💰 CG 1€</span>');
+        badges.push('<span style="background:rgba(58,145,98,.2);border:1px solid rgba(58,145,98,.4);border-radius:4px;padding:2px 6px;color:#3a9162;font-size:8px;font-weight:700">💰 CP 2€</span>');
+      }
 
       const nom1 = h1.nom ? h1.nom.split(' ')[0] : `#${h1.numero}`;
       const nom2 = h2.nom ? h2.nom.split(' ')[0] : `#${h2.numero}`;
       const nom3 = h3.nom ? h3.nom.split(' ')[0] : `#${h3.numero}`;
 
-      const signauxHtml = badges.length
-        ? `<div style="display:flex;gap:3px;flex-direction:column;align-items:flex-end">💰 ${badges.join('')}</div>`
-        : `<div class="dash-signal skip" style="font-size:8px">⛔ PASSER</div>`;
+      const signauxHtml = isSignal
+        ? '<div style="display:flex;gap:3px;flex-direction:column;align-items:flex-end">' + badges.join('') + '</div>'
+        : '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">' + confPictoCP + '<div class="dash-signal skip" style="font-size:8px">⛔ PASSER</div></div>';
 
       return `<div class="dash-row" onclick="${onclick}" style="grid-template-columns:48px 1fr;gap:6px">
         <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
@@ -1724,7 +1736,7 @@ async function chargerCouple() {
       <button onclick="coupleCharge=false;chargerCouple()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
     </div>
     <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
-      💰 CP si e23≥2 conf🔥/〜 <span style="color:#3a9162">ROI +78%→+93%</span> · 💰 CG si e23≥3 · ATTELÉ uniquement
+      💰 CG 1€ + CP 2€ si e23≥2 + conf🔥 <span style="color:#3a9162">ROI +547% · drawdown -73€ · vrais rapports PMU</span> · ATTELÉ uniquement
     </div>`;
 
     // Grouper par réunion

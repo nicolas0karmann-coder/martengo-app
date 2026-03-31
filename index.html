@@ -1697,12 +1697,24 @@ async function chargerCouple() {
         : '<span style="font-size:14px;opacity:.3">❄️</span>';
 
       // Badges signaux — CG+CP ensemble si signal
+      const plage = d?.plage ?? 0;
+      // Score gap thresholds validés backtest Jan→Mars 2026
+      // gap < 0.135 → INDÉCIS (drawdown -84€) · gap > 1.396 → DÉCISIF · gap > 1.877 → TRÈS DÉCISIF
+      const gapBadge = plage > 1.877
+        ? '<span style="background:rgba(200,148,42,.2);border:1px solid rgba(200,148,42,.5);border-radius:4px;padding:2px 5px;color:#c8942a;font-size:7px;font-weight:700">🔥 DÉCISIF</span>'
+        : plage > 1.396
+        ? '<span style="background:rgba(58,145,98,.15);border:1px solid rgba(58,145,98,.3);border-radius:4px;padding:2px 5px;color:#3a9162;font-size:7px;font-weight:700">✅ DÉCISIF</span>'
+        : plage > 0.135
+        ? ''
+        : '<span style="background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);border-radius:4px;padding:2px 5px;color:#e05c5c;font-size:7px;font-weight:700">⚠️ INDÉCIS</span>';
+
       const badges = [];
       badges.push(confPictoCP);
       if (isSignal) {
         badges.push('<span style="background:rgba(200,148,42,.2);border:1px solid rgba(200,148,42,.5);border-radius:4px;padding:2px 6px;color:#c8942a;font-size:8px;font-weight:700">💰 CG 1€</span>');
         badges.push('<span style="background:rgba(58,145,98,.2);border:1px solid rgba(58,145,98,.4);border-radius:4px;padding:2px 6px;color:#3a9162;font-size:8px;font-weight:700">💰 CP 2€</span>');
       }
+      if (gapBadge) badges.push(gapBadge);
 
       const nom1 = h1.nom ? h1.nom.split(' ')[0] : `#${h1.numero}`;
       const nom2 = h2.nom ? h2.nom.split(' ')[0] : `#${h2.numero}`;
@@ -1718,7 +1730,7 @@ async function chargerCouple() {
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px">
             <div style="min-width:0">
               <div class="dash-cheval" style="font-size:10px">#${h1.numero} ${nom1} · #${h2.numero} ${nom2} · #${h3.numero} ${nom3}</div>
-              <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e23:${ecart23} e34:${ecart34} · ${sorted.length}p</div>
+              <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e23:${ecart23} · ${sorted.length}p${plage>0?' · gap:'+plage.toFixed(2):''}</div>
             </div>
             <div style="text-align:right;flex-shrink:0">${signauxHtml}</div>
           </div>
@@ -1731,7 +1743,7 @@ async function chargerCouple() {
       <button onclick="coupleCharge=false;chargerCouple()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
     </div>
     <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
-      💰 CG 1€ + CP 2€ · ATTELÉ toutes conf <span style="color:#3a9162">ROI +1095%→+1463%</span> · MONTÉ conf🔥/〜 <span style="color:#c8942a">ROI +68%→+90%</span> · vrais rapports PMU
+      💰 CG 1€ + CP 2€ · ATTELÉ toutes conf <span style="color:#3a9162">ROI +1095%→+1463%</span> · MONTÉ conf🔥/〜 · 🔥DÉCISIF=gap>1.877 · ✅DÉCISIF=gap>1.396 · ⚠️INDÉCIS=gap&lt;0.135
     </div>`;
 
     // Grouper par réunion

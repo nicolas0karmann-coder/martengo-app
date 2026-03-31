@@ -859,7 +859,14 @@ function renderAnalyse(data) {
   const evBadgeA = evA !== null
     ? `<span style="background:${evA>=1?'rgba(58,145,98,.12)':'rgba(192,57,43,.1)'};border:1px solid ${evColorA};border-radius:4px;padding:3px 8px;font-family:monospace;font-size:10px;font-weight:700;color:${evColorA};letter-spacing:1px">EV ${evA>=0?'+':''}${evA}</span>`
     : '';
-  const signalRowA = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${delBadgeA}${evBadgeA}</div>`;
+  // Badge JEUNE dans Analyse — cheval #1 peu de courses en base
+  const nbBaseA = top1a?.nb_courses_base ?? top1a?.nb_courses ?? 0;
+  const jeuneBadgeA = nbBaseA > 0 && nbBaseA < 5
+    ? `<span style="background:rgba(138,108,191,.2);border:1px solid rgba(138,108,191,.5);border-radius:4px;padding:3px 8px;font-family:monospace;font-size:9px;font-weight:700;color:#8a6cbf">⚠️ JEUNE · ${nbBaseA} courses en base · pronostic peu fiable</span>`
+    : nbBaseA >= 5 && nbBaseA < 10
+    ? `<span style="background:rgba(181,96,58,.1);border:1px solid rgba(181,96,58,.4);border-radius:4px;padding:3px 8px;font-family:monospace;font-size:9px;color:var(--copper)">⚠️ PEU DE DONNÉES · ${nbBaseA} courses en base</span>`
+    : '';
+  const signalRowA = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${delBadgeA}${evBadgeA}${jeuneBadgeA}</div>`;
 
   const cards=liste.map((h,i)=>{
     const sc=h.scores||{}, rc=i===0?'var(--gold)':i===1?'#888':i===2?'var(--copper)':'var(--border2)';
@@ -878,6 +885,9 @@ function renderAnalyse(data) {
           <div class="analyse-sub">cote ${h.cote??'—'} · ${h.driver||'—'} <span style="margin-left:4px">${h.avis===1?'🟢':h.avis===-1?'🔴':'🟡'}</span>${isGalop&&h.handicap_poids?'<span style="margin-left:6px;opacity:.7">⚖️ '+(h.handicap_poids/10).toFixed(1)+'kg</span>':''}</div>
           ${dw}
           ${miseBadge}
+          ${(h.nb_courses_base??h.nb_courses??0) > 0 && (h.nb_courses_base??h.nb_courses??0) < 10
+            ? `<div style="margin-top:3px;font-family:monospace;font-size:8px;color:${(h.nb_courses_base??h.nb_courses??0)<5?'#8a6cbf':'var(--copper)'}">${(h.nb_courses_base??h.nb_courses??0)<5?'⚠️ JEUNE':'⚠️ PEU DONNÉES'} · ${h.nb_courses_base??h.nb_courses??0}c en base</div>`
+            : ''}
         </div>
         <div class="analyse-note" style="color:${isMise?'#3a9162':rc}">${h.note_pmu}<span>/20</span></div>
       </div>
@@ -1708,6 +1718,15 @@ async function chargerCouple() {
         ? ''
         : '<span style="background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);border-radius:4px;padding:2px 5px;color:#e05c5c;font-size:7px;font-weight:700">⚠️ INDÉCIS</span>';
 
+      // Badge JEUNES CHEVAUX — si #1 a peu de courses en base → pronostic peu fiable
+      // nb_courses_base : depuis API (après déploiement) ou fallback via mus_nb_courses
+      const nbCoursesBase = h1.nb_courses_base ?? h1.nb_courses ?? 0;
+      const jeunesBadge = nbCoursesBase < 5
+        ? '<span style="background:rgba(138,108,191,.15);border:1px solid rgba(138,108,191,.4);border-radius:4px;padding:2px 5px;color:#8a6cbf;font-size:7px;font-weight:700">⚠️ JEUNE</span>'
+        : nbCoursesBase < 10
+        ? '<span style="background:rgba(181,96,58,.1);border:1px solid rgba(181,96,58,.3);border-radius:4px;padding:2px 5px;color:var(--copper);font-size:7px;font-weight:700">⚠️ PEU DE DONNÉES</span>'
+        : '';
+
       const badges = [];
       badges.push(confPictoCP);
       if (isSignal) {
@@ -1715,6 +1734,7 @@ async function chargerCouple() {
         badges.push('<span style="background:rgba(58,145,98,.2);border:1px solid rgba(58,145,98,.4);border-radius:4px;padding:2px 6px;color:#3a9162;font-size:8px;font-weight:700">💰 CP 2€</span>');
       }
       if (gapBadge) badges.push(gapBadge);
+      if (jeunesBadge) badges.push(jeunesBadge);
 
       const nom1 = h1.nom ? h1.nom.split(' ')[0] : `#${h1.numero}`;
       const nom2 = h2.nom ? h2.nom.split(' ')[0] : `#${h2.numero}`;
@@ -1730,7 +1750,7 @@ async function chargerCouple() {
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px">
             <div style="min-width:0">
               <div class="dash-cheval" style="font-size:10px">#${h1.numero} ${nom1} · #${h2.numero} ${nom2} · #${h3.numero} ${nom3}</div>
-              <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e23:${ecart23} · ${sorted.length}p${plage>0?' · gap:'+plage.toFixed(2):''}</div>
+              <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e23:${ecart23} · ${sorted.length}p${plage>0?' · gap:'+plage.toFixed(2):''}${nbCoursesBase>0?' · base:'+nbCoursesBase+'c':''}</div>
             </div>
             <div style="text-align:right;flex-shrink:0">${signauxHtml}</div>
           </div>

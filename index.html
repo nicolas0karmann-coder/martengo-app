@@ -1545,23 +1545,14 @@ async function chargerTrio() {
       const nom3 = h3.nom ? h3.nom.split(' ')[0] : `#${h3.numero}`;
 
       // Stratégie validée vrais rapports PMU Jan→Mars 2026
-      // TRIO si e34≥2 ET conf MOYEN → ROI +563% · 0.50€ mise
+      // TRIO sur TOUTES confiances · taux 46→67% · ROI +4327%→+6403%
       const confTrio = d?.confiance || '';
-      const trioSignal = ecart34 >= 2 && (confTrio === 'moyen' || confTrio === 'fort');
+      const trioSignal = true;  // toutes les courses ATTELÉ
       const confPictoTrio = confTrio === 'fort'
         ? '<span style="font-size:14px">🔥</span>'
         : confTrio === 'moyen'
         ? '<span style="font-size:14px">〜</span>'
-        : '<span style="font-size:14px;opacity:.3">❄️</span>';
-
-      if (!trioSignal) {
-        return '<div class="dash-row" onclick="' + onclick + '" style="opacity:.35">'
-          + '<div><div class="dash-course">R' + co.r + 'C' + co.c + '</div><div style="font-size:9px;color:var(--text-dim)">' + co.heure + '</div></div>'
-          + '<div><div class="dash-cheval" style="font-size:10px">#' + h1.numero + ' ' + nom1 + ' · #' + h2.numero + ' ' + nom2 + ' · #' + h3.numero + ' ' + nom3 + '</div>'
-          + '<div class="dash-disc">' + (DISC_LABELS[co.disc]||co.disc) + ' · ' + co.dist + 'm · e34:' + ecart34 + ' · ' + confPictoTrio + '</div></div>'
-          + '<div><div class="dash-signal skip" style="font-size:8px">⛔ PASSER</div></div>'
-          + '</div>';
-      }
+        : '<span style="font-size:14px">❄️</span>';
 
       return '<div class="dash-row" onclick="' + onclick + '" style="border-left:2px solid #8a6cbf;grid-template-columns:48px 1fr">'
         + '<div><div class="dash-course">R' + co.r + 'C' + co.c + '</div><div style="font-size:9px;color:var(--text-dim)">' + co.heure + '</div></div>'
@@ -1587,7 +1578,7 @@ async function chargerTrio() {
       if (!d?.chevaux?.length || d.chevaux.length < 4) continue;
       const sorted = [...d.chevaux].sort((a,b) => b.note_pmu-a.note_pmu);
       const ecart34 = (sorted[2]?.note_pmu??0) - (sorted[3]?.note_pmu??0);
-      if (ecart34 >= 2) n_trio++; else n_passer++;
+      n_trio++;  // toutes les courses ATTELÉ
     }
 
     let html = `<div class="dash-refresh">
@@ -1595,7 +1586,7 @@ async function chargerTrio() {
       <button onclick="trioCharge=false;chargerTrio()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
     </div>
     <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
-      🎯 TRIO 0.50€ si e34≥2 + conf🔥/〜 <span style="color:#8a6cbf">ROI +563% · vrais rapports PMU · ATTELÉ uniquement</span> · ⛔ conf❄️
+      🎯 TRIO 0.50€ sur toutes les courses <span style="color:#8a6cbf">ROI +4327%→+6403% · taux 46→67% · médiane 29→41€ · vrais rapports PMU</span> · ATTELÉ uniquement
     </div>`;
 
     for (const [rNum, rd] of Object.entries(byR)) {

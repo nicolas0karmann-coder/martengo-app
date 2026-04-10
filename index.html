@@ -1385,89 +1385,97 @@ async function chargerSafe() {
 
     const renderSafeRow = (co, d) => {
       const disc    = co.disc === 'TROT_ATTELE' ? 'ATTELE' : co.disc;
+      const isAttele = co.disc === 'TROT_ATTELE' || co.disc === 'ATTELE';
       const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
       const chevaux = d?.chevaux || [];
+      const confiances = d?.confiance || '';
+
+      // Safe : ATTELÉ confiance FORT uniquement → CG + CP sur #1 et #2
+      if (!isAttele || confiances !== 'fort') {
+        // Afficher en grisé avec écarts indicatifs
+        if (chevaux.length >= 2) {
+          const sorted = [...chevaux].sort((a,b) => b.note_pmu - a.note_pmu);
+          const h1 = sorted[0], h2 = sorted[1];
+          const note1 = h1.note_pmu ?? 0;
+          const note2 = h2.note_pmu ?? 0;
+          const note3 = sorted[2]?.note_pmu ?? 0;
+          const ecart12 = note1 - note2;
+          const ecart23 = note2 - note3;
+          const confPicto = confiances === 'fort' ? '🔥' : confiances === 'moyen' ? '〜' : '❄️';
+          const discLabel = DISC_LABELS[co.disc] || co.disc;
+          return `<div class="dash-row" onclick="${onclick}" style="opacity:.4">
+            <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
+            <div><div class="dash-cheval" style="font-size:10px">#${h1.numero} · #${h2.numero}</div>
+            <div class="dash-disc">${discLabel} · e23:${ecart23} (indicatif)</div></div>
+            <div style="text-align:right;min-width:60px">
+              <div style="font-size:13px">${confPicto}</div>
+              <div style="font-size:8px;color:var(--text-dim)">⛔ PASSER</div>
+            </div>
+          </div>`;
+        }
+        return '';
+      }
+
       if (chevaux.length < 2) {
-        return `<div class="dash-row" onclick="${onclick}">
+        return `<div class="dash-row" onclick="${onclick}" style="opacity:.4">
           <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
           <div><div class="dash-cheval" style="color:var(--text-dim)">Non disponible</div><div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m</div></div>
           <div><div class="dash-signal skip">⛔ SKIP</div></div>
         </div>`;
       }
+
       const sorted = [...chevaux].sort((a,b) => {
         if (b.note_pmu !== a.note_pmu) return b.note_pmu - a.note_pmu;
         return (b.proba_pmu||0) - (a.proba_pmu||0);
       });
-      const h1 = sorted[0], h2 = sorted[1], h4s = sorted[3];
+      const h1 = sorted[0], h2 = sorted[1];
       const note1 = h1.note_pmu ?? 0;
       const note2 = h2.note_pmu ?? 0;
-      const note4s = h4s?.note_pmu ?? 0;
-      const ecart  = note1 - note2;
-      const ecart14s = note1 - note4s;
-
-      // Stratégie backtest validée — ATTELÉ uniquement
-      // SG si e12≥3 ET conf FORT ou MOYEN · SP si e14≥3 ET conf FORT ou MOYEN
-      const confiances = d?.confiance || '';
-      const playSG = ecart >= 3 && confiances !== 'faible';
-      const playSP = ecart14s >= 3 && confiances !== 'faible';
+      const note3 = sorted[2]?.note_pmu ?? 0;
+      const ecart12 = note1 - note2;
+      const ecart23 = note2 - note3;
       const nom1 = h1.nom ? h1.nom.split(' ')[0] : `#${h1.numero}`;
       const nom2 = h2.nom ? h2.nom.split(' ')[0] : `#${h2.numero}`;
-      const confPictoS = confiances === 'fort'
-        ? `<span style="font-size:14px" title="Confiance forte">🔥</span>`
-        : confiances === 'moyen'
-        ? `<span style="font-size:14px" title="Confiance moyenne">〜</span>`
-        : `<span style="font-size:14px;opacity:.5" title="Confiance faible">❄️</span>`;
 
-      if (!playSP && !playSG) {
-        return `<div class="dash-row" onclick="${onclick}" style="opacity:.5">
-          <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
-          <div><div class="dash-cheval">#${h1.numero} ${nom1}</div><div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · e12:${ecart} e14:${ecart14s}</div></div>
-          <div style="text-align:right;min-width:60px;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-            ${confPictoS}
-            <div class="dash-signal skip" style="font-size:8px">⛔ PASSER</div>
-          </div>
-        </div>`;
-      }
-
-      const badges = [];
-      if (playSG) badges.push(`<span style="background:rgba(200,148,42,.2);border:1px solid rgba(200,148,42,.5);border-radius:4px;padding:2px 6px;color:#c8942a;font-size:8px;font-weight:700">💰💰 SG #${h1.numero}</span>`);
-      if (playSP) badges.push(`<span style="background:rgba(58,145,98,.2);border:1px solid rgba(58,145,98,.4);border-radius:4px;padding:2px 6px;color:#3a9162;font-size:8px;font-weight:700">💰 SP #${h1.numero}</span>`);
-
-      const mise = (playSG ? 2 : 0) + (playSP ? 1 : 0);
-
-      return `<div class="dash-row" onclick="${onclick}" style="${playSG?'border-left:2px solid #c8942a':'border-left:2px solid #3a9162'}">
-        <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
+      // Stratégie validée backtest Jan→Avr 2026 — ATTELÉ conf FORT uniquement
+      // CG : #1 et #2 couplé gagnant (ordre exact) → ROI +67.8%
+      // CP : #1 et #2 couplé placé (top3 libre)   → ROI +48.5%
+      // Mise : 1€ CG + 1€ CP = 2€ par course
+      return `<div class="dash-row" onclick="${onclick}" style="border-left:3px solid #3a9162">
         <div>
-          <div class="dash-cheval" style="font-size:10px">#${h1.numero} ${nom1} · #${h2.numero} ${nom2}</div>
-          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e12:${ecart} e14:${ecart14s} · ${mise}€</div>
+          <div class="dash-course">R${co.r}C${co.c}</div>
+          <div style="font-size:9px;color:var(--text-dim)">${co.heure}</div>
         </div>
-        <div style="text-align:right;min-width:85px">
-          <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">
-            ${confPictoS}
-            ${badges.join('')}
+        <div>
+          <div class="dash-cheval" style="font-size:11px;font-weight:700">#${h1.numero} ${nom1} · #${h2.numero} ${nom2}</div>
+          <div class="dash-disc">ATTELÉ · e23:${ecart23} (indicatif) · 2€</div>
+        </div>
+        <div style="text-align:right;min-width:90px">
+          <div style="font-size:14px">🔥</div>
+          <div style="display:flex;flex-direction:column;gap:2px;align-items:flex-end;margin-top:2px">
+            <span style="background:rgba(200,148,42,.2);border:1px solid rgba(200,148,42,.5);border-radius:4px;padding:2px 5px;color:#c8942a;font-size:8px;font-weight:700">CG #${h1.numero}-#${h2.numero}</span>
+            <span style="background:rgba(58,145,98,.2);border:1px solid rgba(58,145,98,.4);border-radius:4px;padding:2px 5px;color:#3a9162;font-size:8px;font-weight:700">CP #${h1.numero}-#${h2.numero}</span>
           </div>
         </div>
       </div>`;
     };
 
-    // Compter les paris
-    let n_sp = 0, n_sg = 0;
+    // Compter les paris — ATTELÉ conf FORT uniquement
+    let n_cg = 0;
     for (const co of courses) {
       const d = allResults[`${co.r}-${co.c}`];
+      const isAttele = co.disc === 'TROT_ATTELE' || co.disc === 'ATTELE';
+      if (!isAttele || d?.confiance !== 'fort') continue;
       if (!d?.chevaux?.length) continue;
-      const sorted = [...d.chevaux].sort((a,b) => b.note_pmu-a.note_pmu);
-      const e12 = (sorted[0]?.note_pmu??0) - (sorted[1]?.note_pmu??0);
-      const e14 = (sorted[0]?.note_pmu??0) - (sorted[3]?.note_pmu??0);
-      if (e12 >= 3) n_sg++;
-      if (e14 >= 3) n_sp++;
+      n_cg++;
     }
 
     let html = `<div class="dash-refresh">
-      <span>🛡️ Safe ATTELÉ · ${courses.length} courses · SG:${n_sg} SP:${n_sp}</span>
+      <span>🛡️ Safe ATTELÉ 🔥 · ${courses.length} courses · CG+CP: ${n_cg}</span>
       <button onclick="safeCharge=false;chargerSafe()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
     </div>
     <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
-      💰 SG e12≥3 conf🔥/〜 <span style="color:#3a9162">ROI +620%→+892%</span> · 💰 SP e14≥3 conf🔥/〜 <span style="color:#3a9162">ROI +36%→+42%</span> · ⛔ conf❄️ = PASSER · ATTELÉ uniquement
+      🔥 ATTELÉ conf FORT uniquement · <span style="color:#c8942a">CG</span> + <span style="color:#3a9162">CP</span> sur #1 et #2 · 1€+1€=2€/course · <span style="color:#3a9162">ROI +67% CG · +48% CP</span> · e23 = indicatif
     </div>`;
 
     for (const [rNum, rd] of Object.entries(byR)) {

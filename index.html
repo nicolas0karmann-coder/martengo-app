@@ -1390,8 +1390,8 @@ async function chargerSafe() {
       const chevaux = d?.chevaux || [];
       const confiances = d?.confiance || '';
 
-      // Safe : ATTELÉ confiance FORT uniquement → CG + CP sur #1 et #2
-      if (!isAttele || confiances !== 'fort') {
+      // Safe : ATTELÉ confiance FORT et MOYEN → CP sur #1 et #2
+      if (!isAttele || (confiances !== 'fort' && confiances !== 'moyen')) {
         // Afficher en grisé avec écarts indicatifs
         if (chevaux.length >= 2) {
           const sorted = [...chevaux].sort((a,b) => b.note_pmu - a.note_pmu);
@@ -1441,7 +1441,9 @@ async function chargerSafe() {
       // CG : #1 et #2 couplé gagnant (ordre exact) → ROI +67.8%
       // CP : #1 et #2 couplé placé (top3 libre)   → ROI +48.5%
       // Mise : 1€ CG + 1€ CP = 2€ par course
-      return `<div onclick="${onclick}" style="border-left:3px solid #3a9162;display:grid;grid-template-columns:48px 1fr auto;gap:8px;align-items:center;padding:10px 10px 10px 12px;border-bottom:1px solid var(--border);cursor:pointer">
+      const borderCol = confiances==='fort' ? '#3a9162' : '#c8942a';
+      const confIcon  = confiances==='fort' ? '🔥' : '〜';
+      return `<div onclick="${onclick}" style="border-left:3px solid ${borderCol};display:grid;grid-template-columns:48px 1fr auto;gap:8px;align-items:center;padding:10px 10px 10px 12px;border-bottom:1px solid var(--border);cursor:pointer">
         <div>
           <div class="dash-course">R${co.r}C${co.c}</div>
           <div style="font-size:9px;color:var(--text-dim)">${co.heure}</div>
@@ -1449,32 +1451,31 @@ async function chargerSafe() {
         <div style="min-width:0">
           <div style="font-size:10px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">#${h1.numero} ${nom1}</div>
           <div style="font-size:10px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-dim)">#${h2.numero} ${nom2}</div>
-          <div style="font-size:8px;color:var(--text-dim);margin-top:2px">ATTELÉ · e23:${ecart23} · 2€</div>
+          <div style="font-size:8px;color:var(--text-dim);margin-top:2px">ATTELÉ · e23:${ecart23} · 1€</div>
         </div>
         <div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:3px">
-          <div style="font-size:13px">🔥</div>
-          <div style="background:rgba(200,148,42,.2);border:1px solid rgba(200,148,42,.5);border-radius:4px;padding:2px 6px;color:#c8942a;font-size:8px;font-weight:700;white-space:nowrap">CG #${h1.numero}-#${h2.numero}</div>
+          <div style="font-size:13px">${confIcon}</div>
           <div style="background:rgba(58,145,98,.2);border:1px solid rgba(58,145,98,.4);border-radius:4px;padding:2px 6px;color:#3a9162;font-size:8px;font-weight:700;white-space:nowrap">CP #${h1.numero}-#${h2.numero}</div>
         </div>
       </div>`;
     };
 
-    // Compter les paris — ATTELÉ conf FORT uniquement
-    let n_cg = 0;
+    // Compter les paris — ATTELÉ conf FORT et MOYEN
+    let n_fort = 0, n_moyen = 0;
     for (const co of courses) {
       const d = allResults[`${co.r}-${co.c}`];
       const isAttele = co.disc === 'TROT_ATTELE' || co.disc === 'ATTELE';
-      if (!isAttele || d?.confiance !== 'fort') continue;
-      if (!d?.chevaux?.length) continue;
-      n_cg++;
+      if (!isAttele || !d?.chevaux?.length) continue;
+      if (d?.confiance === 'fort') n_fort++;
+      else if (d?.confiance === 'moyen') n_moyen++;
     }
 
     let html = `<div class="dash-refresh">
-      <span>🛡️ Safe ATTELÉ 🔥 · ${courses.length} courses · CG+CP: ${n_cg}</span>
+      <span>🛡️ Safe ATTELÉ · 🔥${n_fort} 〜${n_moyen} · CP: ${n_fort+n_moyen}</span>
       <button onclick="safeCharge=false;chargerSafe()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
     </div>
     <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
-      🔥 ATTELÉ conf FORT uniquement · <span style="color:#c8942a">CG</span> + <span style="color:#3a9162">CP</span> sur #1 et #2 · 1€+1€=2€/course · <span style="color:#3a9162">ROI +67% CG · +48% CP</span> · e23 = indicatif
+      ATTELÉ · <span style="color:#3a9162">🔥 FORT ROI +48%</span> · <span style="color:#c8942a">〜 MOYEN ROI +42%</span> · CP #1-#2 · 1€/course · e23 indicatif · ❄️ = PASSER
     </div>`;
 
     for (const [rNum, rd] of Object.entries(byR)) {

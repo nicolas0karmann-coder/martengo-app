@@ -904,14 +904,24 @@ function renderAnalyse(data) {
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;padding:4px 0 2px 0;border-top:1px solid var(--border2);margin-top:4px">
         ${(()=>{
-          const ferr = String(h.deferre || h.cat_ferrure || '');
+          const ferrRaw = h.deferre;
+          const ferrStr = h.cat_ferrure || '';
           let ferrLabel = ''; let ferrVal = ''; let ferrColor = 'var(--text-dim)';
-          if (ferr.indexOf('ANTERIEURS_POSTERIEURS') >= 0 && ferr.indexOf('PROTEGE') < 0) {
-            ferrVal='2'; ferrLabel='Def. total'; ferrColor='#3a9162';
-          } else if (ferr.indexOf('ANTERIEURS') >= 0 || ferr.indexOf('POSTERIEURS') >= 0) {
-            ferrVal='1'; ferrLabel='Def. partiel'; ferrColor='var(--copper)';
-          } else if (ferr === 'FERRE' || ferr === '0' || ferr === '') {
-            ferrVal='0'; ferrLabel='Ferre'; ferrColor='var(--text-dim)';
+          // Format string (nouveau api.py)
+          if (ferrStr && ferrStr.length > 0) {
+            if (ferrStr.indexOf('ANTERIEURS_POSTERIEURS') >= 0 && ferrStr.indexOf('PROTEGE') < 0) {
+              ferrVal='2'; ferrLabel='Def. total'; ferrColor='#3a9162';
+            } else if (ferrStr.indexOf('DEFERRE') >= 0) {
+              ferrVal='1'; ferrLabel='Def. partiel'; ferrColor='var(--copper)';
+            } else {
+              ferrVal='0'; ferrLabel='Ferre'; ferrColor='var(--text-dim)';
+            }
+          // Format entier (ancien api.py)
+          } else if (ferrRaw !== undefined && ferrRaw !== null) {
+            const ferrNum = parseInt(ferrRaw);
+            if (ferrNum === 3 || ferrNum === 2) { ferrVal='2'; ferrLabel='Def. total'; ferrColor='#3a9162'; }
+            else if (ferrNum === 1) { ferrVal='1'; ferrLabel='Def. partiel'; ferrColor='var(--copper)'; }
+            else { ferrVal='0'; ferrLabel='Ferre'; ferrColor='var(--text-dim)'; }
           }
           const rkF = h.rk_ferrure || null;
           const rkFStr = rkF && rkF > 60000 && rkF < 90000 ? Math.round(rkF) + ' ms/km' : '';

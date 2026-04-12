@@ -911,9 +911,9 @@ function renderAnalyse(data) {
             const ferrStr = String(ferrRaw);
             // Format string PMU
             if (isNaN(parseInt(ferrStr))) {
-              if (ferrStr.indexOf('ANTERIEURS_POSTERIEURS') >= 0 && ferrStr.indexOf('PROTEGE') < 0) {
+              if (ferrStr === 'DEFERRE_TOTAL' || (ferrStr.indexOf('ANTERIEURS_POSTERIEURS') >= 0 && ferrStr.indexOf('PROTEGE') < 0)) {
                 ferrVal='2'; ferrLabel='Def. total'; ferrColor='#3a9162';
-              } else if (ferrStr.indexOf('DEFERRE') >= 0) {
+              } else if (ferrStr.indexOf('DEFERRE') >= 0 || ferrStr === 'DEFERRE_PARTIEL') {
                 ferrVal='1'; ferrLabel='Def. partiel'; ferrColor='var(--copper)';
               } else {
                 ferrVal='0'; ferrLabel='Ferre'; ferrColor='var(--text-dim)';

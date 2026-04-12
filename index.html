@@ -904,24 +904,27 @@ function renderAnalyse(data) {
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;padding:4px 0 2px 0;border-top:1px solid var(--border2);margin-top:4px">
         ${(()=>{
+          // deferre peut être string PMU ou entier
           const ferrRaw = h.deferre;
-          const ferrStr = h.cat_ferrure || '';
           let ferrLabel = ''; let ferrVal = ''; let ferrColor = 'var(--text-dim)';
-          // Format string (nouveau api.py)
-          if (ferrStr && ferrStr.length > 0) {
-            if (ferrStr.indexOf('ANTERIEURS_POSTERIEURS') >= 0 && ferrStr.indexOf('PROTEGE') < 0) {
-              ferrVal='2'; ferrLabel='Def. total'; ferrColor='#3a9162';
-            } else if (ferrStr.indexOf('DEFERRE') >= 0) {
-              ferrVal='1'; ferrLabel='Def. partiel'; ferrColor='var(--copper)';
+          if (ferrRaw !== undefined && ferrRaw !== null) {
+            const ferrStr = String(ferrRaw);
+            // Format string PMU
+            if (isNaN(parseInt(ferrStr))) {
+              if (ferrStr.indexOf('ANTERIEURS_POSTERIEURS') >= 0 && ferrStr.indexOf('PROTEGE') < 0) {
+                ferrVal='2'; ferrLabel='Def. total'; ferrColor='#3a9162';
+              } else if (ferrStr.indexOf('DEFERRE') >= 0) {
+                ferrVal='1'; ferrLabel='Def. partiel'; ferrColor='var(--copper)';
+              } else {
+                ferrVal='0'; ferrLabel='Ferre'; ferrColor='var(--text-dim)';
+              }
+            // Format entier
             } else {
-              ferrVal='0'; ferrLabel='Ferre'; ferrColor='var(--text-dim)';
+              const ferrNum = parseInt(ferrStr);
+              if (ferrNum === 3) { ferrVal='2'; ferrLabel='Def. total'; ferrColor='#3a9162'; }
+              else if (ferrNum === 1 || ferrNum === 2) { ferrVal='1'; ferrLabel='Def. partiel'; ferrColor='var(--copper)'; }
+              else { ferrVal='0'; ferrLabel='Ferre'; ferrColor='var(--text-dim)'; }
             }
-          // Format entier (ancien api.py)
-          } else if (ferrRaw !== undefined && ferrRaw !== null) {
-            const ferrNum = parseInt(ferrRaw);
-            if (ferrNum === 3 || ferrNum === 2) { ferrVal='2'; ferrLabel='Def. total'; ferrColor='#3a9162'; }
-            else if (ferrNum === 1) { ferrVal='1'; ferrLabel='Def. partiel'; ferrColor='var(--copper)'; }
-            else { ferrVal='0'; ferrLabel='Ferre'; ferrColor='var(--text-dim)'; }
           }
           const rkF = h.rk_ferrure || null;
           const rkFStr = rkF && rkF > 60000 && rkF < 90000 ? Math.round(rkF) + ' ms/km' : '';

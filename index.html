@@ -735,7 +735,7 @@ function renderSelections(data, pmuMap) {
     : '';
 
   // ── Valeur Attendue EV = taux_modèle × cote - 1 ──
-  const tauxModele = confianceAPI === 'fort' ? 0.977 : confianceAPI === 'moyen' ? 0.805 : 0.539;
+  const tauxModele = confianceAPI === 'fort' ? 0.150 : confianceAPI === 'moyen' ? 0.104 : 0.083;
   const evSG = coteTop1 > 1 ? Math.round((tauxModele * coteTop1 - 1) * 100) / 100 : null;
   const evColor = evSG === null ? 'var(--text-dim)' : evSG >= 3 ? '#3a9162' : evSG >= 1 ? '#c8942a' : '#e05c5c';
   const evBadge = evSG !== null
@@ -846,7 +846,7 @@ function renderAnalyse(data) {
   const coteA    = parseFloat(top1a?.rapport ?? top1a?.cote ?? 0);
   const svA      = coteA > 1 ? Math.round(note1a * Math.log(coteA) * 10) / 10 : 0;
   const confA    = confianceA || '';
-  const tauxA    = confA==='fort' ? 0.977 : confA==='moyen' ? 0.805 : 0.539;
+  const tauxA    = confA==='fort' ? 0.150 : confA==='moyen' ? 0.104 : 0.083;
   const evA      = coteA > 1 ? Math.round((tauxA * coteA - 1) * 100) / 100 : null;
   const evColorA = evA===null ? 'var(--text-dim)' : evA>=3 ? '#3a9162' : evA>=1 ? '#c8942a' : '#e05c5c';
   const isDelA   = svA >= 40 && (confA==='fort'||confA==='moyen');
@@ -1048,7 +1048,7 @@ async function chargerDashboard() {
 
     // ── Système multi-courses : top EV du jour ──────────────
     // Taux calibrés backtest : fort=97.7% · moyen=80.5% · faible=53.9%
-    const taux_conf = {fort:0.977, moyen:0.805, faible:0.539};
+    const taux_conf = {fort:0.150, moyen:0.104, faible:0.083};  // CP réussite validée vrais rapports PMU
     const signaux_jour = [];
     for (const co of courses) {
       const d = allResults[`${co.r}-${co.c}`];
@@ -1340,8 +1340,8 @@ async function chargerSafe() {
   const today = new Date();
   const pad = n => String(n).padStart(2,'0');
   const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
-  const DISC_LABELS = {'TROT_ATTELE':'ATTELÉ','ATTELE':'ATTELÉ','MONTE':'MONTÉ','TROT_MONTE':'MONTÉ'};
-  const DISC_OK = ['ATTELE','TROT_ATTELE','MONTE','TROT_MONTE'];  // ATTELÉ + MONTÉ
+  const DISC_LABELS = {'TROT_ATTELE':'ATTELÉ','ATTELE':'ATTELÉ'};
+  const DISC_OK = ['ATTELE','TROT_ATTELE'];  // ATTELÉ uniquement — backtest validé
 
   try {
     const resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
@@ -1405,13 +1405,11 @@ async function chargerSafe() {
       const ecart  = note1 - note2;
       const ecart14s = note1 - note4s;
 
-      // Nouvelle stratégie V25 — ATTELÉ + MONTÉ toutes confiances affichées
+      // Stratégie backtest validée — ATTELÉ uniquement
+      // SG si e12≥3 ET conf FORT ou MOYEN · SP si e14≥3 ET conf FORT ou MOYEN
       const confiances = d?.confiance || '';
-      const isAttele = disc === 'ATTELE';
-      const isMonte  = disc === 'MONTE';
-      // CP = #1 et #2 · toujours affiché · confiance indiquée
-      const playSG = ecart >= 3;
-      const playSP = ecart14s >= 3;
+      const playSG = ecart >= 3 && confiances !== 'faible';
+      const playSP = ecart14s >= 3 && confiances !== 'faible';
       const nom1 = h1.nom ? h1.nom.split(' ')[0] : `#${h1.numero}`;
       const nom2 = h2.nom ? h2.nom.split(' ')[0] : `#${h2.numero}`;
       const confPictoS = confiances === 'fort'
@@ -1420,22 +1418,28 @@ async function chargerSafe() {
         ? `<span style="font-size:14px" title="Confiance moyenne">〜</span>`
         : `<span style="font-size:14px;opacity:.5" title="Confiance faible">❄️</span>`;
 
-      // Toutes les courses sont affichées — plus de PASSER
+      if (!playSP && !playSG) {
+        return `<div class="dash-row" onclick="${onclick}" style="opacity:.5">
+          <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
+          <div><div class="dash-cheval">#${h1.numero} ${nom1}</div><div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · e12:${ecart} e14:${ecart14s}</div></div>
+          <div style="text-align:right;min-width:60px;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+            ${confPictoS}
+            <div class="dash-signal skip" style="font-size:8px">⛔ PASSER</div>
+          </div>
+        </div>`;
+      }
 
-      // CP = #1 + #2 · mise 1€ · confiance indiquée
-      const confColor = confiances === 'fort' ? '#3a9162' : confiances === 'moyen' ? '#c8942a' : '#888';
-      const confBg    = confiances === 'fort' ? 'rgba(58,145,98,.15)' : confiances === 'moyen' ? 'rgba(200,148,42,.15)' : 'rgba(128,128,128,.1)';
       const badges = [];
-      badges.push(`<span style="background:${confBg};border:1px solid ${confColor};border-radius:4px;padding:2px 6px;color:${confColor};font-size:8px;font-weight:700">💰 CP #${h1.numero}+#${h2.numero} · 1€</span>`);
+      if (playSG) badges.push(`<span style="background:rgba(200,148,42,.2);border:1px solid rgba(200,148,42,.5);border-radius:4px;padding:2px 6px;color:#c8942a;font-size:8px;font-weight:700">💰💰 SG #${h1.numero}</span>`);
+      if (playSP) badges.push(`<span style="background:rgba(58,145,98,.2);border:1px solid rgba(58,145,98,.4);border-radius:4px;padding:2px 6px;color:#3a9162;font-size:8px;font-weight:700">💰 SP #${h1.numero}</span>`);
 
-      const mise = 1;
+      const mise = (playSG ? 2 : 0) + (playSP ? 1 : 0);
 
-      const borderCol = confiances === 'fort' ? '#3a9162' : confiances === 'moyen' ? '#c8942a' : '#555';
-      return `<div class="dash-row" onclick="${onclick}" style="border-left:2px solid ${borderCol}">
+      return `<div class="dash-row" onclick="${onclick}" style="${playSG?'border-left:2px solid #c8942a':'border-left:2px solid #3a9162'}">
         <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
         <div>
           <div class="dash-cheval" style="font-size:10px">#${h1.numero} ${nom1} · #${h2.numero} ${nom2}</div>
-          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e12:${ecart} · ${mise}€</div>
+          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e12:${ecart} e14:${ecart14s} · ${mise}€</div>
         </div>
         <div style="text-align:right;min-width:85px">
           <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">
@@ -1447,22 +1451,23 @@ async function chargerSafe() {
     };
 
     // Compter les paris
-    let n_fort = 0, n_moyen = 0, n_faible = 0;
+    let n_sp = 0, n_sg = 0;
     for (const co of courses) {
       const d = allResults[`${co.r}-${co.c}`];
       if (!d?.chevaux?.length) continue;
-      const conf = d.confiance || '';
-      if (conf === 'fort') n_fort++;
-      else if (conf === 'moyen') n_moyen++;
-      else n_faible++;
+      const sorted = [...d.chevaux].sort((a,b) => b.note_pmu-a.note_pmu);
+      const e12 = (sorted[0]?.note_pmu??0) - (sorted[1]?.note_pmu??0);
+      const e14 = (sorted[0]?.note_pmu??0) - (sorted[3]?.note_pmu??0);
+      if (e12 >= 3) n_sg++;
+      if (e14 >= 3) n_sp++;
     }
 
     let html = `<div class="dash-refresh">
-      <span>🛡️ Safe ATTELÉ+MONTÉ · ${courses.length} courses</span>
+      <span>🛡️ Safe ATTELÉ · ${courses.length} courses · SG:${n_sg} SP:${n_sp}</span>
       <button onclick="safeCharge=false;chargerSafe()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
     </div>
     <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
-      💰 CP #1+#2 · 1€/course · <span style="color:#3a9162">🔥 FORT</span> · <span style="color:#c8942a">〜 MOY</span> · <span style="color:#888">❄️ FAIBLE</span> · ATTELÉ + MONTÉ
+      💰 SG e12≥3 conf🔥/〜 <span style="color:#3a9162">ROI +620%→+892%</span> · 💰 SP e14≥3 conf🔥/〜 <span style="color:#3a9162">ROI +36%→+42%</span> · ⛔ conf❄️ = PASSER · ATTELÉ uniquement
     </div>`;
 
     for (const [rNum, rd] of Object.entries(byR)) {

@@ -902,46 +902,6 @@ function renderAnalyse(data) {
           : ''}
         <span style="margin-left:auto;font-size:8px;color:var(--text-dim);font-family:monospace;letter-spacing:0">${h.musique||''}</span>
       </div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;padding:4px 0 2px 0;border-top:1px solid var(--border2);margin-top:4px">
-        ${(()=>{
-          // deferre peut être string PMU ou entier
-          const ferrRaw = h.deferre;
-          let ferrLabel = ''; let ferrVal = ''; let ferrColor = 'var(--text-dim)';
-          if (ferrRaw !== undefined && ferrRaw !== null) {
-            const ferrStr = String(ferrRaw);
-            // Format string PMU
-            if (isNaN(parseInt(ferrStr))) {
-              if (ferrStr === 'DEFERRE_TOTAL' || (ferrStr.indexOf('ANTERIEURS_POSTERIEURS') >= 0 && ferrStr.indexOf('PROTEGE') < 0)) {
-                ferrVal='2'; ferrLabel='Def. total'; ferrColor='#3a9162';
-              } else if (ferrStr.indexOf('DEFERRE') >= 0 || ferrStr === 'DEFERRE_PARTIEL') {
-                ferrVal='1'; ferrLabel='Def. partiel'; ferrColor='var(--copper)';
-              } else {
-                ferrVal='0'; ferrLabel='Ferre'; ferrColor='var(--text-dim)';
-              }
-            // Format entier
-            } else {
-              const ferrNum = parseInt(ferrStr);
-              if (ferrNum === 3) { ferrVal='2'; ferrLabel='Def. total'; ferrColor='#3a9162'; }
-              else if (ferrNum === 1 || ferrNum === 2) { ferrVal='1'; ferrLabel='Def. partiel'; ferrColor='var(--copper)'; }
-              else { ferrVal='0'; ferrLabel='Ferre'; ferrColor='var(--text-dim)'; }
-            }
-          }
-          const rkF = h.rk_ferrure || null;
-          const rkFStr = rkF && rkF > 60000 && rkF < 90000 ? Math.round(rkF) + ' ms/km' : '';
-          let html = '';
-          if (ferrVal !== '') {
-            html += '<span style="font-size:7px;font-family:monospace;padding:1px 5px;border-radius:3px;border:1px solid rgba(128,128,128,.3);color:' + ferrColor + '">';
-            html += 'Ferrure ' + ferrVal + ' · ' + ferrLabel;
-            html += '</span>';
-          }
-          if (rkFStr) {
-            html += '<span style="font-size:7px;font-family:monospace;padding:1px 5px;border-radius:3px;border:1px solid rgba(128,128,128,.3);color:var(--text-dim)">';
-            html += 'Meilleur chrono (' + ferrLabel + ') · ' + rkFStr;
-            html += '</span>';
-          }
-          return html;
-        })()}
-      </div>
     </div>`;
   }).join('');
   const miseBannerHtml = (signalSPa || signalSGa) && misePlacea
@@ -1380,8 +1340,8 @@ async function chargerSafe() {
   const today = new Date();
   const pad = n => String(n).padStart(2,'0');
   const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
-  const DISC_LABELS = {'TROT_ATTELE':'ATTELÉ','ATTELE':'ATTELÉ'};
-  const DISC_OK = ['ATTELE','TROT_ATTELE'];  // ATTELÉ uniquement — backtest validé
+  const DISC_LABELS = {'TROT_ATTELE':'ATTELÉ','ATTELE':'ATTELÉ','MONTE':'MONTÉ','TROT_MONTE':'MONTÉ'};
+  const DISC_OK = ['ATTELE','TROT_ATTELE','MONTE','TROT_MONTE'];  // ATTELÉ + MONTÉ
 
   try {
     const resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
@@ -1445,11 +1405,13 @@ async function chargerSafe() {
       const ecart  = note1 - note2;
       const ecart14s = note1 - note4s;
 
-      // Stratégie backtest validée — ATTELÉ uniquement
-      // SG si e12≥3 ET conf FORT ou MOYEN · SP si e14≥3 ET conf FORT ou MOYEN
+      // Nouvelle stratégie V25 — ATTELÉ + MONTÉ toutes confiances affichées
       const confiances = d?.confiance || '';
-      const playSG = ecart >= 3 && confiances !== 'faible';
-      const playSP = ecart14s >= 3 && confiances !== 'faible';
+      const isAttele = disc === 'ATTELE';
+      const isMonte  = disc === 'MONTE';
+      // CP = #1 et #2 · toujours affiché · confiance indiquée
+      const playSG = ecart >= 3;
+      const playSP = ecart14s >= 3;
       const nom1 = h1.nom ? h1.nom.split(' ')[0] : `#${h1.numero}`;
       const nom2 = h2.nom ? h2.nom.split(' ')[0] : `#${h2.numero}`;
       const confPictoS = confiances === 'fort'
@@ -1458,28 +1420,22 @@ async function chargerSafe() {
         ? `<span style="font-size:14px" title="Confiance moyenne">〜</span>`
         : `<span style="font-size:14px;opacity:.5" title="Confiance faible">❄️</span>`;
 
-      if (!playSP && !playSG) {
-        return `<div class="dash-row" onclick="${onclick}" style="opacity:.5">
-          <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
-          <div><div class="dash-cheval">#${h1.numero} ${nom1}</div><div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · e12:${ecart} e14:${ecart14s}</div></div>
-          <div style="text-align:right;min-width:60px;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-            ${confPictoS}
-            <div class="dash-signal skip" style="font-size:8px">⛔ PASSER</div>
-          </div>
-        </div>`;
-      }
+      // Toutes les courses sont affichées — plus de PASSER
 
+      // CP = #1 + #2 · mise 1€ · confiance indiquée
+      const confColor = confiances === 'fort' ? '#3a9162' : confiances === 'moyen' ? '#c8942a' : '#888';
+      const confBg    = confiances === 'fort' ? 'rgba(58,145,98,.15)' : confiances === 'moyen' ? 'rgba(200,148,42,.15)' : 'rgba(128,128,128,.1)';
       const badges = [];
-      if (playSG) badges.push(`<span style="background:rgba(200,148,42,.2);border:1px solid rgba(200,148,42,.5);border-radius:4px;padding:2px 6px;color:#c8942a;font-size:8px;font-weight:700">💰💰 SG #${h1.numero}</span>`);
-      if (playSP) badges.push(`<span style="background:rgba(58,145,98,.2);border:1px solid rgba(58,145,98,.4);border-radius:4px;padding:2px 6px;color:#3a9162;font-size:8px;font-weight:700">💰 SP #${h1.numero}</span>`);
+      badges.push(`<span style="background:${confBg};border:1px solid ${confColor};border-radius:4px;padding:2px 6px;color:${confColor};font-size:8px;font-weight:700">💰 CP #${h1.numero}+#${h2.numero} · 1€</span>`);
 
-      const mise = (playSG ? 2 : 0) + (playSP ? 1 : 0);
+      const mise = 1;
 
-      return `<div class="dash-row" onclick="${onclick}" style="${playSG?'border-left:2px solid #c8942a':'border-left:2px solid #3a9162'}">
+      const borderCol = confiances === 'fort' ? '#3a9162' : confiances === 'moyen' ? '#c8942a' : '#555';
+      return `<div class="dash-row" onclick="${onclick}" style="border-left:2px solid ${borderCol}">
         <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
         <div>
           <div class="dash-cheval" style="font-size:10px">#${h1.numero} ${nom1} · #${h2.numero} ${nom2}</div>
-          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e12:${ecart} e14:${ecart14s} · ${mise}€</div>
+          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e12:${ecart} · ${mise}€</div>
         </div>
         <div style="text-align:right;min-width:85px">
           <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">
@@ -1491,23 +1447,22 @@ async function chargerSafe() {
     };
 
     // Compter les paris
-    let n_sp = 0, n_sg = 0;
+    let n_fort = 0, n_moyen = 0, n_faible = 0;
     for (const co of courses) {
       const d = allResults[`${co.r}-${co.c}`];
       if (!d?.chevaux?.length) continue;
-      const sorted = [...d.chevaux].sort((a,b) => b.note_pmu-a.note_pmu);
-      const e12 = (sorted[0]?.note_pmu??0) - (sorted[1]?.note_pmu??0);
-      const e14 = (sorted[0]?.note_pmu??0) - (sorted[3]?.note_pmu??0);
-      if (e12 >= 3) n_sg++;
-      if (e14 >= 3) n_sp++;
+      const conf = d.confiance || '';
+      if (conf === 'fort') n_fort++;
+      else if (conf === 'moyen') n_moyen++;
+      else n_faible++;
     }
 
     let html = `<div class="dash-refresh">
-      <span>🛡️ Safe ATTELÉ · ${courses.length} courses · SG:${n_sg} SP:${n_sp}</span>
+      <span>🛡️ Safe ATTELÉ+MONTÉ · ${courses.length} courses</span>
       <button onclick="safeCharge=false;chargerSafe()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
     </div>
     <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
-      💰 SG e12≥3 conf🔥/〜 <span style="color:#3a9162">ROI +620%→+892%</span> · 💰 SP e14≥3 conf🔥/〜 <span style="color:#3a9162">ROI +36%→+42%</span> · ⛔ conf❄️ = PASSER · ATTELÉ uniquement
+      💰 CP #1+#2 · 1€/course · <span style="color:#3a9162">🔥 FORT</span> · <span style="color:#c8942a">〜 MOY</span> · <span style="color:#888">❄️ FAIBLE</span> · ATTELÉ + MONTÉ
     </div>`;
 
     for (const [rNum, rd] of Object.entries(byR)) {

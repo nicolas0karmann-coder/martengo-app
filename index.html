@@ -1193,8 +1193,19 @@ async function chargerOffensif() {
   const DISC_OK = ['ATTELE','TROT_ATTELE','MONTE'];
 
   try {
-    const resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
-    if (!resp.ok) throw new Error('Programme indisponible');
+    // Wake up Render si endormi — retry automatique
+    let resp;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(40000)});
+        if (resp.ok) break;
+      } catch(e) {
+        if (attempt === 2) throw new Error('Serveur indisponible après 3 tentatives');
+        el.innerHTML = `<div class="dash-progress">Connexion… tentative ${attempt+2}/3</div>`;
+        await new Promise(r => setTimeout(r, 3000));
+      }
+    }
+    if (!resp || !resp.ok) throw new Error('Programme indisponible');
     const data = await resp.json();
     const courses = (data.courses || []).filter(c => {
       const d = c.disc === 'TROT_ATTELE' ? 'ATTELE' : c.disc;
@@ -1213,10 +1224,11 @@ async function chargerOffensif() {
       el.innerHTML = `<div class="dash-progress">Chargement Offensif… ${loaded}/${total} (${pct}%)<div class="dash-progress-bar"><div class="dash-progress-fill" style="width:${pct}%"></div></div></div>`;
     };
     updateProgress();
-    for (let i=0; i<courses.length; i+=5) {
-      await Promise.all(courses.slice(i,i+5).map(async co => {
+    for (let i=0; i<courses.length; i+=3) {
+      await Promise.all(courses.slice(i,i+3).map(async co => {
         try {
-          const r = await fetch(`${API_URL}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
+          const r = await fetch(`${API_URL}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`,
+            {signal: AbortSignal.timeout(20000)});
           if (r.ok) allResults[`${co.r}-${co.c}`] = await r.json();
         } catch(e) {}
         loaded++; updateProgress();

@@ -376,7 +376,29 @@ input[readonly]{opacity:.5;cursor:default}
 </div>
 <div id="toast"></div>
 <script>
-const API_URL = "https://martengo-api-v5.onrender.com";
+// URLs API — HuggingFace en priorite, Render en fallback si HF indisponible
+const API_URL_PRIMARY   = "https://karmouille69-martengo-api.hf.space";
+const API_URL_FALLBACK  = "https://martengo-api-v5.onrender.com";
+let API_URL = API_URL_PRIMARY;  // URL active (mise a jour dynamiquement)
+
+// Fetch avec fallback automatique — essaie PRIMARY puis FALLBACK
+async function fetchAPI(path, options = {}) {
+  const urls = [API_URL_PRIMARY, API_URL_FALLBACK];
+  let lastError = null;
+  for (const url of urls) {
+    try {
+      const r = await fetch(url + path, options);
+      if (r.ok) {
+        API_URL = url;  // Mémorise l'URL qui a marché
+        return r;
+      }
+      lastError = new Error('HTTP ' + r.status);
+    } catch(e) {
+      lastError = e;
+    }
+  }
+  throw lastError || new Error('Tous les serveurs API sont indisponibles');
+}
 const LS_SAISIE = 'martengo_v3', LS_HIST = 'martengo_hist';
 const SCREENS = ['saisie','selections','analyse','dashboard','safe','offensif','trio','couple','stats'];
 

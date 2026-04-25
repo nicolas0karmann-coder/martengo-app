@@ -469,10 +469,10 @@ async function checkHealth(isFirst) {
       clearInterval(_hTimer);
       if (!resp.ok) throw new Error();
       const data=await resp.json(); apiPrete=true;
-      dot.className='dot online'; text.textContent=`${(data.courses||0).toLocaleString('fr')} courses`;
+      dot.className='dot online'; text.textContent='en ligne';
       document.getElementById('btn-pmu').disabled=false;
       banner.classList.remove('show');
-      setPmuProgress(100,`✓ Prêt — ${(data.courses||0).toLocaleString('fr')} courses`,'#5fcd8a');
+      setPmuProgress(100,'✓ Prêt','#5fcd8a');
       setTimeout(()=>clearPmuProgress(),1500);
     } catch { clearInterval(_hTimer); dot.className='dot error'; text.textContent='hors ligne'; clearPmuProgress(''); banner.classList.add('show'); showPmuRetry('Serveur en démarrage — jusqu\'à 50s sur Render Free'); }
   } else {
@@ -481,7 +481,7 @@ async function checkHealth(isFirst) {
       if (!resp.ok) throw new Error();
       const data=await resp.json();
       if (!apiPrete) { apiPrete=true; document.getElementById('btn-pmu').disabled=false; banner.classList.remove('show'); clearPmuProgress(''); }
-      dot.className='dot online'; text.textContent=`${(data.courses||0).toLocaleString('fr')} courses`;
+      dot.className='dot online'; text.textContent='en ligne';
     } catch { dot.className='dot error'; text.textContent='hors ligne'; if (apiPrete) { apiPrete=false; banner.classList.add('show'); } }
   }
 }

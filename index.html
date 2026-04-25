@@ -55,8 +55,8 @@ html,body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;f
 .dot.loading{background:var(--gold);animation:pulse-dot 1s ease-in-out infinite}
 @keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}
 
-.nav{display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:10}
-.nav-btn{background:none;border:none;color:var(--text-dim);font-family:'Space Mono',monospace;font-size:8px;letter-spacing:.5px;text-transform:uppercase;padding:12px 2px 10px;cursor:pointer;position:relative;transition:color .2s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;text-align:center}
+.nav{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--border);background:var(--bg);position:sticky;top:0;z-index:10}
+.nav-btn{background:none;border:none;color:var(--text-dim);font-family:'Space Mono',monospace;font-size:8px;letter-spacing:1px;text-transform:uppercase;padding:12px 0 10px;cursor:pointer;position:relative;transition:color .2s;display:flex;flex-direction:column;align-items:center;gap:4px}
 .nav-icon{font-size:15px;line-height:1;transition:transform .2s}
 .nav-btn.active{color:var(--gold)}
 .nav-btn.active .nav-icon{transform:translateY(-1px)}
@@ -232,6 +232,7 @@ input[readonly]{opacity:.5;cursor:default}
     <button class="nav-btn" onclick="goTo('dashboard')" id="tab-dashboard"><span class="nav-icon">📋</span>Journée<span class="nav-badge" id="badge-dashboard"></span></button>
     <button class="nav-btn" onclick="safeCharge=false;goTo('safe')" id="tab-safe"><span class="nav-icon">🛡️</span>Safe</button>
     <button class="nav-btn" onclick="goTo('trio')" id="tab-trio"><span class="nav-icon">🎯</span>Trio</button>
+    <button class="nav-btn" onclick="goTo('couple')" id="tab-couple"><span class="nav-icon">🔗</span>Couplé</button>
     <button class="nav-btn" onclick="goTo('stats')" id="tab-stats">
       <span class="nav-icon">📊</span>Stats
       <span class="nav-badge" id="badge-stats"></span>
@@ -351,6 +352,16 @@ input[readonly]{opacity:.5;cursor:default}
       </div>
     </div>
 
+    <div class="screen" id="screen-couple">
+      <div id="couple-content">
+        <div class="empty">
+          <div class="empty-icon">🔗</div>
+          Signaux Couplé Placé, Couplé Gagnant et Trio<br>
+          <button class="btn full" onclick="chargerCouple()" style="margin-top:16px;font-size:11px">Charger CP · CG →</button>
+        </div>
+      </div>
+    </div>
+
     <div class="screen" id="screen-stats">
       <div id="stats-content">
         <div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement…</span></div>
@@ -365,9 +376,31 @@ input[readonly]{opacity:.5;cursor:default}
 </div>
 <div id="toast"></div>
 <script>
-const API_URL = "https://martengo-api-v5.onrender.com";
+// URLs API — HuggingFace en priorite, Render en fallback si HF indisponible
+const API_URL_PRIMARY   = "https://karmouille69-martengo-api.hf.space";
+const API_URL_FALLBACK  = "https://martengo-api-v5.onrender.com";
+let API_URL = API_URL_PRIMARY;  // URL active (mise a jour dynamiquement)
+
+// Fetch avec fallback automatique — essaie PRIMARY puis FALLBACK
+async function fetchAPI(path, options = {}) {
+  const urls = [API_URL_PRIMARY, API_URL_FALLBACK];
+  let lastError = null;
+  for (const url of urls) {
+    try {
+      const r = await fetch(url + path, options);
+      if (r.ok) {
+        API_URL = url;  // Mémorise l'URL qui a marché
+        return r;
+      }
+      lastError = new Error('HTTP ' + r.status);
+    } catch(e) {
+      lastError = e;
+    }
+  }
+  throw lastError || new Error('Tous les serveurs API sont indisponibles');
+}
 const LS_SAISIE = 'martengo_v3', LS_HIST = 'martengo_hist';
-const SCREENS = ['saisie','selections','analyse','dashboard','safe','offensif','trio','stats'];
+const SCREENS = ['saisie','selections','analyse','dashboard','safe','offensif','trio','couple','stats'];
 
 let chevaux = [], predictions = null, notesPMU = {}, notesPMUData = null;
 let currentDate = '', horseCounter = 0, apiPrete = false, currentScreen = 'saisie';
@@ -448,10 +481,10 @@ async function checkHealth(isFirst) {
       clearInterval(_hTimer);
       if (!resp.ok) throw new Error();
       const data=await resp.json(); apiPrete=true;
-      dot.className='dot online'; text.textContent=`${(data.courses||0).toLocaleString('fr')} courses`;
+      dot.className='dot online'; text.textContent=`${(data.courses||0).toLocaleString('fr')} jours`;
       document.getElementById('btn-pmu').disabled=false;
       banner.classList.remove('show');
-      setPmuProgress(100,`✓ Prêt — ${(data.courses||0).toLocaleString('fr')} courses`,'#5fcd8a');
+      setPmuProgress(100,`✓ Prêt — ${(data.courses||0).toLocaleString('fr')} jours`,'#5fcd8a');
       setTimeout(()=>clearPmuProgress(),1500);
     } catch { clearInterval(_hTimer); dot.className='dot error'; text.textContent='hors ligne'; clearPmuProgress(''); banner.classList.add('show'); showPmuRetry('Serveur en démarrage — jusqu\'à 50s sur Render Free'); }
   } else {
@@ -460,7 +493,7 @@ async function checkHealth(isFirst) {
       if (!resp.ok) throw new Error();
       const data=await resp.json();
       if (!apiPrete) { apiPrete=true; document.getElementById('btn-pmu').disabled=false; banner.classList.remove('show'); clearPmuProgress(''); }
-      dot.className='dot online'; text.textContent=`${(data.courses||0).toLocaleString('fr')} courses`;
+      dot.className='dot online'; text.textContent=`${(data.courses||0).toLocaleString('fr')} jours`;
     } catch { dot.className='dot error'; text.textContent='hors ligne'; if (apiPrete) { apiPrete=false; banner.classList.add('show'); } }
   }
 }
@@ -724,7 +757,7 @@ function renderSelections(data, pmuMap) {
     : '';
 
   // ── Valeur Attendue EV = taux_modèle × cote - 1 ──
-  const tauxModele = confianceAPI === 'fort' ? 0.977 : confianceAPI === 'moyen' ? 0.805 : 0.539;
+  const tauxModele = confianceAPI === 'fort' ? 0.150 : confianceAPI === 'moyen' ? 0.104 : 0.083;
   const evSG = coteTop1 > 1 ? Math.round((tauxModele * coteTop1 - 1) * 100) / 100 : null;
   const evColor = evSG === null ? 'var(--text-dim)' : evSG >= 3 ? '#3a9162' : evSG >= 1 ? '#c8942a' : '#e05c5c';
   const evBadge = evSG !== null
@@ -835,7 +868,7 @@ function renderAnalyse(data) {
   const coteA    = parseFloat(top1a?.rapport ?? top1a?.cote ?? 0);
   const svA      = coteA > 1 ? Math.round(note1a * Math.log(coteA) * 10) / 10 : 0;
   const confA    = confianceA || '';
-  const tauxA    = confA==='fort' ? 0.977 : confA==='moyen' ? 0.805 : 0.539;
+  const tauxA    = confA==='fort' ? 0.150 : confA==='moyen' ? 0.104 : 0.083;
   const evA      = coteA > 1 ? Math.round((tauxA * coteA - 1) * 100) / 100 : null;
   const evColorA = evA===null ? 'var(--text-dim)' : evA>=3 ? '#3a9162' : evA>=1 ? '#c8942a' : '#e05c5c';
   const isDelA   = svA >= 40 && (confA==='fort'||confA==='moyen');
@@ -1037,7 +1070,7 @@ async function chargerDashboard() {
 
     // ── Système multi-courses : top EV du jour ──────────────
     // Taux calibrés backtest : fort=97.7% · moyen=80.5% · faible=53.9%
-    const taux_conf = {fort:0.977, moyen:0.805, faible:0.539};
+    const taux_conf = {fort:0.150, moyen:0.104, faible:0.083};  // CP réussite validée vrais rapports PMU
     const signaux_jour = [];
     for (const co of courses) {
       const d = allResults[`${co.r}-${co.c}`];
@@ -1169,7 +1202,7 @@ async function testerConnexion() {
   el.innerHTML = html;
 }
 
-// ── Offensif ──
+// ── Couplé ──
 let offensifCharge = false;
 async function chargerOffensif() {
   if (offensifCharge) return;
@@ -1182,8 +1215,19 @@ async function chargerOffensif() {
   const DISC_OK = ['ATTELE','TROT_ATTELE','MONTE'];
 
   try {
-    const resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
-    if (!resp.ok) throw new Error('Programme indisponible');
+    // Wake up Render si endormi — retry automatique
+    let resp;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(40000)});
+        if (resp.ok) break;
+      } catch(e) {
+        if (attempt === 2) throw new Error('Serveur indisponible après 3 tentatives');
+        el.innerHTML = `<div class="dash-progress">Connexion… tentative ${attempt+2}/3</div>`;
+        await new Promise(r => setTimeout(r, 3000));
+      }
+    }
+    if (!resp || !resp.ok) throw new Error('Programme indisponible');
     const data = await resp.json();
     const courses = (data.courses || []).filter(c => {
       const d = c.disc === 'TROT_ATTELE' ? 'ATTELE' : c.disc;
@@ -1202,10 +1246,11 @@ async function chargerOffensif() {
       el.innerHTML = `<div class="dash-progress">Chargement Offensif… ${loaded}/${total} (${pct}%)<div class="dash-progress-bar"><div class="dash-progress-fill" style="width:${pct}%"></div></div></div>`;
     };
     updateProgress();
-    for (let i=0; i<courses.length; i+=5) {
-      await Promise.all(courses.slice(i,i+5).map(async co => {
+    for (let i=0; i<courses.length; i+=3) {
+      await Promise.all(courses.slice(i,i+3).map(async co => {
         try {
-          const r = await fetch(`${API_URL}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
+          const r = await fetch(`${API_URL}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`,
+            {signal: AbortSignal.timeout(20000)});
           if (r.ok) allResults[`${co.r}-${co.c}`] = await r.json();
         } catch(e) {}
         loaded++; updateProgress();
@@ -1329,8 +1374,8 @@ async function chargerSafe() {
   const today = new Date();
   const pad = n => String(n).padStart(2,'0');
   const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
-  const DISC_LABELS = {'TROT_ATTELE':'ATTELÉ','ATTELE':'ATTELÉ'};
-  const DISC_OK = ['ATTELE','TROT_ATTELE'];  // ATTELÉ uniquement — backtest validé
+  const DISC_LABELS = {'TROT_ATTELE':'ATTELÉ','ATTELE':'ATTELÉ','MONTE':'MONTÉ','TROT_MONTE':'MONTÉ'};
+  const DISC_OK = ['ATTELE','TROT_ATTELE','MONTE','TROT_MONTE'];  // ATTELÉ + MONTÉ
 
   try {
     const resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
@@ -1394,11 +1439,10 @@ async function chargerSafe() {
       const ecart  = note1 - note2;
       const ecart14s = note1 - note4s;
 
-      // Stratégie backtest validée — ATTELÉ uniquement
-      // SG si e12≥3 ET conf FORT ou MOYEN · SP si e14≥3 ET conf FORT ou MOYEN
+      // Nouvelle stratégie V26 — ATTELÉ + MONTÉ toutes confiances affichées
       const confiances = d?.confiance || '';
-      const playSG = ecart >= 3 && confiances !== 'faible';
-      const playSP = ecart14s >= 3 && confiances !== 'faible';
+      const playSG = false;  // SG désactivé
+      const playSP = false;  // SP désactivé
       const nom1 = h1.nom ? h1.nom.split(' ')[0] : `#${h1.numero}`;
       const nom2 = h2.nom ? h2.nom.split(' ')[0] : `#${h2.numero}`;
       const confPictoS = confiances === 'fort'
@@ -1407,28 +1451,20 @@ async function chargerSafe() {
         ? `<span style="font-size:14px" title="Confiance moyenne">〜</span>`
         : `<span style="font-size:14px;opacity:.5" title="Confiance faible">❄️</span>`;
 
-      if (!playSP && !playSG) {
-        return `<div class="dash-row" onclick="${onclick}" style="opacity:.5">
-          <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
-          <div><div class="dash-cheval">#${h1.numero} ${nom1}</div><div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · e12:${ecart} e14:${ecart14s}</div></div>
-          <div style="text-align:right;min-width:60px;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-            ${confPictoS}
-            <div class="dash-signal skip" style="font-size:8px">⛔ PASSER</div>
-          </div>
-        </div>`;
-      }
 
+
+      const confColor = confiances === 'fort' ? '#3a9162' : confiances === 'moyen' ? '#c8942a' : '#888';
+      const confBg    = confiances === 'fort' ? 'rgba(58,145,98,.15)' : confiances === 'moyen' ? 'rgba(200,148,42,.15)' : 'rgba(128,128,128,.1)';
       const badges = [];
-      if (playSG) badges.push(`<span style="background:rgba(200,148,42,.2);border:1px solid rgba(200,148,42,.5);border-radius:4px;padding:2px 6px;color:#c8942a;font-size:8px;font-weight:700">💰💰 SG #${h1.numero}</span>`);
-      if (playSP) badges.push(`<span style="background:rgba(58,145,98,.2);border:1px solid rgba(58,145,98,.4);border-radius:4px;padding:2px 6px;color:#3a9162;font-size:8px;font-weight:700">💰 SP #${h1.numero}</span>`);
+      badges.push(`<span style="background:${confBg};border:1px solid ${confColor};border-radius:4px;padding:2px 6px;color:${confColor};font-size:8px;font-weight:700">💰 CP #${h1.numero}+#${h2.numero} · 1€</span>`);
+      const mise = 1;
 
-      const mise = (playSG ? 2 : 0) + (playSP ? 1 : 0);
-
-      return `<div class="dash-row" onclick="${onclick}" style="${playSG?'border-left:2px solid #c8942a':'border-left:2px solid #3a9162'}">
+      const borderCol = confiances === 'fort' ? '#3a9162' : confiances === 'moyen' ? '#c8942a' : '#555';
+      return `<div class="dash-row" onclick="${onclick}" style="border-left:2px solid ${borderCol}">
         <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
         <div>
           <div class="dash-cheval" style="font-size:10px">#${h1.numero} ${nom1} · #${h2.numero} ${nom2}</div>
-          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e12:${ecart} e14:${ecart14s} · ${mise}€</div>
+          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e12:${ecart} · ${mise}€</div>
         </div>
         <div style="text-align:right;min-width:85px">
           <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">
@@ -1440,23 +1476,22 @@ async function chargerSafe() {
     };
 
     // Compter les paris
-    let n_sp = 0, n_sg = 0;
+    let n_fort = 0, n_moyen = 0, n_faible = 0;
     for (const co of courses) {
       const d = allResults[`${co.r}-${co.c}`];
       if (!d?.chevaux?.length) continue;
-      const sorted = [...d.chevaux].sort((a,b) => b.note_pmu-a.note_pmu);
-      const e12 = (sorted[0]?.note_pmu??0) - (sorted[1]?.note_pmu??0);
-      const e14 = (sorted[0]?.note_pmu??0) - (sorted[3]?.note_pmu??0);
-      if (e12 >= 3) n_sg++;
-      if (e14 >= 3) n_sp++;
+      const conf = d.confiance || '';
+      if (conf === 'fort') n_fort++;
+      else if (conf === 'moyen') n_moyen++;
+      else n_faible++;
     }
 
     let html = `<div class="dash-refresh">
-      <span>🛡️ Safe ATTELÉ · ${courses.length} courses · SG:${n_sg} SP:${n_sp}</span>
+      <span>🛡️ Safe ATTELÉ+MONTÉ · ${courses.length} courses</span>
       <button onclick="safeCharge=false;chargerSafe()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
     </div>
     <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
-      💰 SG e12≥3 conf🔥/〜 <span style="color:#3a9162">ROI +620%→+892%</span> · 💰 SP e14≥3 conf🔥/〜 <span style="color:#3a9162">ROI +36%→+42%</span> · ⛔ conf❄️ = PASSER · ATTELÉ uniquement
+      💰 CP #1+#2 · 1€/course · <span style="color:#3a9162">🔥 FORT</span> · <span style="color:#c8942a">〜 MOY</span> · <span style="color:#888">❄️ FAIBLE</span> · ATTELÉ + MONTÉ
     </div>`;
 
     for (const [rNum, rd] of Object.entries(byR)) {
@@ -1607,6 +1642,190 @@ async function chargerTrio() {
   }
 }
 
+let coupleCharge = false;
+async function chargerCouple() {
+  if (coupleCharge) return;
+  const el = document.getElementById('couple-content');
+  el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement couplés…</span></div>';
+
+  const today = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
+  const DISC_LABELS = {'TROT_ATTELE':'ATTELÉ','ATTELE':'ATTELÉ','PLAT':'PLAT','HAIE':'HAIE','MONTE':'MONTÉ'};
+  const DISC_OK = ['ATTELE','TROT_ATTELE','MONTE'];
+
+  try {
+    const resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
+    if (!resp.ok) throw new Error('Programme indisponible');
+    const data = await resp.json();
+    const courses = (data.courses || []).filter(c => {
+      const d = c.disc === 'TROT_ATTELE' ? 'ATTELE' : c.disc;
+      return DISC_OK.includes(d);
+    }).map(c => ({r: c.r_num, c: c.c_num, disc: c.disc, dist: c.dist, lieu: c.lieu, heure: c.heure}));
+
+    if (!courses.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">🔗</div>Aucune course ATTELÉ/MONTÉ aujourd\'hui</div>';
+      return;
+    }
+
+    // Charger les notes
+    const allResults = {};
+    const total = courses.length;
+    let loaded = 0;
+    const updateProgress = () => {
+      const pct = Math.round(loaded/total*100);
+      el.innerHTML = `<div class="dash-progress">Chargement couplés… ${loaded}/${total} (${pct}%)<div class="dash-progress-bar"><div class="dash-progress-fill" style="width:${pct}%"></div></div></div>`;
+    };
+    updateProgress();
+
+    for (let i=0; i<courses.length; i+=5) {
+      await Promise.all(courses.slice(i,i+5).map(async co => {
+        try {
+          const r = await fetch(`${API_URL}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
+          if (r.ok) allResults[`${co.r}-${co.c}`] = await r.json();
+        } catch(e) {}
+        loaded++;
+        updateProgress();
+      }));
+    }
+
+    coupleCharge = true;
+
+    const renderRowCouple = (co, d) => {
+      const disc     = co.disc === 'TROT_ATTELE' ? 'ATTELE' : co.disc;
+      const onclick  = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
+      const chevaux  = d?.chevaux || [];
+
+      if (chevaux.length < 3) {
+        return `<div class="dash-row" onclick="${onclick}">
+          <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
+          <div><div class="dash-cheval" style="color:var(--text-dim)">Non disponible</div><div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m</div></div>
+          <div><div class="dash-signal skip">⛔ SKIP</div></div>
+        </div>`;
+      }
+
+      // Trier par note_pmu
+      const sorted = [...chevaux].sort((a,b) => {
+        if (b.note_pmu !== a.note_pmu) return b.note_pmu - a.note_pmu;
+        return (b.proba_pmu||0) - (a.proba_pmu||0);
+      });
+
+      const h1 = sorted[0], h2 = sorted[1], h3 = sorted[2];
+      const h4   = sorted[3] || null;
+      const note1 = h1.note_pmu ?? 0;
+      const note2 = h2.note_pmu ?? 0;
+      const note3 = h3.note_pmu ?? 0;
+      const note4 = h4?.note_pmu ?? 0;
+      const ecart12 = note1 - note2;
+      const ecart23 = note2 - note3;
+      const ecart34 = note3 - note4;
+      const ecart   = ecart12; // alias pour affichage
+
+      // Stratégie validée vrais rapports PMU Jan→Mars 2026
+      // ATTELÉ : CG+CP toutes confiances · ROI +1095%→+1463%
+      // MONTÉ  : CG+CP conf FORT/MOYEN uniquement · ROI +68%→+90% · drawdown -78€ si FAIBLE
+      const confCouple = d?.confiance || '';
+      const isMonte    = co.disc === 'MONTE';
+      const isSignal   = isMonte
+        ? (confCouple === 'fort' || confCouple === 'moyen')
+        : true;  // ATTELÉ : toutes confiances
+      const confPictoCP = confCouple === 'fort'
+        ? '<span style="font-size:14px">🔥</span>'
+        : confCouple === 'moyen'
+        ? '<span style="font-size:14px;opacity:.6">〜</span>'
+        : '<span style="font-size:14px;opacity:.3">❄️</span>';
+
+      // Badges signaux — CG+CP ensemble si signal
+      const plage = d?.plage ?? 0;
+      // Score gap thresholds validés backtest Jan→Mars 2026
+      // gap < 0.135 → INDÉCIS (drawdown -84€) · gap > 1.396 → DÉCISIF · gap > 1.877 → TRÈS DÉCISIF
+      // Badge chrono #1
+      const chronoBadge1 = h1.flag_chrono === 'faible'
+        ? '<span style="background:rgba(224,92,92,.15);border:1px solid rgba(224,92,92,.4);border-radius:4px;padding:2px 5px;color:#e05c5c;font-size:7px;font-weight:700">🔴 CHRONO FAIBLE</span>'
+        : h1.flag_chrono === 'fort'
+        ? '<span style="background:rgba(58,145,98,.15);border:1px solid rgba(58,145,98,.4);border-radius:4px;padding:2px 5px;color:#3a9162;font-size:7px;font-weight:700">🟢 BON CHRONO</span>'
+        : h1.flag_chrono === 'inconnu'
+        ? '<span style="background:rgba(100,100,100,.1);border:1px solid rgba(100,100,100,.3);border-radius:4px;padding:2px 5px;color:var(--text-dim);font-size:7px">❓ CHRONO INCONNU</span>'
+        : '';
+      const tendanceBadge1 = h1.tendance_chrono === 'progres'
+        ? '<span style="background:rgba(58,145,98,.15);border:1px solid rgba(58,145,98,.4);border-radius:4px;padding:2px 5px;color:#3a9162;font-size:7px;font-weight:700">📈 EN PROGRÈS</span>'
+        : h1.tendance_chrono === 'degradation'
+        ? '<span style="background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);border-radius:4px;padding:2px 5px;color:#e05c5c;font-size:7px;font-weight:700">📉 EN DÉGRADATION</span>'
+        : '';
+
+      const gapBadge = plage > 1.877
+        ? '<span style="background:rgba(200,148,42,.2);border:1px solid rgba(200,148,42,.5);border-radius:4px;padding:2px 5px;color:#c8942a;font-size:7px;font-weight:700">🔥 DÉCISIF</span>'
+        : plage > 1.396
+        ? '<span style="background:rgba(58,145,98,.15);border:1px solid rgba(58,145,98,.3);border-radius:4px;padding:2px 5px;color:#3a9162;font-size:7px;font-weight:700">✅ DÉCISIF</span>'
+        : plage > 0.135
+        ? ''
+        : '<span style="background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.3);border-radius:4px;padding:2px 5px;color:#e05c5c;font-size:7px;font-weight:700">⚠️ INDÉCIS</span>';
+
+      // Badge JEUNES CHEVAUX — si #1 a peu de courses en base → pronostic peu fiable
+      // nb_courses_base : depuis API ou fallback
+      const nbCoursesBase = h1.nb_courses_base ?? h1.nb_courses ?? 0;
+      const jeunesBadge = '';
+
+      const badges = [];
+      badges.push(confPictoCP);
+      if (isSignal) {
+        badges.push('<span style="background:rgba(200,148,42,.2);border:1px solid rgba(200,148,42,.5);border-radius:4px;padding:2px 6px;color:#c8942a;font-size:8px;font-weight:700">💰 CG 1€</span>');
+        badges.push('<span style="background:rgba(58,145,98,.2);border:1px solid rgba(58,145,98,.4);border-radius:4px;padding:2px 6px;color:#3a9162;font-size:8px;font-weight:700">💰 CP 2€</span>');
+      }
+      if (gapBadge) badges.push(gapBadge);
+      if (chronoBadge1) badges.push(chronoBadge1);
+      if (tendanceBadge1) badges.push(tendanceBadge1);
+
+
+      const nom1 = h1.nom ? h1.nom.split(' ')[0] : `#${h1.numero}`;
+      const nom2 = h2.nom ? h2.nom.split(' ')[0] : `#${h2.numero}`;
+      const nom3 = h3.nom ? h3.nom.split(' ')[0] : `#${h3.numero}`;
+
+      const signauxHtml = isSignal
+        ? '<div style="display:flex;gap:3px;flex-direction:column;align-items:flex-end">' + badges.join('') + '</div>'
+        : '<div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px">' + confPictoCP + '<div class="dash-signal skip" style="font-size:8px">⛔ PASSER</div></div>';
+
+      return `<div class="dash-row" onclick="${onclick}" style="grid-template-columns:48px 1fr;gap:6px">
+        <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
+        <div style="min-width:0">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:4px">
+            <div style="min-width:0">
+              <div class="dash-cheval" style="font-size:10px">#${h1.numero} ${nom1} · #${h2.numero} ${nom2} · #${h3.numero} ${nom3}</div>
+              <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e23:${ecart23} · ${sorted.length}p${plage>0?' · gap:'+plage.toFixed(2):''}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0">${signauxHtml}</div>
+          </div>
+        </div>
+      </div>`;
+    };
+
+    let html = `<div class="dash-refresh">
+      <span>🔗 Couplé ATTELÉ · ${courses.length} courses</span>
+      <button onclick="coupleCharge=false;chargerCouple()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
+    </div>
+    <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
+      💰 CG 1€ + CP 2€ · ATTELÉ toutes conf <span style="color:#3a9162">ROI +1095%→+1463%</span> · MONTÉ conf🔥/〜 · 🔥DÉCISIF=gap>1.877 · ✅DÉCISIF=gap>1.396 · ⚠️INDÉCIS=gap&lt;0.135
+    </div>`;
+
+    // Grouper par réunion
+    const byR = {};
+    for (const co of courses) {
+      if (!byR[co.r]) byR[co.r] = {lieu: co.lieu, courses: []};
+      byR[co.r].courses.push(co);
+    }
+    for (const [rNum, rd] of Object.entries(byR)) {
+      html += `<div class="dash-reunion">R${rNum} · ${rd.lieu}</div>`;
+      for (const co of rd.courses) {
+        html += renderRowCouple(co, allResults[`${co.r}-${co.c}`]);
+      }
+    }
+
+    el.innerHTML = html;
+
+  } catch(e) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>${e.message}<br><button class="btn secondary" onclick="coupleCharge=false;chargerCouple()" style="margin-top:12px;font-size:10px">↺ Réessayer</button></div>`;
+  }
+}
 
 // ── Stats ──
 let statsChargees=false;
@@ -1813,7 +2032,7 @@ function renderStats(nb, hist) {
       <div style="color:var(--text-mid)">〜 gap 0.135→1.396 <span style="color:var(--text-dim)">normal · ROI +1659% · jouer normalement</span></div>
       <div style="color:var(--text-mid)">⚠️ gap &lt; 0.135 <span style="color:#e05c5c">INDÉCIS · ROI +1522% · MaxDD -84€ · modèle hésite · réduire mise</span></div>
       <div style="color:var(--text-dim);margin-top:2px">Cas particulier : conf MOYEN + gap &gt; 1.396 → ROI +2607% · +117€/course 🔥</div>
-      <div style="color:var(--text-dim)">Affiché avec les badges 🔥/✅/⚠️</div>
+      <div style="color:var(--text-dim)">Affiché dans l'onglet Couplé avec les badges 🔥/✅/⚠️</div>
 
       <div style="margin-top:10px;color:#8a6cbf;font-size:8px;letter-spacing:1px;text-transform:uppercase">💎 DÉLAISSÉ — outsider sous-estimé par le marché</div>
       <div style="color:var(--text-mid);margin-top:3px">Formule : score_value = note_pmu × log(cote)</div>

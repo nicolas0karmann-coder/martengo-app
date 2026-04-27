@@ -883,29 +883,7 @@ function renderAnalyse(data) {
     const isMise = h.numero === misePlacea;
     const cardBorder = isMise ? `border:2px solid ${signalColorA};box-shadow:0 0 12px rgba(58,145,98,.3)` : '';
     const miseBadge = isMise ? `<div style="font-family:monospace;font-size:9px;font-weight:700;color:${signalColorA};background:rgba(58,145,98,.15);border:1px solid rgba(58,145,98,.4);border-radius:4px;padding:3px 8px;margin-top:6px;text-align:center;letter-spacing:1px">${signalSGa?'💰💰 SG + SP':'💰 SP'}</div>` : '';
-
-    // V19B : bandeau probabilités (Win, Top3, EV) en haut de chaque carte
-    const probaWin = h.proba_win ?? 0;
-    const probaTop3 = h.proba_pmu ?? 0;
-    const ev = h.ev_win ?? 0;
-    const evColor = ev > 10 ? '#3a9162' : ev > 0 ? 'var(--gold)' : ev > -20 ? 'var(--text-dim)' : '#e05c5c';
-    const evIcon = ev > 10 ? '🔥' : ev > 0 ? '✅' : ev > -20 ? '⚠️' : '❌';
-    const probaBar = `<div style="display:flex;gap:0;margin-bottom:8px;font-family:'Space Mono',monospace;font-size:9px;letter-spacing:.5px;border:1px solid var(--border);border-radius:6px;overflow:hidden">
-      <div style="flex:1;padding:5px 6px;text-align:center;background:rgba(58,145,98,.08);border-right:1px solid var(--border)">
-        <div style="color:var(--text-dim);font-size:7px;text-transform:uppercase;margin-bottom:2px">Win</div>
-        <div style="color:#3a9162;font-weight:700;font-size:11px">${probaWin}%</div>
-      </div>
-      <div style="flex:1;padding:5px 6px;text-align:center;background:rgba(200,148,42,.08);border-right:1px solid var(--border)">
-        <div style="color:var(--text-dim);font-size:7px;text-transform:uppercase;margin-bottom:2px">Top3</div>
-        <div style="color:var(--gold);font-weight:700;font-size:11px">${probaTop3}%</div>
-      </div>
-      <div style="flex:1;padding:5px 6px;text-align:center;background:${ev > 10 ? 'rgba(58,145,98,.12)' : ev > 0 ? 'rgba(200,148,42,.10)' : 'rgba(100,100,100,.05)'}">
-        <div style="color:var(--text-dim);font-size:7px;text-transform:uppercase;margin-bottom:2px">EV ${evIcon}</div>
-        <div style="color:${evColor};font-weight:700;font-size:11px">${ev > 0 ? '+' : ''}${ev}%</div>
-      </div>
-    </div>`;
     return `<div class="analyse-card ${i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':''} fade-in fd${Math.min(i+1,4)}" style="${cardBorder}">
-      ${probaBar}
       <div class="analyse-header">
         <div class="analyse-avatar" style="border-color:${isMise?'#3a9162':rc};color:${isMise?'#3a9162':rc};${isMise?'font-weight:900':''}">${h.numero}</div>
         <div class="analyse-info">

@@ -232,6 +232,7 @@ input[readonly]{opacity:.5;cursor:default}
     <button class="nav-btn" onclick="goTo('dashboard')" id="tab-dashboard"><span class="nav-icon">📋</span>Journée<span class="nav-badge" id="badge-dashboard"></span></button>
     <button class="nav-btn" onclick="safeCharge=false;goTo('safe')" id="tab-safe"><span class="nav-icon">🛡️</span>Safe</button>
     <button class="nav-btn" onclick="goTo('trio')" id="tab-trio"><span class="nav-icon">🎯</span>Trio</button>
+    <button class="nav-btn" onclick="goTo('pro')" id="tab-pro"><span class="nav-icon">💎</span>Pro</button>
     <button class="nav-btn" onclick="goTo('stats')" id="tab-stats">
       <span class="nav-icon">📊</span>Stats
       <span class="nav-badge" id="badge-stats"></span>
@@ -350,6 +351,20 @@ input[readonly]{opacity:.5;cursor:default}
       </div>
     </div>
 
+    <!-- PRO -->
+    <div class="screen" id="screen-pro">
+      <div id="pro-content">
+        <div class="empty">
+          <div class="empty-icon">💎</div>
+          Filtrage EV &gt; 5% &amp; Win &gt; 10%<br>
+          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
+            PLAT + ATTELÉ · cheval #1 · stratégie mise adaptée
+          </small>
+          <button class="btn full" onclick="proCharge=false;chargerPro()" style="margin-top:16px;font-size:11px">Charger PRO →</button>
+        </div>
+      </div>
+    </div>
+
     <div class="screen" id="screen-stats">
       <div id="stats-content">
         <div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement…</span></div>
@@ -388,7 +403,7 @@ async function fetchAPI(path, options = {}) {
   throw lastError || new Error('Tous les serveurs API sont indisponibles');
 }
 const LS_SAISIE = 'martengo_v3', LS_HIST = 'martengo_hist';
-const SCREENS = ['saisie','selections','analyse','dashboard','safe','offensif','trio','stats'];
+const SCREENS = ['saisie','selections','analyse','dashboard','safe','offensif','trio','pro','stats'];
 
 let chevaux = [], predictions = null, notesPMU = {}, notesPMUData = null;
 let currentDate = '', horseCounter = 0, apiPrete = false, currentScreen = 'saisie';
@@ -436,6 +451,7 @@ function goTo(screen) {
   currentScreen = screen;
   if (screen === 'stats') { chargerStats(); document.getElementById('badge-stats').classList.remove('show'); }
   if (screen === 'dashboard') { document.getElementById('badge-dashboard').classList.remove('show'); }
+  if (screen === 'pro') { chargerPro(); }
 }
 function setBadge(show) { document.getElementById('badge-stats').classList.toggle('show', show && currentScreen !== 'stats'); }
 
@@ -1688,6 +1704,189 @@ async function chargerTrio() {
     <button class="btn secondary" onclick="trioCharge=false;chargerTrio()" style="margin-top:12px;font-size:10px">↺ Réessayer</button></div>`;
   }
 }
+
+// ── PRO ──
+let proCharge = false;
+async function chargerPro() {
+  if (proCharge) return;
+  const el = document.getElementById('pro-content');
+  el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement PRO…</span></div>';
+  const today = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
+  const DISC_LABELS = {'TROT_ATTELE':'ATTELÉ','ATTELE':'ATTELÉ','PLAT':'PLAT'};
+  const DISC_OK = ['ATTELE','TROT_ATTELE','PLAT'];
+
+  try {
+    const resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
+    if (!resp.ok) throw new Error('Programme indisponible');
+    const data = await resp.json();
+    const courses = (data.courses || []).filter(c => {
+      const d = c.disc === 'TROT_ATTELE' ? 'ATTELE' : c.disc;
+      return DISC_OK.includes(d);
+    }).map(c => ({r: c.r_num, c: c.c_num, disc: c.disc, dist: c.dist, lieu: c.lieu, heure: c.heure}));
+
+    if (!courses.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">💎</div>Aucune course PLAT/ATTELÉ aujourd\'hui</div>';
+      return;
+    }
+
+    const allResults = {};
+    const total = courses.length; let loaded = 0;
+    const updateProgress = () => {
+      const pct = Math.round(loaded/total*100);
+      el.innerHTML = `<div class="dash-progress">Chargement PRO… ${loaded}/${total} (${pct}%)<div class="dash-progress-bar"><div class="dash-progress-fill" style="width:${pct}%"></div></div></div>`;
+    };
+    updateProgress();
+    for (let i=0; i<courses.length; i+=5) {
+      await Promise.all(courses.slice(i,i+5).map(async co => {
+        try {
+          const r = await fetch(`${API_URL}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
+          if (r.ok) allResults[`${co.r}-${co.c}`] = await r.json();
+        } catch(e) {}
+        loaded++; updateProgress();
+      }));
+    }
+    proCharge = true;
+
+    // Filtrer : garder uniquement les courses où le cheval #1 (meilleure note) a EV>5% et probaWin>10%
+    const eligible = [];
+    for (const co of courses) {
+      const d = allResults[`${co.r}-${co.c}`];
+      if (!d?.chevaux?.length) continue;
+      const sorted = [...d.chevaux].sort((a,b) => {
+        if (b.note_pmu !== a.note_pmu) return b.note_pmu - a.note_pmu;
+        return (b.proba_win||0) - (a.proba_win||0);
+      });
+      const h1 = sorted[0];
+      const ev   = h1.ev_win  ?? 0;   // déjà en %, ex: 12.5
+      const pw   = h1.proba_win ?? 0; // déjà en %, ex: 22.3
+      const pp   = h1.proba_pmu ?? 0; // déjà en %
+      if (ev > 5 && pw > 10) {
+        eligible.push({ co, d, h1, ev, pw, pp, sorted });
+      }
+    }
+
+    if (!eligible.length) {
+      el.innerHTML = `<div class="dash-refresh">
+        <span>💎 PRO · ${courses.length} courses analysées</span>
+        <button onclick="proCharge=false;chargerPro()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
+      </div>
+      <div class="empty" style="margin-top:24px"><div class="empty-icon">💎</div>Aucune opportunité PRO aujourd'hui<br><small style="color:var(--text-dim);font-size:9px">EV &gt; 5% &amp; Win &gt; 10% · cheval #1</small></div>`;
+      return;
+    }
+
+    // Logique de mise
+    const getMise = (pw) => {
+      if (pw > 30) return { label: '100% SG', sgPct: 100, spPct: 0, color: '#3a9162', icon: '🟢' };
+      if (pw > 20) return { label: '60% SG / 40% SP', sgPct: 60, spPct: 40, color: '#c8942a', icon: '🟡' };
+      return          { label: '30% SG / 70% SP', sgPct: 30, spPct: 70, color: '#888', icon: '⚪' };
+    };
+
+    const renderProRow = ({ co, d, h1, ev, pw, pp, sorted }) => {
+      const disc    = co.disc === 'TROT_ATTELE' ? 'ATTELE' : co.disc;
+      const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
+      const nom1    = h1.nom ? h1.nom.split(' ')[0] : `#${h1.numero}`;
+      const cote    = h1.cote != null ? h1.cote.toFixed(1) : '—';
+      const mise    = getMise(pw);
+      const evColor = ev > 20 ? '#3a9162' : ev > 10 ? '#c8942a' : '#e8a030';
+      const pwColor = pw > 30 ? '#3a9162' : pw > 20 ? '#c8942a' : '#888';
+      const confiances = d?.confiance || '';
+      const confPicto = confiances === 'fort' ? '🔥' : confiances === 'moyen' ? '〜' : '❄️';
+      const borderCol = pw > 30 ? '#3a9162' : pw > 20 ? '#c8942a' : '#555';
+
+      // Barres de mise
+      const barSG = mise.sgPct > 0
+        ? `<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">
+            <span style="font-size:8px;color:var(--text-dim);width:24px">SG</span>
+            <div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+              <div style="width:${mise.sgPct}%;height:100%;background:#3a9162;border-radius:3px"></div>
+            </div>
+            <span style="font-size:8px;color:#3a9162;width:28px;text-align:right">${mise.sgPct}%</span>
+          </div>` : '';
+      const barSP = mise.spPct > 0
+        ? `<div style="display:flex;align-items:center;gap:4px">
+            <span style="font-size:8px;color:var(--text-dim);width:24px">SP</span>
+            <div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+              <div style="width:${mise.spPct}%;height:100%;background:#c8942a;border-radius:3px"></div>
+            </div>
+            <span style="font-size:8px;color:#c8942a;width:28px;text-align:right">${mise.spPct}%</span>
+          </div>` : '';
+
+      return `<div class="dash-row" onclick="${onclick}" style="border-left:3px solid ${borderCol};padding:10px 12px;display:block;cursor:pointer">
+        <!-- Ligne 1 : course + cheval + disc -->
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div>
+            <span class="dash-course" style="font-size:11px">R${co.r}C${co.c}</span>
+            <span style="font-size:9px;color:var(--text-dim);margin-left:6px">${co.heure}</span>
+            <span style="font-size:8px;color:var(--text-dim);margin-left:4px">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m</span>
+          </div>
+          <span style="font-size:12px">${mise.icon} ${confPicto}</span>
+        </div>
+        <!-- Ligne 2 : nom cheval + cote -->
+        <div style="font-family:'Space Mono',monospace;font-size:10px;font-weight:700;color:var(--gold);margin-bottom:8px">
+          #${h1.numero} ${nom1} · Cote ${cote}
+        </div>
+        <!-- Ligne 3 : stats en 4 colonnes -->
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:8px">
+          <div style="background:var(--bg2);border-radius:4px;padding:4px;text-align:center">
+            <div style="font-size:7px;color:var(--text-dim);font-family:'Space Mono',monospace;margin-bottom:1px">WIN%</div>
+            <div style="font-size:11px;font-weight:700;color:${pwColor}">${pw.toFixed(1)}%</div>
+          </div>
+          <div style="background:var(--bg2);border-radius:4px;padding:4px;text-align:center">
+            <div style="font-size:7px;color:var(--text-dim);font-family:'Space Mono',monospace;margin-bottom:1px">TOP3%</div>
+            <div style="font-size:11px;font-weight:700;color:var(--gold)">${pp.toFixed(1)}%</div>
+          </div>
+          <div style="background:var(--bg2);border-radius:4px;padding:4px;text-align:center">
+            <div style="font-size:7px;color:var(--text-dim);font-family:'Space Mono',monospace;margin-bottom:1px">EV</div>
+            <div style="font-size:11px;font-weight:700;color:${evColor}">+${ev.toFixed(1)}%</div>
+          </div>
+          <div style="background:var(--bg2);border-radius:4px;padding:4px;text-align:center">
+            <div style="font-size:7px;color:var(--text-dim);font-family:'Space Mono',monospace;margin-bottom:1px">COTE</div>
+            <div style="font-size:11px;font-weight:700;color:var(--text)">${cote}</div>
+          </div>
+        </div>
+        <!-- Ligne 4 : stratégie de mise -->
+        <div style="background:var(--bg2);border-radius:4px;padding:6px 8px">
+          <div style="font-family:'Space Mono',monospace;font-size:8px;color:${mise.color};font-weight:700;margin-bottom:4px">
+            STRATÉGIE · ${mise.label}
+          </div>
+          ${barSG}
+          ${barSP}
+        </div>
+      </div>`;
+    };
+
+    // Grouper par réunion
+    const byR = {};
+    for (const { co } of eligible) {
+      if (!byR[co.r]) byR[co.r] = {lieu: co.lieu, items:[]};
+      byR[co.r].items.push(eligible.find(e => e.co === co));
+    }
+
+    const n = eligible.length;
+    let html = `<div class="dash-refresh">
+      <span>💎 PRO · ${n} opportunité${n>1?'s':''} sur ${courses.length} courses</span>
+      <button onclick="proCharge=false;chargerPro()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
+    </div>
+    <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
+      Cheval #1 · EV &gt; 5% · Win &gt; 10% · 🟢 Win&gt;30% · 🟡 Win 20-30% · ⚪ Win 10-20%
+    </div>`;
+
+    for (const [rNum, rd] of Object.entries(byR)) {
+      html += `<div class="dash-reunion">R${rNum} · ${rd.lieu}</div>`;
+      for (const item of eligible.filter(e => e.co.r == rNum)) {
+        html += renderProRow(item);
+      }
+    }
+    el.innerHTML = html;
+
+  } catch(e) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>${e.message}<br>
+    <button class="btn secondary" onclick="proCharge=false;chargerPro()" style="margin-top:12px;font-size:10px">↺ Réessayer</button></div>`;
+  }
+}
+
 
 // ── Stats ──
 let statsChargees=false;

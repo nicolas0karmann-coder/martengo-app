@@ -585,33 +585,39 @@ async function lancerPrediction() {
     currentDate=document.getElementById('course-date').value;
     setBadge(true);
     if (navigator.vibrate) navigator.vibrate(40);
-    // Construire un objet compatible renderAnalyse depuis les données /predict
-    // proba_win = proba_principal (victoire, cote≥10), proba_pmu = proba_absolu (top3 tous)
-    const analyseData = {
-      chevaux: predictions.tous.map(h => ({
-        ...h,
-        note_pmu: h.note ?? h.note_pmu ?? 0,
-        proba_win: h.proba_principal ?? 0,
-        proba_pmu: h.proba_absolu ?? 0,
-        ev_win: 0,
-        scores: notesPMU[h.numero]?.scores || h.scores || {},
-        nom: notesPMU[h.numero]?.nom || h.nom || ('Cheval ' + h.numero),
-        cote: notesPMU[h.numero]?.cote ?? h.rapport ?? null,
-        driver: notesPMU[h.numero]?.driver || h.driver || '—',
-        avis: notesPMU[h.numero]?.avis ?? 0,
-        flag_chrono: notesPMU[h.numero]?.flag_chrono || 'inconnu',
-        tendance_chrono: notesPMU[h.numero]?.tendance_chrono || 'inconnu',
-        rk_brut: notesPMU[h.numero]?.rk_brut ?? null,
-        taux_disq: notesPMU[h.numero]?.taux_disq ?? 0,
-        musique: notesPMU[h.numero]?.musique || '',
-        nb_courses_base: notesPMU[h.numero]?.nb_courses_base ?? 0,
-      })),
-      version: notesPMUData?.version || 'predict',
-      date: currentDate,
-      confiance: '',
-      plage: null,
-    };
-    renderAnalyse(analyseData);
+    // Onglet Analyse : priorité aux données /notes_pmu (proba_win et ev_win réels)
+    // Si notesPMUData existe, on le réutilise directement plutôt que les données /predict
+    // qui n'ont pas de proba_win ni ev_win calculés par le modèle PMU
+    if (notesPMUData && notesPMUData.chevaux && notesPMUData.chevaux[0]?.scores) {
+      renderAnalyse(notesPMUData);
+    } else {
+      // Fallback : construire depuis /predict quand pas de données PMU
+      const analyseData = {
+        chevaux: predictions.tous.map(h => ({
+          ...h,
+          note_pmu: h.note ?? h.note_pmu ?? 0,
+          proba_win: h.proba_principal ?? 0,
+          proba_pmu: h.proba_absolu ?? 0,
+          ev_win: 0,
+          scores: notesPMU[h.numero]?.scores || h.scores || {},
+          nom: notesPMU[h.numero]?.nom || h.nom || ('Cheval ' + h.numero),
+          cote: notesPMU[h.numero]?.cote ?? h.rapport ?? null,
+          driver: notesPMU[h.numero]?.driver || h.driver || '—',
+          avis: notesPMU[h.numero]?.avis ?? 0,
+          flag_chrono: notesPMU[h.numero]?.flag_chrono || 'inconnu',
+          tendance_chrono: notesPMU[h.numero]?.tendance_chrono || 'inconnu',
+          rk_brut: notesPMU[h.numero]?.rk_brut ?? null,
+          taux_disq: notesPMU[h.numero]?.taux_disq ?? 0,
+          musique: notesPMU[h.numero]?.musique || '',
+          nb_courses_base: notesPMU[h.numero]?.nb_courses_base ?? 0,
+        })),
+        version: notesPMUData?.version || 'predict',
+        date: currentDate,
+        confiance: '',
+        plage: null,
+      };
+      renderAnalyse(analyseData);
+    }
   } catch(e) {
     document.getElementById('selections-content').innerHTML=`<div class="empty"><div class="empty-icon">⚠️</div>Erreur de connexion<br><small style="color:var(--text-dim);margin-top:6px;display:block">${e.message}</small><div style="margin-top:12px;"><button class="btn secondary" onclick="lancerPrediction()" style="font-size:10px;">↺ Réessayer</button></div></div>`;
     toast(e.message || 'Erreur de connexion','error');

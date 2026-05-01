@@ -356,7 +356,7 @@ input[readonly]{opacity:.5;cursor:default}
       <div id="pro-content">
         <div class="empty">
           <div class="empty-icon">💎</div>
-          Filtrage EV &gt; 5% &amp; Win &gt; 10%<br>
+          Win &gt; 20% · Value &gt; 0.15 · Score = Win×Value<br>
           <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
             PLAT + ATTELÉ · cheval #1 · stratégie mise adaptée
           </small>
@@ -1710,12 +1710,22 @@ let proCharge = false;
 async function chargerPro() {
   if (proCharge) return;
   const el = document.getElementById('pro-content');
-  el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement PRO…</span></div>';
+  el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement PRO\u2026</span></div>';
   const today = new Date();
   const pad = n => String(n).padStart(2,'0');
   const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
-  const DISC_LABELS = {'TROT_ATTELE':'ATTELÉ','ATTELE':'ATTELÉ','PLAT':'PLAT'};
+  const DISC_LABELS = {'TROT_ATTELE':'ATTEL\u00c9','ATTELE':'ATTEL\u00c9','PLAT':'PLAT'};
   const DISC_OK = ['ATTELE','TROT_ATTELE','PLAT'];
+
+  // Hippodromes non-europeens a exclure (outre-mer, international hors Europe)
+  const HIPPO_EXCLUS = ['REUNION','MARTINIQUE','GUADELOUPE','NOUVELLE CALEDONIE','POLYNESIE',
+    'ILE MAURICE','HONG KONG','SINGAPOUR','DUBAI','ABU DHABI','JAPAN','TOKYO','MELBOURNE',
+    'SYDNEY','JOHANNESBURG','NEW YORK','CAPE TOWN','DOHA'];
+  const isEuropean = (lieu) => {
+    if (!lieu) return true;
+    const l = lieu.toUpperCase();
+    return !HIPPO_EXCLUS.some(ex => l.includes(ex));
+  };
 
   try {
     const resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
@@ -1723,11 +1733,11 @@ async function chargerPro() {
     const data = await resp.json();
     const courses = (data.courses || []).filter(c => {
       const d = c.disc === 'TROT_ATTELE' ? 'ATTELE' : c.disc;
-      return DISC_OK.includes(d);
+      return DISC_OK.includes(d) && isEuropean(c.lieu);
     }).map(c => ({r: c.r_num, c: c.c_num, disc: c.disc, dist: c.dist, lieu: c.lieu, heure: c.heure}));
 
     if (!courses.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-icon">💎</div>Aucune course PLAT/ATTELÉ aujourd\'hui</div>';
+      el.innerHTML = '<div class="empty"><div class="empty-icon">\ud83d\udc8e</div>Aucune course PLAT/ATTEL\u00c9 europ\u00e9enne aujourd\'hui</div>';
       return;
     }
 
@@ -1735,7 +1745,7 @@ async function chargerPro() {
     const total = courses.length; let loaded = 0;
     const updateProgress = () => {
       const pct = Math.round(loaded/total*100);
-      el.innerHTML = `<div class="dash-progress">Chargement PRO… ${loaded}/${total} (${pct}%)<div class="dash-progress-bar"><div class="dash-progress-fill" style="width:${pct}%"></div></div></div>`;
+      el.innerHTML = `<div class="dash-progress">Chargement PRO\u2026 ${loaded}/${total} (${pct}%)<div class="dash-progress-bar"><div class="dash-progress-fill" style="width:${pct}%"></div></div></div>`;
     };
     updateProgress();
     for (let i=0; i<courses.length; i+=5) {
@@ -1749,7 +1759,8 @@ async function chargerPro() {
     }
     proCharge = true;
 
-    // Filtrer : garder uniquement les courses où le cheval #1 (meilleure note) a EV>5% et probaWin>10%
+    // Filtrer : proba_win > 20% ET value (ev_win/100) > 0.15
+    // Score = proba_win(fraction) x value
     const eligible = [];
     for (const co of courses) {
       const d = allResults[`${co.r}-${co.c}`];
@@ -1758,44 +1769,51 @@ async function chargerPro() {
         if (b.note_pmu !== a.note_pmu) return b.note_pmu - a.note_pmu;
         return (b.proba_win||0) - (a.proba_win||0);
       });
-      const h1 = sorted[0];
-      const ev   = h1.ev_win  ?? 0;   // déjà en %, ex: 12.5
-      const pw   = h1.proba_win ?? 0; // déjà en %, ex: 22.3
-      const pp   = h1.proba_pmu ?? 0; // déjà en %
-      if (ev > 5 && pw > 10) {
-        eligible.push({ co, d, h1, ev, pw, pp, sorted });
+      const h1    = sorted[0];
+      const pw    = h1.proba_win ?? 0;
+      const ev    = h1.ev_win    ?? 0;
+      const pp    = h1.proba_pmu ?? 0;
+      const value = ev / 100;
+      const score = (pw / 100) * value;
+      if (pw > 20 && value > 0.15) {
+        eligible.push({ co, d, h1, ev, pw, pp, value, score, sorted });
       }
     }
 
+    // Trier par score decroissant
+    eligible.sort((a,b) => b.score - a.score);
+
     if (!eligible.length) {
       el.innerHTML = `<div class="dash-refresh">
-        <span>💎 PRO · ${courses.length} courses analysées</span>
-        <button onclick="proCharge=false;chargerPro()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
+        <span>\ud83d\udc8e PRO \u00b7 ${courses.length} courses analys\u00e9es</span>
+        <button onclick="proCharge=false;chargerPro()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">\u21ba</button>
       </div>
-      <div class="empty" style="margin-top:24px"><div class="empty-icon">💎</div>Aucune opportunité PRO aujourd'hui<br><small style="color:var(--text-dim);font-size:9px">EV &gt; 5% &amp; Win &gt; 10% · cheval #1</small></div>`;
+      <div class="empty" style="margin-top:24px"><div class="empty-icon">\ud83d\udc8e</div>Aucune opportunit\u00e9 PRO aujourd'hui<br><small style="color:var(--text-dim);font-size:9px">Win &gt; 20% &amp; Value &gt; 0.15 \u00b7 cheval #1 \u00b7 Europe</small></div>`;
       return;
     }
 
     // Logique de mise
     const getMise = (pw) => {
-      if (pw > 30) return { label: '100% SG', sgPct: 100, spPct: 0, color: '#3a9162', icon: '🟢' };
-      if (pw > 20) return { label: '60% SG / 40% SP', sgPct: 60, spPct: 40, color: '#c8942a', icon: '🟡' };
-      return          { label: '30% SG / 70% SP', sgPct: 30, spPct: 70, color: '#888', icon: '⚪' };
+      if (pw > 30) return { label: '100% SG', sgPct: 100, spPct: 0, color: '#3a9162', icon: '\ud83d\udfe2' };
+      if (pw > 20) return { label: '60% SG / 40% SP', sgPct: 60, spPct: 40, color: '#c8942a', icon: '\ud83d\udfe1' };
+      return          { label: '30% SG / 70% SP', sgPct: 30, spPct: 70, color: '#888', icon: '\u26aa' };
     };
 
-    const renderProRow = ({ co, d, h1, ev, pw, pp, sorted }) => {
-      const disc    = co.disc === 'TROT_ATTELE' ? 'ATTELE' : co.disc;
-      const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
-      const nom1    = h1.nom ? h1.nom.split(' ')[0] : `#${h1.numero}`;
-      const cote    = h1.cote != null ? h1.cote.toFixed(1) : '—';
-      const mise    = getMise(pw);
-      const evColor = ev > 20 ? '#3a9162' : ev > 10 ? '#c8942a' : '#e8a030';
-      const pwColor = pw > 30 ? '#3a9162' : pw > 20 ? '#c8942a' : '#888';
-      const confiances = d?.confiance || '';
-      const confPicto = confiances === 'fort' ? '🔥' : confiances === 'moyen' ? '〜' : '❄️';
-      const borderCol = pw > 30 ? '#3a9162' : pw > 20 ? '#c8942a' : '#555';
+    const renderProRow = ({ co, d, h1, ev, pw, pp, value, score }, rank) => {
+      const isTop5   = rank < 5;
+      const onclick  = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
+      const nom1     = h1.nom ? h1.nom.split(' ')[0] : ('#' + h1.numero);
+      const cote     = h1.cote != null ? h1.cote.toFixed(1) : '\u2014';
+      const mise     = getMise(pw);
+      const evColor  = ev > 20 ? '#3a9162' : ev > 10 ? '#c8942a' : '#e8a030';
+      const pwColor  = pw > 30 ? '#3a9162' : pw > 20 ? '#c8942a' : '#888';
+      const confPicto = (d?.confiance === 'fort') ? '\ud83d\udd25' : (d?.confiance === 'moyen') ? '\u301c' : '\u2744\ufe0f';
+      const borderCol  = isTop5 ? '#f0c040' : (pw > 30 ? '#3a9162' : pw > 20 ? '#c8942a' : '#555');
+      const bgHighlight = isTop5 ? 'background:rgba(240,192,64,0.06);' : '';
+      const rankBadge  = isTop5
+        ? `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:#f0c040;color:#111;border-radius:50%;font-size:9px;font-weight:900;font-family:'Space Mono',monospace;margin-right:4px">${rank+1}</span>`
+        : '';
 
-      // Barres de mise
       const barSG = mise.sgPct > 0
         ? `<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">
             <span style="font-size:8px;color:var(--text-dim);width:24px">SG</span>
@@ -1813,22 +1831,21 @@ async function chargerPro() {
             <span style="font-size:8px;color:#c8942a;width:28px;text-align:right">${mise.spPct}%</span>
           </div>` : '';
 
-      return `<div class="dash-row" onclick="${onclick}" style="border-left:3px solid ${borderCol};padding:10px 12px;display:block;cursor:pointer">
-        <!-- Ligne 1 : course + cheval + disc -->
+      return `<div class="dash-row" onclick="${onclick}" style="border-left:3px solid ${borderCol};${bgHighlight}padding:10px 12px;display:block;cursor:pointer">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-          <div>
+          <div style="display:flex;align-items:center">
+            ${rankBadge}
             <span class="dash-course" style="font-size:11px">R${co.r}C${co.c}</span>
             <span style="font-size:9px;color:var(--text-dim);margin-left:6px">${co.heure}</span>
-            <span style="font-size:8px;color:var(--text-dim);margin-left:4px">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m</span>
+            <span style="font-size:8px;color:var(--text-dim);margin-left:4px">${DISC_LABELS[co.disc]||co.disc} \u00b7 ${co.dist}m</span>
           </div>
           <span style="font-size:12px">${mise.icon} ${confPicto}</span>
         </div>
-        <!-- Ligne 2 : nom cheval + cote -->
         <div style="font-family:'Space Mono',monospace;font-size:10px;font-weight:700;color:var(--gold);margin-bottom:8px">
-          #${h1.numero} ${nom1} · Cote ${cote}
+          #${h1.numero} ${nom1} \u00b7 Cote ${cote}
+          <span style="font-size:8px;font-weight:400;color:var(--text-dim);margin-left:4px">${co.lieu}</span>
         </div>
-        <!-- Ligne 3 : stats en 4 colonnes -->
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:8px">
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px">
           <div style="background:var(--bg2);border-radius:4px;padding:4px;text-align:center">
             <div style="font-size:7px;color:var(--text-dim);font-family:'Space Mono',monospace;margin-bottom:1px">WIN%</div>
             <div style="font-size:11px;font-weight:700;color:${pwColor}">${pw.toFixed(1)}%</div>
@@ -1838,18 +1855,21 @@ async function chargerPro() {
             <div style="font-size:11px;font-weight:700;color:var(--gold)">${pp.toFixed(1)}%</div>
           </div>
           <div style="background:var(--bg2);border-radius:4px;padding:4px;text-align:center">
-            <div style="font-size:7px;color:var(--text-dim);font-family:'Space Mono',monospace;margin-bottom:1px">EV</div>
-            <div style="font-size:11px;font-weight:700;color:${evColor}">+${ev.toFixed(1)}%</div>
+            <div style="font-size:7px;color:var(--text-dim);font-family:'Space Mono',monospace;margin-bottom:1px">VALUE</div>
+            <div style="font-size:11px;font-weight:700;color:${evColor}">${value >= 0 ? '+' : ''}${value.toFixed(2)}</div>
           </div>
           <div style="background:var(--bg2);border-radius:4px;padding:4px;text-align:center">
             <div style="font-size:7px;color:var(--text-dim);font-family:'Space Mono',monospace;margin-bottom:1px">COTE</div>
             <div style="font-size:11px;font-weight:700;color:var(--text)">${cote}</div>
           </div>
+          <div style="background:${isTop5 ? 'rgba(240,192,64,0.15)' : 'var(--bg2)'};border-radius:4px;padding:4px;text-align:center;border:${isTop5 ? '1px solid rgba(240,192,64,0.4)' : 'none'}">
+            <div style="font-size:7px;color:${isTop5?'#f0c040':'var(--text-dim)'};font-family:'Space Mono',monospace;margin-bottom:1px">SCORE</div>
+            <div style="font-size:11px;font-weight:700;color:${isTop5?'#f0c040':'var(--text)'}">${(score*1000).toFixed(1)}</div>
+          </div>
         </div>
-        <!-- Ligne 4 : stratégie de mise -->
         <div style="background:var(--bg2);border-radius:4px;padding:6px 8px">
           <div style="font-family:'Space Mono',monospace;font-size:8px;color:${mise.color};font-weight:700;margin-bottom:4px">
-            STRATÉGIE · ${mise.label}
+            STRAT\u00c9GIE \u00b7 ${mise.label}
           </div>
           ${barSG}
           ${barSP}
@@ -1857,35 +1877,27 @@ async function chargerPro() {
       </div>`;
     };
 
-    // Grouper par réunion
-    const byR = {};
-    for (const { co } of eligible) {
-      if (!byR[co.r]) byR[co.r] = {lieu: co.lieu, items:[]};
-      byR[co.r].items.push(eligible.find(e => e.co === co));
-    }
-
     const n = eligible.length;
     let html = `<div class="dash-refresh">
-      <span>💎 PRO · ${n} opportunité${n>1?'s':''} sur ${courses.length} courses</span>
-      <button onclick="proCharge=false;chargerPro()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
+      <span>\ud83d\udc8e PRO \u00b7 ${n} opportunit\u00e9${n>1?'s':''} \u00b7 ${courses.length} courses Europe</span>
+      <button onclick="proCharge=false;chargerPro()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">\u21ba</button>
     </div>
     <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
-      Cheval #1 · EV &gt; 5% · Win &gt; 10% · 🟢 Win&gt;30% · 🟡 Win 20-30% · ⚪ Win 10-20%
+      Win &gt; 20% \u00b7 Value &gt; 0.15 \u00b7 Score = Win\u00d7Value \u00b7 \ud83e\udd47 Top 5 highlight\u00e9s \u00b7 tri\u00e9s par score
     </div>`;
 
-    for (const [rNum, rd] of Object.entries(byR)) {
-      html += `<div class="dash-reunion">R${rNum} · ${rd.lieu}</div>`;
-      for (const item of eligible.filter(e => e.co.r == rNum)) {
-        html += renderProRow(item);
-      }
-    }
+    eligible.forEach((item, rank) => {
+      html += renderProRow(item, rank);
+    });
+
     el.innerHTML = html;
 
   } catch(e) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>${e.message}<br>
-    <button class="btn secondary" onclick="proCharge=false;chargerPro()" style="margin-top:12px;font-size:10px">↺ Réessayer</button></div>`;
+    el.innerHTML = `<div class="empty"><div class="empty-icon">\u26a0\ufe0f</div>${e.message}<br>
+    <button class="btn secondary" onclick="proCharge=false;chargerPro()" style="margin-top:12px;font-size:10px">\u21ba R\u00e9essayer</button></div>`;
   }
 }
+
 
 
 // ── Stats ──

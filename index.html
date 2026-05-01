@@ -1759,28 +1759,25 @@ async function chargerPro() {
     }
     proCharge = true;
 
-    // Filtrer : proba_win > 20% ET value (ev_win/100) > 0.15
+    // Filtrer : TOUS les chevaux de toutes les courses avec proba_win > 20% ET value > 0.15
     // Score = proba_win(fraction) x value
     const eligible = [];
     for (const co of courses) {
       const d = allResults[`${co.r}-${co.c}`];
       if (!d?.chevaux?.length) continue;
-      const sorted = [...d.chevaux].sort((a,b) => {
-        if (b.note_pmu !== a.note_pmu) return b.note_pmu - a.note_pmu;
-        return (b.proba_win||0) - (a.proba_win||0);
-      });
-      const h1    = sorted[0];
-      const pw    = h1.proba_win ?? 0;
-      const ev    = h1.ev_win    ?? 0;
-      const pp    = h1.proba_pmu ?? 0;
-      const value = ev / 100;
-      const score = (pw / 100) * value;
-      if (pw > 20 && value > 0.15) {
-        eligible.push({ co, d, h1, ev, pw, pp, value, score, sorted });
+      for (const h of d.chevaux) {
+        const pw    = h.proba_win ?? 0;
+        const ev    = h.ev_win    ?? 0;
+        const pp    = h.proba_pmu ?? 0;
+        const value = ev / 100;
+        const score = (pw / 100) * value;
+        if (pw > 20 && value > 0.15) {
+          eligible.push({ co, d, h1: h, ev, pw, pp, value, score });
+        }
       }
     }
 
-    // Trier par score decroissant
+    // Trier par score decroissant — top 5 = rank 0..4, reste = rank 5+
     eligible.sort((a,b) => b.score - a.score);
 
     if (!eligible.length) {
@@ -1788,7 +1785,7 @@ async function chargerPro() {
         <span>\ud83d\udc8e PRO \u00b7 ${courses.length} courses analys\u00e9es</span>
         <button onclick="proCharge=false;chargerPro()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">\u21ba</button>
       </div>
-      <div class="empty" style="margin-top:24px"><div class="empty-icon">\ud83d\udc8e</div>Aucune opportunit\u00e9 PRO aujourd'hui<br><small style="color:var(--text-dim);font-size:9px">Win &gt; 20% &amp; Value &gt; 0.15 \u00b7 cheval #1 \u00b7 Europe</small></div>`;
+      <div class="empty" style="margin-top:24px"><div class="empty-icon">\ud83d\udc8e</div>Aucune opportunit\u00e9 PRO aujourd'hui<br><small style="color:var(--text-dim);font-size:9px">Win &gt; 20% &amp; Value &gt; 0.15 \u00b7 Europe</small></div>`;
       return;
     }
 
@@ -1877,18 +1874,34 @@ async function chargerPro() {
       </div>`;
     };
 
-    const n = eligible.length;
+    const top5   = eligible.slice(0, 5);
+    const reste  = eligible.slice(5);
+    const n      = eligible.length;
+
     let html = `<div class="dash-refresh">
-      <span>\ud83d\udc8e PRO \u00b7 ${n} opportunit\u00e9${n>1?'s':''} \u00b7 ${courses.length} courses Europe</span>
+      <span>\ud83d\udc8e PRO \u00b7 ${n} cheval${n>1?'x':''} \u00b7 ${courses.length} courses Europe</span>
       <button onclick="proCharge=false;chargerPro()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">\u21ba</button>
     </div>
     <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
-      Win &gt; 20% \u00b7 Value &gt; 0.15 \u00b7 Score = Win\u00d7Value \u00b7 \ud83e\udd47 Top 5 highlight\u00e9s \u00b7 tri\u00e9s par score
+      Win &gt; 20% \u00b7 Value &gt; 0.15 \u00b7 Score = Win\u00d7Value \u00b7 tri\u00e9s par score
     </div>`;
 
-    eligible.forEach((item, rank) => {
+    // Top 5 avec badge et highlight
+    top5.forEach((item, rank) => {
       html += renderProRow(item, rank);
     });
+
+    // Separateur + reste si necessaire
+    if (reste.length > 0) {
+      html += `<div style="padding:8px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;gap:6px">
+        <span style="flex:1;height:1px;background:var(--border)"></span>
+        <span>Autres opportunit\u00e9s (${reste.length})</span>
+        <span style="flex:1;height:1px;background:var(--border)"></span>
+      </div>`;
+      reste.forEach((item, i) => {
+        html += renderProRow(item, 5 + i);  // rank >= 5 = pas de highlight
+      });
+    }
 
     el.innerHTML = html;
 

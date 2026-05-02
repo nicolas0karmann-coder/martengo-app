@@ -1732,7 +1732,8 @@ async function chargerPro() {
   ]);
   const isEuropean = (c) => {
     // Si on a un code pays depuis l'API, on l'utilise en priorite
-    if (c.pays) return PAYS_EUROPE.has(c.pays.toUpperCase());
+    const paysCode = (typeof c.pays === 'string') ? c.pays : '';
+    if (paysCode) return PAYS_EUROPE.has(paysCode.toUpperCase());
     // Fallback sur le lieu si pays absent (ancien comportement)
     // On bloque uniquement si on reconnait clairement un pays non-EU
     const NON_EU = ['SAN ISIDRO','BUENOS AIRES','PALERMO','HONG KONG',

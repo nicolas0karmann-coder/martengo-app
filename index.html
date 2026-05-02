@@ -1295,7 +1295,7 @@ async function chargerOffensif() {
     const courses = (data.courses || []).filter(c => {
       const d = c.disc === 'TROT_ATTELE' ? 'ATTELE' : c.disc;
       return DISC_OK.includes(d);
-    }).map(c => ({r: c.r_num, c: c.c_num, disc: c.disc, dist: c.dist, lieu: c.lieu, heure: c.heure}));
+    }).map(c => ({r: c.r_num, c: c.c_num, disc: c.disc, dist: c.dist, lieu: c.lieu, pays: c.pays||'', heure: c.heure}));
 
     if (!courses.length) {
       el.innerHTML = '<div class="empty"><div class="empty-icon">--</div>Aucune course ATTELE/MONTE aujourd\'hui</div>';
@@ -1717,14 +1717,29 @@ async function chargerPro() {
   const DISC_LABELS = {'TROT_ATTELE':'ATTEL\u00c9','ATTELE':'ATTEL\u00c9','PLAT':'PLAT'};
   const DISC_OK = ['ATTELE','TROT_ATTELE','PLAT'];
 
-  // Hippodromes non-europeens a exclure (outre-mer, international hors Europe)
-  const HIPPO_EXCLUS = ['REUNION','MARTINIQUE','GUADELOUPE','NOUVELLE CALEDONIE','POLYNESIE',
-    'ILE MAURICE','HONG KONG','SINGAPOUR','DUBAI','ABU DHABI','JAPAN','TOKYO','MELBOURNE',
-    'SYDNEY','JOHANNESBURG','NEW YORK','CAPE TOWN','DOHA'];
-  const isEuropean = (lieu) => {
-    if (!lieu) return true;
-    const l = lieu.toUpperCase();
-    return !HIPPO_EXCLUS.some(ex => l.includes(ex));
+  // Liste blanche de codes pays europeens (API PMU)
+  // FR=France, BE=Belgique, DE=Allemagne, GB=Grande-Bretagne, IE=Irlande,
+  // IT=Italie, ES=Espagne, SE=Suede, NO=Norvege, DK=Danemark, FI=Finlande,
+  // NL=Pays-Bas, AT=Autriche, CH=Suisse, CZ=Rep.Tcheque, HU=Hongrie,
+  // PL=Pologne, PT=Portugal, SK=Slovaquie, SI=Slovenie, HR=Croatie
+  const PAYS_EUROPE = new Set([
+    'FR','BE','DE','GB','IE','IT','ES','SE','NO','DK','FI',
+    'NL','AT','CH','CZ','HU','PL','PT','SK','SI','HR','LU',
+    // Libelles texte possibles si code absent
+    'FRANCE','BELGIQUE','ALLEMAGNE','GRANDE-BRETAGNE','ANGLETERRE',
+    'IRLANDE','ITALIE','ESPAGNE','SUEDE','NORVEGE','DANEMARK',
+    'FINLANDE','PAYS-BAS','AUTRICHE','SUISSE','LUXEMBOURG'
+  ]);
+  const isEuropean = (c) => {
+    // Si on a un code pays depuis l'API, on l'utilise en priorite
+    if (c.pays) return PAYS_EUROPE.has(c.pays.toUpperCase());
+    // Fallback sur le lieu si pays absent (ancien comportement)
+    // On bloque uniquement si on reconnait clairement un pays non-EU
+    const NON_EU = ['SAN ISIDRO','BUENOS AIRES','PALERMO','HONG KONG',
+      'SINGAPOUR','DUBAI','ABU DHABI','TOKYO','MELBOURNE','SYDNEY',
+      'JOHANNESBURG','CAPE TOWN','DOHA','NEW YORK','SANTA ANITA'];
+    const l = (c.lieu || '').toUpperCase();
+    return !NON_EU.some(ex => l.includes(ex));
   };
 
   try {
@@ -1733,7 +1748,7 @@ async function chargerPro() {
     const data = await resp.json();
     const courses = (data.courses || []).filter(c => {
       const d = c.disc === 'TROT_ATTELE' ? 'ATTELE' : c.disc;
-      return DISC_OK.includes(d) && isEuropean(c.lieu);
+      return DISC_OK.includes(d) && isEuropean(c);
     }).map(c => ({r: c.r_num, c: c.c_num, disc: c.disc, dist: c.dist, lieu: c.lieu, heure: c.heure}));
 
     if (!courses.length) {

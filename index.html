@@ -1728,14 +1728,8 @@ async function chargerPro() {
     console.log('[PRO] Exemple courses API:', JSON.stringify((data.courses||[]).slice(0,3).map(c=>({lieu:c.lieu,disc:c.disc,pays:c.pays,is_european:c.is_european}))));
     const courses = (data.courses || []).filter(c => {
       const d = c.disc === 'TROT_ATTELE' ? 'ATTELE' : c.disc;
-      return DISC_OK.includes(d);
-    }).map(c => ({r: c.r_num, c: c.c_num, disc: c.disc, dist: c.dist, lieu: c.lieu, pays: c.pays, is_european: c.is_european, heure: c.heure}));
-    el.innerHTML = '<div style="padding:12px;font-family:monospace;font-size:9px;color:var(--text);word-break:break-all">'
-      + '<b>' + courses.length + ' courses PLAT/ATTELÉ</b><br><br>'
-      + courses.slice(0,5).map(c =>
-          'lieu=' + c.lieu + ' pays=' + JSON.stringify(c.pays) + ' is_eu=' + c.is_european + '<br>'
-        ).join('')
-      + '</div>';
+      return DISC_OK.includes(d) && isEuropean(c);
+    }).map(c => ({r: c.r_num, c: c.c_num, disc: c.disc, dist: c.dist, lieu: c.lieu, heure: c.heure}));
 
     if (!courses.length) {
       el.innerHTML = '<div class="empty"><div class="empty-icon">\ud83d\udc8e</div>Aucune course PLAT/ATTEL\u00c9 europ\u00e9enne aujourd\'hui</div>';

@@ -233,6 +233,7 @@ input[readonly]{opacity:.5;cursor:default}
     <button class="nav-btn" onclick="safeCharge=false;goTo('safe')" id="tab-safe"><span class="nav-icon">🛡️</span>Safe</button>
     <button class="nav-btn" onclick="goTo('trio')" id="tab-trio"><span class="nav-icon">🎯</span>Trio</button>
     <button class="nav-btn" onclick="goTo('pro')" id="tab-pro"><span class="nav-icon">💎</span>Pro</button>
+    <button class="nav-btn" onclick="goTo('prosa')" id="tab-prosa"><span class="nav-icon">🌎</span>Pro SA</button>
     <button class="nav-btn" onclick="goTo('stats')" id="tab-stats">
       <span class="nav-icon">📊</span>Stats
       <span class="nav-badge" id="badge-stats"></span>
@@ -365,6 +366,20 @@ input[readonly]{opacity:.5;cursor:default}
       </div>
     </div>
 
+    <!-- PRO SA -->
+    <div class="screen" id="screen-prosa">
+      <div id="prosa-content">
+        <div class="empty">
+          <div class="empty-icon">🌎</div>
+          Win &gt; 20% · Value &gt; 0.15 · Score = Win×Value<br>
+          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
+            PLAT + ATTELÉ · Amérique du Sud
+          </small>
+          <button class="btn full" onclick="prosaCharge=false;chargerProSA()" style="margin-top:16px;font-size:11px">Charger PRO SA →</button>
+        </div>
+      </div>
+    </div>
+
     <div class="screen" id="screen-stats">
       <div id="stats-content">
         <div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement…</span></div>
@@ -403,7 +418,7 @@ async function fetchAPI(path, options = {}) {
   throw lastError || new Error('Tous les serveurs API sont indisponibles');
 }
 const LS_SAISIE = 'martengo_v3', LS_HIST = 'martengo_hist';
-const SCREENS = ['saisie','selections','analyse','dashboard','safe','offensif','trio','pro','stats'];
+const SCREENS = ['saisie','selections','analyse','dashboard','safe','offensif','trio','pro','prosa','stats'];
 
 let chevaux = [], predictions = null, notesPMU = {}, notesPMUData = null;
 let currentDate = '', horseCounter = 0, apiPrete = false, currentScreen = 'saisie';
@@ -452,6 +467,7 @@ function goTo(screen) {
   if (screen === 'stats') { chargerStats(); document.getElementById('badge-stats').classList.remove('show'); }
   if (screen === 'dashboard') { document.getElementById('badge-dashboard').classList.remove('show'); }
   if (screen === 'pro') { chargerPro(); }
+  if (screen === 'prosa') { chargerProSA(); }
 }
 function setBadge(show) { document.getElementById('badge-stats').classList.toggle('show', show && currentScreen !== 'stats'); }
 
@@ -1906,6 +1922,226 @@ async function chargerPro() {
   }
 }
 
+
+
+
+// ── PRO SA ──
+let prosaCharge = false;
+async function chargerProSA() {
+  if (prosaCharge) return;
+  const el = document.getElementById('prosa-content');
+  el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement PRO SA\u2026</span></div>';
+  const today = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
+  const DISC_LABELS = {'TROT_ATTELE':'ATTEL\u00c9','ATTELE':'ATTEL\u00c9','PLAT':'PLAT'};
+  const DISC_OK = ['ATTELE','TROT_ATTELE','PLAT'];
+
+  // Codes pays Amérique du Sud (ISO 2 et 3 lettres)
+  const PAYS_SA = new Set([
+    'AR','ARG',  // Argentine
+    'BR','BRA',  // Brésil
+    'CL','CHL',  // Chili
+    'UY','URY',  // Uruguay
+    'PE','PER',  // Pérou
+    'CO','COL',  // Colombie
+    'VE','VEN',  // Venezuela
+    'EC','ECU',  // Equateur
+    'BO','BOL',  // Bolivie
+    'PY','PRY',  // Paraguay
+    // Libellés texte possibles
+    'ARGENTINE','BRESIL','CHILI','URUGUAY','COLOMBIE','PEROU','VENEZUELA',
+  ]);
+
+  // Lieux SA connus (fallback si pas de code pays)
+  const LIEUX_SA = [
+    'SAN ISIDRO','PALERMO','LA PLATA','HIPODROMO ARGENTINO',  // Argentine
+    'MARONAS',                                                  // Uruguay
+    'VALPARAISO','HIPODROMO CHILE','CLUB HIPICO',              // Chili
+    'GAVEA','CIDADE JARDIM','CRISTAL',                         // Brésil
+  ];
+
+  const isSouthAmerican = (c) => {
+    const paysCode = (typeof c.pays === 'string') ? c.pays.trim().toUpperCase() : '';
+    if (paysCode) return PAYS_SA.has(paysCode);
+    const l = (c.lieu || '').toUpperCase();
+    return LIEUX_SA.some(ex => l.includes(ex));
+  };
+
+  try {
+    const resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
+    if (!resp.ok) throw new Error('Programme indisponible');
+    const data = await resp.json();
+    const courses = (data.courses || []).filter(c => {
+      const d = c.disc === 'TROT_ATTELE' ? 'ATTELE' : c.disc;
+      return DISC_OK.includes(d) && isSouthAmerican(c);
+    }).map(c => ({r: c.r_num, c: c.c_num, disc: c.disc, dist: c.dist, lieu: c.lieu, heure: c.heure}));
+
+    if (!courses.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">\ud83c\udf0e</div>Aucune course PLAT/ATTEL\u00c9 Am\u00e9rique du Sud aujourd\'hui</div>';
+      return;
+    }
+
+    const allResults = {};
+    const total = courses.length; let loaded = 0;
+    const updateProgress = () => {
+      const pct = Math.round(loaded/total*100);
+      el.innerHTML = `<div class="dash-progress">Chargement PRO SA\u2026 ${loaded}/${total} (${pct}%)<div class="dash-progress-bar"><div class="dash-progress-fill" style="width:${pct}%"></div></div></div>`;
+    };
+    updateProgress();
+    for (let i=0; i<courses.length; i+=5) {
+      await Promise.all(courses.slice(i,i+5).map(async co => {
+        try {
+          const r = await fetch(`${API_URL}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
+          if (r.ok) allResults[`${co.r}-${co.c}`] = await r.json();
+        } catch(e) {}
+        loaded++; updateProgress();
+      }));
+    }
+    prosaCharge = true;
+
+    // Filtrer tous les chevaux : proba_win > 20% ET value > 0.15
+    const eligible = [];
+    for (const co of courses) {
+      const d = allResults[`${co.r}-${co.c}`];
+      if (!d?.chevaux?.length) continue;
+      for (const h of d.chevaux) {
+        const pw    = h.proba_win ?? 0;
+        const ev    = h.ev_win    ?? 0;
+        const pp    = h.proba_pmu ?? 0;
+        const value = ev / 100;
+        const score = (pw / 100) * value;
+        if (pw > 20 && value > 0.15) {
+          eligible.push({ co, d, h1: h, ev, pw, pp, value, score });
+        }
+      }
+    }
+
+    eligible.sort((a,b) => b.score - a.score);
+
+    if (!eligible.length) {
+      el.innerHTML = `<div class="dash-refresh">
+        <span>\ud83c\udf0e PRO SA \u00b7 ${courses.length} courses analys\u00e9es</span>
+        <button onclick="prosaCharge=false;chargerProSA()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">\u21ba</button>
+      </div>
+      <div class="empty" style="margin-top:24px"><div class="empty-icon">\ud83c\udf0e</div>Aucune opportunit\u00e9 PRO SA aujourd'hui<br><small style="color:var(--text-dim);font-size:9px">Win &gt; 20% &amp; Value &gt; 0.15 \u00b7 Am\u00e9rique du Sud</small></div>`;
+      return;
+    }
+
+    const getMise = (pw) => {
+      if (pw > 30) return { label: '100% SG', sgPct: 100, spPct: 0, color: '#3a9162', icon: '\ud83d\udfe2' };
+      if (pw > 20) return { label: '60% SG / 40% SP', sgPct: 60, spPct: 40, color: '#c8942a', icon: '\ud83d\udfe1' };
+      return          { label: '30% SG / 70% SP', sgPct: 30, spPct: 70, color: '#888', icon: '\u26aa' };
+    };
+
+    const renderRow = ({ co, d, h1, ev, pw, pp, value, score }, rank) => {
+      const isTop5   = rank < 5;
+      const onclick  = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
+      const nom1     = h1.nom ? h1.nom.split(' ')[0] : ('#' + h1.numero);
+      const cote     = h1.cote != null ? h1.cote.toFixed(1) : '\u2014';
+      const mise     = getMise(pw);
+      const evColor  = ev > 20 ? '#3a9162' : ev > 10 ? '#c8942a' : '#e8a030';
+      const pwColor  = pw > 30 ? '#3a9162' : pw > 20 ? '#c8942a' : '#888';
+      const confPicto = (d?.confiance === 'fort') ? '\ud83d\udd25' : (d?.confiance === 'moyen') ? '\u301c' : '\u2744\ufe0f';
+      const borderCol  = isTop5 ? '#f0c040' : (pw > 30 ? '#3a9162' : pw > 20 ? '#c8942a' : '#555');
+      const bgHighlight = isTop5 ? 'background:rgba(240,192,64,0.06);' : '';
+      const rankBadge  = isTop5
+        ? `<span style="display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;background:#f0c040;color:#111;border-radius:50%;font-size:9px;font-weight:900;font-family:'Space Mono',monospace;margin-right:4px">${rank+1}</span>`
+        : '';
+
+      const barSG = mise.sgPct > 0
+        ? `<div style="display:flex;align-items:center;gap:4px;margin-bottom:2px">
+            <span style="font-size:8px;color:var(--text-dim);width:24px">SG</span>
+            <div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+              <div style="width:${mise.sgPct}%;height:100%;background:#3a9162;border-radius:3px"></div>
+            </div>
+            <span style="font-size:8px;color:#3a9162;width:28px;text-align:right">${mise.sgPct}%</span>
+          </div>` : '';
+      const barSP = mise.spPct > 0
+        ? `<div style="display:flex;align-items:center;gap:4px">
+            <span style="font-size:8px;color:var(--text-dim);width:24px">SP</span>
+            <div style="flex:1;height:6px;background:var(--border);border-radius:3px;overflow:hidden">
+              <div style="width:${mise.spPct}%;height:100%;background:#c8942a;border-radius:3px"></div>
+            </div>
+            <span style="font-size:8px;color:#c8942a;width:28px;text-align:right">${mise.spPct}%</span>
+          </div>` : '';
+
+      return `<div class="dash-row" onclick="${onclick}" style="border-left:3px solid ${borderCol};${bgHighlight}padding:10px 12px;display:block;cursor:pointer">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div style="display:flex;align-items:center">
+            ${rankBadge}
+            <span class="dash-course" style="font-size:11px">R${co.r}C${co.c}</span>
+            <span style="font-size:9px;color:var(--text-dim);margin-left:6px">${co.heure}</span>
+            <span style="font-size:8px;color:var(--text-dim);margin-left:4px">${DISC_LABELS[co.disc]||co.disc} \u00b7 ${co.dist}m</span>
+          </div>
+          <span style="font-size:12px">${mise.icon} ${confPicto}</span>
+        </div>
+        <div style="font-family:'Space Mono',monospace;font-size:10px;font-weight:700;color:var(--gold);margin-bottom:8px">
+          #${h1.numero} ${nom1} \u00b7 Cote ${cote}
+          <span style="font-size:8px;font-weight:400;color:var(--text-dim);margin-left:4px">${co.lieu}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-bottom:8px">
+          <div style="background:var(--bg2);border-radius:4px;padding:4px;text-align:center">
+            <div style="font-size:7px;color:var(--text-dim);font-family:'Space Mono',monospace;margin-bottom:1px">WIN%</div>
+            <div style="font-size:11px;font-weight:700;color:${pwColor}">${pw.toFixed(1)}%</div>
+          </div>
+          <div style="background:var(--bg2);border-radius:4px;padding:4px;text-align:center">
+            <div style="font-size:7px;color:var(--text-dim);font-family:'Space Mono',monospace;margin-bottom:1px">TOP3%</div>
+            <div style="font-size:11px;font-weight:700;color:var(--gold)">${pp.toFixed(1)}%</div>
+          </div>
+          <div style="background:var(--bg2);border-radius:4px;padding:4px;text-align:center">
+            <div style="font-size:7px;color:var(--text-dim);font-family:'Space Mono',monospace;margin-bottom:1px">VALUE</div>
+            <div style="font-size:11px;font-weight:700;color:${evColor}">${value >= 0 ? '+' : ''}${value.toFixed(2)}</div>
+          </div>
+          <div style="background:var(--bg2);border-radius:4px;padding:4px;text-align:center">
+            <div style="font-size:7px;color:var(--text-dim);font-family:'Space Mono',monospace;margin-bottom:1px">COTE</div>
+            <div style="font-size:11px;font-weight:700;color:var(--text)">${cote}</div>
+          </div>
+          <div style="background:${isTop5 ? 'rgba(240,192,64,0.15)' : 'var(--bg2)'};border-radius:4px;padding:4px;text-align:center;border:${isTop5 ? '1px solid rgba(240,192,64,0.4)' : 'none'}">
+            <div style="font-size:7px;color:${isTop5?'#f0c040':'var(--text-dim)'};font-family:'Space Mono',monospace;margin-bottom:1px">SCORE</div>
+            <div style="font-size:11px;font-weight:700;color:${isTop5?'#f0c040':'var(--text)'}">${(score*1000).toFixed(1)}</div>
+          </div>
+        </div>
+        <div style="background:var(--bg2);border-radius:4px;padding:6px 8px">
+          <div style="font-family:'Space Mono',monospace;font-size:8px;color:${mise.color};font-weight:700;margin-bottom:4px">
+            STRAT\u00c9GIE \u00b7 ${mise.label}
+          </div>
+          ${barSG}
+          ${barSP}
+        </div>
+      </div>`;
+    };
+
+    const top5  = eligible.slice(0, 5);
+    const reste = eligible.slice(5);
+    const n     = eligible.length;
+
+    let html = `<div class="dash-refresh">
+      <span>\ud83c\udf0e PRO SA \u00b7 ${n} cheval${n>1?'x':''} \u00b7 ${courses.length} courses Am. du Sud</span>
+      <button onclick="prosaCharge=false;chargerProSA()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">\u21ba</button>
+    </div>
+    <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
+      Win &gt; 20% \u00b7 Value &gt; 0.15 \u00b7 Score = Win\u00d7Value \u00b7 \ud83e\udd47 Top 5 highlight\u00e9s
+    </div>`;
+
+    top5.forEach((item, rank) => { html += renderRow(item, rank); });
+
+    if (reste.length > 0) {
+      html += `<div style="padding:8px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;gap:6px">
+        <span style="flex:1;height:1px;background:var(--border)"></span>
+        <span>Autres opportunit\u00e9s (${reste.length})</span>
+        <span style="flex:1;height:1px;background:var(--border)"></span>
+      </div>`;
+      reste.forEach((item, i) => { html += renderRow(item, 5 + i); });
+    }
+
+    el.innerHTML = html;
+
+  } catch(e) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">\u26a0\ufe0f</div>${e.message}<br>
+    <button class="btn secondary" onclick="prosaCharge=false;chargerProSA()" style="margin-top:12px;font-size:10px">\u21ba R\u00e9essayer</button></div>`;
+  }
+}
 
 
 // ── Stats ──

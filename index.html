@@ -1724,10 +1724,13 @@ async function chargerPro() {
     const resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
     if (!resp.ok) throw new Error('Programme indisponible');
     const data = await resp.json();
+    // Debug : affiche les 3 premières courses reçues
+    console.log('[PRO] Exemple courses API:', JSON.stringify((data.courses||[]).slice(0,3).map(c=>({lieu:c.lieu,disc:c.disc,pays:c.pays,is_european:c.is_european}))));
     const courses = (data.courses || []).filter(c => {
       const d = c.disc === 'TROT_ATTELE' ? 'ATTELE' : c.disc;
       return DISC_OK.includes(d) && isEuropean(c);
     }).map(c => ({r: c.r_num, c: c.c_num, disc: c.disc, dist: c.dist, lieu: c.lieu, heure: c.heure}));
+    console.log('[PRO] Courses filtrées EU PLAT/ATTELE:', courses.length);
 
     if (!courses.length) {
       el.innerHTML = '<div class="empty"><div class="empty-icon">\ud83d\udc8e</div>Aucune course PLAT/ATTEL\u00c9 europ\u00e9enne aujourd\'hui</div>';

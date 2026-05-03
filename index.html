@@ -1730,7 +1730,14 @@ async function chargerPro() {
       const d = c.disc === 'TROT_ATTELE' ? 'ATTELE' : c.disc;
       return DISC_OK.includes(d);
     }).map(c => ({r: c.r_num, c: c.c_num, disc: c.disc, dist: c.dist, lieu: c.lieu, pays: c.pays, is_european: c.is_european, heure: c.heure}));
-    console.log('[PRO] Total PLAT/ATTELE:', courses.length, '| Exemple:', JSON.stringify(courses.slice(0,2)));
+    // Afficher debug directement dans l'UI
+    el.innerHTML = '<div style="padding:12px;font-family:monospace;font-size:9px;color:var(--text);overflow:auto;max-height:80vh">'
+      + '<b>DEBUG PRO — ' + courses.length + ' courses PLAT/ATTELÉ</b><br><br>'
+      + courses.slice(0,5).map(c =>
+          `lieu=${c.lieu} | disc=${c.disc} | pays="${c.pays}" | is_eu=${c.is_european}`
+        ).join('<br>')
+      + '</div>';
+    return;
 
     if (!courses.length) {
       el.innerHTML = '<div class="empty"><div class="empty-icon">\ud83d\udc8e</div>Aucune course PLAT/ATTEL\u00c9 europ\u00e9enne aujourd\'hui</div>';

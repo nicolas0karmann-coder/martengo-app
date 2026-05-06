@@ -2215,8 +2215,8 @@ async function chargerCouple() {
         return (b.proba_win||0) - (a.proba_win||0);
       });
 
-      // Minimum 8 partants
-      if (sorted.length <= 8) continue;
+      // Minimum 8 partants (strictement plus de 8, donc >= 9 — ou ajuster à < 8 pour inclure 8)
+      if (sorted.length < 8) continue;
 
       const pw = i => sorted[i]?.proba_win ?? 0;
       const pp = i => sorted[i]?.proba_pmu ?? 0;

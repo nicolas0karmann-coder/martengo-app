@@ -1022,6 +1022,9 @@ function renderAnalyse(data) {
       ${h.rk_moyenne_3courses ? `<div class="analyse-footer" style="margin-top:0;border-top:none;padding-top:0">
         <span>⏱️ Chrono moy. 3 dern.</span><span style="font-weight:700;color:var(--text-dim)">${Math.round(h.rk_moyenne_3courses)}</span>
       </div>` : ''}
+      ${h.rk_meilleur_an ? `<div class="analyse-footer" style="margin-top:0;border-top:none;padding-top:0">
+        <span>🏆 Meilleur chrono (12 mois)</span><span style="font-weight:700;color:var(--text-dim)">${Math.round(h.rk_meilleur_an)}</span>
+      </div>` : ''}
     </div>`;
   }).join('');
   const miseBannerHtml = (signalSPa || signalSGa) && misePlacea

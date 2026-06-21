@@ -1019,6 +1019,9 @@ function renderAnalyse(data) {
           : ''}
         <span style="margin-left:auto;font-size:8px;color:var(--text-dim);font-family:monospace;letter-spacing:0">${h.musique||''}</span>
       </div>
+      ${h.rk_moyenne_3courses ? `<div class="analyse-footer" style="margin-top:0;border-top:none;padding-top:0">
+        <span>⏱️ Chrono moy. 3 dern.</span><span style="font-weight:700;color:var(--text-dim)">${Math.round(h.rk_moyenne_3courses)}</span>
+      </div>` : ''}
     </div>`;
   }).join('');
   const miseBannerHtml = (signalSPa || signalSGa) && misePlacea

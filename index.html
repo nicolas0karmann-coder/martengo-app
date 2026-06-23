@@ -1081,16 +1081,16 @@ function renderConseil(data) {
   // ── Calcul des "5 meilleurs" / "meilleur" par colonne ──
   const GREEN = '#3a9162';
   const styleBest = (val, bestSet, isTop) =>
-    val===null ? 'var(--text)' : bestSet.has(val) ? (isTop(val) ? `color:${GREEN};font-weight:700` : `color:${GREEN}`) : 'color:var(--text)';
+    val===null ? 'color:var(--text)' : bestSet.has(val) ? (isTop(val) ? `color:${GREEN};font-weight:700` : `color:${GREEN}`) : 'color:var(--text)';
 
-  // Chrono moyenne : plus bas = meilleur
-  const moyVals = liste.map(h=>h.rk_moyenne_3courses).filter(v=>v!==null && v!==undefined);
+  // Chrono moyenne : plus bas = meilleur (arrondi pour matcher l'affichage)
+  const moyVals = liste.map(h=>h.rk_moyenne_3courses!=null ? Math.round(h.rk_moyenne_3courses) : null).filter(v=>v!==null);
   const moySorted = [...new Set(moyVals)].sort((a,b)=>a-b);
   const moyTop5 = new Set(moySorted.slice(0,5));
   const moyBest = moySorted[0];
 
-  // Meilleur chrono 12 mois : plus bas = meilleur
-  const meilleurVals = liste.map(h=>h.rk_meilleur_an).filter(v=>v!==null && v!==undefined);
+  // Meilleur chrono 12 mois : plus bas = meilleur (arrondi pour matcher l'affichage)
+  const meilleurVals = liste.map(h=>h.rk_meilleur_an!=null ? Math.round(h.rk_meilleur_an) : null).filter(v=>v!==null);
   const meilleurSorted = [...new Set(meilleurVals)].sort((a,b)=>a-b);
   const meilleurTop5 = new Set(meilleurSorted.slice(0,5));
   const meilleurBest = meilleurSorted[0];

@@ -1078,27 +1078,67 @@ function renderConseil(data) {
     return (b.proba_pmu||0) - (a.proba_pmu||0);
   });
 
+  // ── Calcul des "5 meilleurs" / "meilleur" par colonne ──
+  const GREEN = '#3a9162';
+  const styleBest = (val, bestSet, isTop) =>
+    val===null ? 'var(--text)' : bestSet.has(val) ? (isTop(val) ? `color:${GREEN};font-weight:700` : `color:${GREEN}`) : 'color:var(--text)';
+
+  // Chrono moyenne : plus bas = meilleur
+  const moyVals = liste.map(h=>h.rk_moyenne_3courses).filter(v=>v!==null && v!==undefined);
+  const moySorted = [...new Set(moyVals)].sort((a,b)=>a-b);
+  const moyTop5 = new Set(moySorted.slice(0,5));
+  const moyBest = moySorted[0];
+
+  // Meilleur chrono 12 mois : plus bas = meilleur
+  const meilleurVals = liste.map(h=>h.rk_meilleur_an).filter(v=>v!==null && v!==undefined);
+  const meilleurSorted = [...new Set(meilleurVals)].sort((a,b)=>a-b);
+  const meilleurTop5 = new Set(meilleurSorted.slice(0,5));
+  const meilleurBest = meilleurSorted[0];
+
+  // Taux disq : plus bas = meilleur
+  const disqVals = liste.map(h=>h.taux_disq).filter(v=>v!==null && v!==undefined);
+  const disqSorted = [...new Set(disqVals)].sort((a,b)=>a-b);
+  const disqTop5 = new Set(disqSorted.slice(0,5));
+  const disqBest = disqSorted[0];
+
+  // Jockey % victoire : plus haut = meilleur
+  const wrVals = liste.map(h=>h.driver_win_rate).filter(v=>v!==null && v!==undefined);
+  const wrSorted = [...new Set(wrVals)].sort((a,b)=>b-a);
+  const wrTop5 = new Set(wrSorted.slice(0,5));
+  const wrBest = wrSorted[0];
+
   const lignes = liste.map((h,i)=>{
     const rang = i+1;
-    const moyTxt = h.rk_moyenne_3courses ? Math.round(h.rk_moyenne_3courses) : '—';
-    const meilleurTxt = h.rk_meilleur_an
-      ? `${Math.round(h.rk_meilleur_an)}${h.rk_meilleur_an_date ? ' ('+formatDateConseil(h.rk_meilleur_an_date)+')' : ''}`
+    const moyVal = h.rk_moyenne_3courses ? Math.round(h.rk_moyenne_3courses) : null;
+    const meilleurVal = h.rk_meilleur_an ? Math.round(h.rk_meilleur_an) : null;
+    const moyTxt = moyVal!==null ? moyVal : '—';
+    const meilleurTxt = meilleurVal!==null
+      ? `${meilleurVal}${h.rk_meilleur_an_date ? ' ('+formatDateConseil(h.rk_meilleur_an_date)+')' : ''}`
       : '—';
     const ferrureTxt = h.deferre || '—';
+    const ferrureStyle = h.deferre==='DEFERRE_TOTAL' ? `color:${GREEN}` : 'color:var(--text)';
     const dateDerniereTxt = formatDateConseil(h.date_derniere_course);
-    const tauxDisqTxt = (h.taux_disq!==undefined && h.taux_disq!==null) ? h.taux_disq+'%' : '—';
+    const disqVal = (h.taux_disq!==undefined && h.taux_disq!==null) ? h.taux_disq : null;
+    const tauxDisqTxt = disqVal!==null ? disqVal+'%' : '—';
+    const wrVal = (h.driver_win_rate!==undefined && h.driver_win_rate!==null) ? h.driver_win_rate : null;
     const driverTxt = h.driver
-      ? `${h.driver}${(h.driver_win_rate!==undefined && h.driver_win_rate!==null) ? ' ('+h.driver_win_rate+'%)' : ''}`
+      ? `${h.driver}${wrVal!==null ? ' ('+wrVal+'%)' : ''}`
       : '—';
+
+    const moyStyle = styleBest(moyVal, moyTop5, v=>v===moyBest);
+    const meilleurStyle = styleBest(meilleurVal, meilleurTop5, v=>v===meilleurBest);
+    const disqStyle = styleBest(disqVal, disqTop5, v=>v===disqBest);
+    const driverStyle = styleBest(wrVal, wrTop5, v=>v===wrBest);
+
     return `<tr>
       <td style="text-align:center;font-weight:700;color:var(--gold)">${rang}</td>
       <td><strong>#${h.numero}</strong> ${h.nom||''}</td>
-      <td style="text-align:center">${moyTxt}</td>
-      <td style="text-align:center">${meilleurTxt}</td>
-      <td style="text-align:center">${ferrureTxt}</td>
+      <td style="text-align:center;${moyStyle}">${moyTxt}</td>
+      <td style="text-align:center;${meilleurStyle}">${meilleurTxt}</td>
+      <td style="text-align:center;${ferrureStyle}">${ferrureTxt}</td>
       <td style="text-align:center">${dateDerniereTxt}</td>
-      <td style="text-align:center">${tauxDisqTxt}</td>
-      <td>${driverTxt}</td>
+      <td style="text-align:center;${disqStyle}">${tauxDisqTxt}</td>
+      <td style="${driverStyle}">${driverTxt}</td>
     </tr>`;
   }).join('');
 

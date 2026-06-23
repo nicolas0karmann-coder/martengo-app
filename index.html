@@ -502,11 +502,16 @@ function setBadge(show) { document.getElementById('badge-stats').classList.toggl
 // ── Swipe ──
 function initSwipe() {
   const w = document.getElementById('screens-wrapper');
-  let sx=0, sy=0, moved=false;
-  w.addEventListener('touchstart', e => { sx=e.touches[0].clientX; sy=e.touches[0].clientY; moved=false; }, {passive:true});
-  w.addEventListener('touchmove',  e => { const dx=e.touches[0].clientX-sx, dy=e.touches[0].clientY-sy; if (!moved && Math.abs(dx)>Math.abs(dy) && Math.abs(dx)>20) moved=true; }, {passive:true});
+  let sx=0, sy=0, moved=false, blocked=false;
+  w.addEventListener('touchstart', e => {
+    sx=e.touches[0].clientX; sy=e.touches[0].clientY; moved=false;
+    // Ignore le swipe de navigation si le geste démarre dans une zone
+    // qui a son propre défilement horizontal (ex: tableau Conseil)
+    blocked = !!e.target.closest('.no-swipe');
+  }, {passive:true});
+  w.addEventListener('touchmove',  e => { if (blocked) return; const dx=e.touches[0].clientX-sx, dy=e.touches[0].clientY-sy; if (!moved && Math.abs(dx)>Math.abs(dy) && Math.abs(dx)>20) moved=true; }, {passive:true});
   w.addEventListener('touchend',   e => {
-    if (!moved) return;
+    if (blocked || !moved) return;
     const dx = e.changedTouches[0].clientX - sx;
     const idx = SCREENS.indexOf(currentScreen);
     if (dx < -40 && idx < SCREENS.length-1) goTo(SCREENS[idx+1]);
@@ -1099,7 +1104,7 @@ function renderConseil(data) {
 
   document.getElementById('conseil-content').innerHTML = `
     <div class="pred-meta fade-in">${liste.length} chevaux · ${data.date||currentDate||''}</div>
-    <div style="overflow-x:auto;border:1px solid var(--border);border-radius:8px">
+    <div class="no-swipe" style="overflow-x:auto;border:1px solid var(--border);border-radius:8px">
       <table style="width:100%;border-collapse:collapse;font-family:'Space Mono',monospace;font-size:10px;white-space:nowrap">
         <thead>
           <tr style="background:var(--bg2);border-bottom:1px solid var(--border)">

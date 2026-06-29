@@ -1117,6 +1117,8 @@ function renderConseil(data) {
       : '—';
     const ferrureTxt = h.deferre || '—';
     const ferrureStyle = h.deferre==='DEFERRE_TOTAL' ? `color:${GREEN}` : 'color:var(--text)';
+    const changtFerrureTxt = h.changement_ferrure===true ? '⚠️ Oui' : h.changement_ferrure===false ? 'Non' : '—';
+    const changtFerrureStyle = h.changement_ferrure===true ? 'color:#d4a72c;font-weight:700' : 'color:var(--text-dim)';
     const dateDerniereTxt = formatDateConseil(h.date_derniere_course);
     const disqVal = (h.taux_disq!==undefined && h.taux_disq!==null) ? h.taux_disq : null;
     const tauxDisqTxt = disqVal!==null ? disqVal+'%' : '—';
@@ -1136,6 +1138,7 @@ function renderConseil(data) {
       <td style="text-align:center;${moyStyle}">${moyTxt}</td>
       <td style="text-align:center;${meilleurStyle}">${meilleurTxt}</td>
       <td style="text-align:center;${ferrureStyle}">${ferrureTxt}</td>
+      <td style="text-align:center;${changtFerrureStyle}">${changtFerrureTxt}</td>
       <td style="text-align:center">${dateDerniereTxt}</td>
       <td style="text-align:center;${disqStyle}">${tauxDisqTxt}</td>
       <td style="${driverStyle}">${driverTxt}</td>
@@ -1153,6 +1156,7 @@ function renderConseil(data) {
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Chrono moy.<br>3 dern.</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Meilleur chrono<br>(12 mois)</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Ferrure</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Changt<br>ferrure</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Dernière<br>course</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Taux<br>disq.</th>
             <th style="padding:8px 10px;text-align:left;color:var(--text-dim)">Jockey (% victoire)</th>

@@ -1194,6 +1194,18 @@ function renderConseilPlat(data) {
   const poidsTop5 = new Set(poidsSorted.slice(0,5));
   const poidsBest = poidsSorted[0];
 
+  // Forme (scores.forme, 0-100) : plus haut = meilleur
+  const formeVals = liste.map(h=>h.scores?.forme).filter(v=>v!=null);
+  const formeSorted = [...new Set(formeVals)].sort((a,b)=>b-a);
+  const formeTop5 = new Set(formeSorted.slice(0,5));
+  const formeBest = formeSorted[0];
+
+  // Valeur (score_value) : plus haut = meilleur
+  const valeurVals = liste.map(h=>h.score_value).filter(v=>v!=null);
+  const valeurSorted = [...new Set(valeurVals)].sort((a,b)=>b-a);
+  const valeurTop5 = new Set(valeurSorted.slice(0,5));
+  const valeurBest = valeurSorted[0];
+
   // Aptitude terrain / distance / hippodrome / jockey hippo : plus haut = meilleur
   const mkTop5Desc = (key) => {
     const vals = liste.map(h=>h[key]).filter(v=>v!==null && v!==undefined);
@@ -1227,6 +1239,8 @@ function renderConseilPlat(data) {
     return `<tr>
       <td style="text-align:center;font-weight:700;color:var(--gold)">${rang}</td>
       <td><strong>#${h.numero}</strong> ${h.nom||''}</td>
+      <td style="text-align:center;${styleBest(h.scores?.forme, formeTop5, v=>v===formeBest)}">${h.scores?.forme!=null ? h.scores.forme : '—'}</td>
+      <td style="text-align:center;${styleBest(h.score_value, valeurTop5, v=>v===valeurBest)}">${h.score_value!=null ? h.score_value : '—'}</td>
       <td style="text-align:center;${poidsStyle}">${poidsTxt}</td>
       <td style="text-align:center">${corde}</td>
       <td style="text-align:center;${terrainStyle}">${terrainTxt}</td>
@@ -1248,6 +1262,8 @@ function renderConseilPlat(data) {
           <tr style="background:var(--bg2);border-bottom:1px solid var(--border)">
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Rang</th>
             <th style="padding:8px 10px;text-align:left;color:var(--text-dim)">N° / Nom</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Forme</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Valeur</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Poids<br>porté</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Corde</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Apt.<br>terrain</th>

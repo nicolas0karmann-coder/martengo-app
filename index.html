@@ -1215,7 +1215,7 @@ function renderConseilPlat(data) {
   const terrainStat = mkTop5Desc('apt_terrain_actuel');
   const distStat = mkTop5Desc('apt_dist_recente');
   const hippoStat = mkTop5Desc('aptitude_hippodrome');
-  const jockeyHippoStat = mkTop5Desc('jockey_win_rate_hippo');
+  const jockeyHippoStat = mkTop5Desc('driver_win_rate');
 
   const lignes = liste.map((h,i)=>{
     const rang = i+1;
@@ -1228,8 +1228,10 @@ function renderConseilPlat(data) {
     const distStyle = styleBest(h.apt_dist_recente, distStat.top5, v=>v===distStat.best);
     const hippoTxt = h.aptitude_hippodrome!=null ? h.aptitude_hippodrome+'%' : '—';
     const hippoStyle = styleBest(h.aptitude_hippodrome, hippoStat.top5, v=>v===hippoStat.best);
-    const jockeyHippoTxt = h.jockey_win_rate_hippo!=null ? h.jockey_win_rate_hippo+'%' : '—';
-    const jockeyHippoStyle = styleBest(h.jockey_win_rate_hippo, jockeyHippoStat.top5, v=>v===jockeyHippoStat.best);
+    const jockeyHippoTxt = h.driver
+      ? `${h.driver}${h.driver_win_rate!=null ? ' ('+h.driver_win_rate+'%)' : ''}`
+      : '—';
+    const jockeyHippoStyle = styleBest(h.driver_win_rate, jockeyHippoStat.top5, v=>v===jockeyHippoStat.best);
     const ratioNiveauTxt = h.ratio_niveau_lot!=null ? h.ratio_niveau_lot : '—';
     const descenteTxt = h.descente_lot===true ? '⬇️ Oui' : h.descente_lot===false ? 'Non' : '—';
     const descenteStyle = h.descente_lot===true ? `color:${GREEN};font-weight:700` : 'color:var(--text-dim)';
@@ -1269,7 +1271,7 @@ function renderConseilPlat(data) {
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Apt.<br>terrain</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Apt.<br>distance</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Apt.<br>hippodrome</th>
-            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Jockey<br>hippodrome</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Jockey (% victoire)</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Ratio<br>niveau lot</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Descente<br>lot</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Équipement</th>

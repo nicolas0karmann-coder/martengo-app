@@ -1071,7 +1071,17 @@ function formatDateConseil(d) {
   const parts = String(d).split('-');
   return parts.length===3 ? parts.reverse().join('/') : d;
 }
+
+// ── Routeur : choisit le tableau Conseil selon la discipline ──
 function renderConseil(data) {
+  const version = data.version || 'v6';
+  const isPlatConseil = version.includes('plat');
+  if (isPlatConseil) renderConseilPlat(data);
+  else renderConseilTrot(data);
+}
+
+// ── Conseil ATTELÉ / MONTE (trot) — chrono, ferrure, jockey ──
+function renderConseilTrot(data) {
   // Même tri que renderAnalyse : note_pmu desc, puis proba_pmu desc
   const liste=[...data.chevaux].sort((a,b)=>{
     if (b.note_pmu !== a.note_pmu) return b.note_pmu - a.note_pmu;
@@ -1160,6 +1170,94 @@ function renderConseil(data) {
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Dernière<br>course</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Taux<br>disq.</th>
             <th style="padding:8px 10px;text-align:left;color:var(--text-dim)">Jockey (% victoire)</th>
+          </tr>
+        </thead>
+        <tbody>${lignes}</tbody>
+      </table>
+    </div>`;
+}
+
+// ── Conseil PLAT — poids, corde, aptitudes terrain/distance/hippodrome, niveau ──
+function renderConseilPlat(data) {
+  const liste=[...data.chevaux].sort((a,b)=>{
+    if (b.note_pmu !== a.note_pmu) return b.note_pmu - a.note_pmu;
+    return (b.proba_pmu||0) - (a.proba_pmu||0);
+  });
+
+  const GREEN = '#3a9162';
+  const styleBest = (val, bestSet, isTop) =>
+    val===null ? 'color:var(--text)' : bestSet.has(val) ? (isTop(val) ? `color:${GREEN};font-weight:700` : `color:${GREEN}`) : 'color:var(--text)';
+
+  // Poids porté : plus léger = meilleur
+  const poidsVals = liste.map(h=>h.handicap_poids).filter(v=>v!==null && v!==undefined && v>0);
+  const poidsSorted = [...new Set(poidsVals)].sort((a,b)=>a-b);
+  const poidsTop5 = new Set(poidsSorted.slice(0,5));
+  const poidsBest = poidsSorted[0];
+
+  // Aptitude terrain / distance / hippodrome / jockey hippo : plus haut = meilleur
+  const mkTop5Desc = (key) => {
+    const vals = liste.map(h=>h[key]).filter(v=>v!==null && v!==undefined);
+    const sorted = [...new Set(vals)].sort((a,b)=>b-a);
+    return { top5: new Set(sorted.slice(0,5)), best: sorted[0] };
+  };
+  const terrainStat = mkTop5Desc('apt_terrain_actuel');
+  const distStat = mkTop5Desc('apt_dist_recente');
+  const hippoStat = mkTop5Desc('aptitude_hippodrome');
+  const jockeyHippoStat = mkTop5Desc('jockey_win_rate_hippo');
+
+  const lignes = liste.map((h,i)=>{
+    const rang = i+1;
+    const poidsTxt = (h.handicap_poids!=null && h.handicap_poids>0) ? h.handicap_poids+' kg' : '—';
+    const poidsStyle = styleBest(h.handicap_poids>0?h.handicap_poids:null, poidsTop5, v=>v===poidsBest);
+    const corde = h.place_corde!=null ? h.place_corde : '—';
+    const terrainTxt = h.apt_terrain_actuel!=null ? h.apt_terrain_actuel+'%' : '—';
+    const terrainStyle = styleBest(h.apt_terrain_actuel, terrainStat.top5, v=>v===terrainStat.best);
+    const distTxt = h.apt_dist_recente!=null ? h.apt_dist_recente+'%' : '—';
+    const distStyle = styleBest(h.apt_dist_recente, distStat.top5, v=>v===distStat.best);
+    const hippoTxt = h.aptitude_hippodrome!=null ? h.aptitude_hippodrome+'%' : '—';
+    const hippoStyle = styleBest(h.aptitude_hippodrome, hippoStat.top5, v=>v===hippoStat.best);
+    const jockeyHippoTxt = h.jockey_win_rate_hippo!=null ? h.jockey_win_rate_hippo+'%' : '—';
+    const jockeyHippoStyle = styleBest(h.jockey_win_rate_hippo, jockeyHippoStat.top5, v=>v===jockeyHippoStat.best);
+    const ratioNiveauTxt = h.ratio_niveau_lot!=null ? h.ratio_niveau_lot : '—';
+    const descenteTxt = h.descente_lot===true ? '⬇️ Oui' : h.descente_lot===false ? 'Non' : '—';
+    const descenteStyle = h.descente_lot===true ? `color:${GREEN};font-weight:700` : 'color:var(--text-dim)';
+    const equipementTxt = h.oeilleres_brut || '—';
+    const dateDerniereTxt = formatDateConseil(h.date_derniere_course);
+
+    return `<tr>
+      <td style="text-align:center;font-weight:700;color:var(--gold)">${rang}</td>
+      <td><strong>#${h.numero}</strong> ${h.nom||''}</td>
+      <td style="text-align:center;${poidsStyle}">${poidsTxt}</td>
+      <td style="text-align:center">${corde}</td>
+      <td style="text-align:center;${terrainStyle}">${terrainTxt}</td>
+      <td style="text-align:center;${distStyle}">${distTxt}</td>
+      <td style="text-align:center;${hippoStyle}">${hippoTxt}</td>
+      <td style="text-align:center;${jockeyHippoStyle}">${jockeyHippoTxt}</td>
+      <td style="text-align:center">${ratioNiveauTxt}</td>
+      <td style="text-align:center;${descenteStyle}">${descenteTxt}</td>
+      <td style="text-align:center;font-size:9px">${equipementTxt}</td>
+      <td style="text-align:center">${dateDerniereTxt}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('conseil-content').innerHTML = `
+    <div class="pred-meta fade-in">${liste.length} chevaux · ${data.date||currentDate||''}</div>
+    <div class="no-swipe" style="overflow-x:auto;border:1px solid var(--border);border-radius:8px">
+      <table style="width:100%;border-collapse:collapse;font-family:'Space Mono',monospace;font-size:10px;white-space:nowrap">
+        <thead>
+          <tr style="background:var(--bg2);border-bottom:1px solid var(--border)">
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Rang</th>
+            <th style="padding:8px 10px;text-align:left;color:var(--text-dim)">N° / Nom</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Poids<br>porté</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Corde</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Apt.<br>terrain</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Apt.<br>distance</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Apt.<br>hippodrome</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Jockey<br>hippodrome</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Ratio<br>niveau lot</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Descente<br>lot</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Équipement</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Dernière<br>course</th>
           </tr>
         </thead>
         <tbody>${lignes}</tbody>

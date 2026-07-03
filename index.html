@@ -1127,8 +1127,22 @@ function renderConseilTrot(data) {
       : '—';
     const ferrureTxt = h.deferre || '—';
     const ferrureStyle = h.deferre==='DEFERRE_TOTAL' ? `color:${GREEN}` : 'color:var(--text)';
-    const changtFerrureTxt = h.changement_ferrure===true ? '⚠️ Oui' : h.changement_ferrure===false ? 'Non' : '—';
-    const changtFerrureStyle = h.changement_ferrure===true ? 'color:#d4a72c;font-weight:700' : 'color:var(--text-dim)';
+    const changtFerrureTxt = (() => {
+      if (h.changement_ferrure !== true) return h.changement_ferrure===false ? 'Non' : '—';
+      const ordre = {'FERRE':0,'DEFERRE_PARTIEL':1,'DEFERRE_TOTAL':2};
+      const avant = ordre[h.ferrure_precedente] ?? -1;
+      const apres = ordre[h.deferre] ?? -1;
+      if (avant === -1 || apres === -1) return '⚠️ Oui';
+      return apres > avant ? '⚠️ Oui +' : '⚠️ Oui -';
+    })();
+    const changtFerrureStyle = (() => {
+      if (h.changement_ferrure !== true) return 'color:var(--text-dim)';
+      const ordre = {'FERRE':0,'DEFERRE_PARTIEL':1,'DEFERRE_TOTAL':2};
+      const avant = ordre[h.ferrure_precedente] ?? -1;
+      const apres = ordre[h.deferre] ?? -1;
+      if (avant === -1 || apres === -1) return 'color:#d4a72c;font-weight:700';
+      return apres > avant ? `color:${GREEN};font-weight:700` : 'color:#c0392b;font-weight:700';
+    })();
     const dateDerniereTxt = formatDateConseil(h.date_derniere_course);
     const disqVal = (h.taux_disq!==undefined && h.taux_disq!==null) ? h.taux_disq : null;
     const tauxDisqTxt = disqVal!==null ? disqVal+'%' : '—';
@@ -1188,8 +1202,8 @@ function renderConseilPlat(data) {
   const styleBest = (val, bestSet, isTop) =>
     val===null ? 'color:var(--text)' : bestSet.has(val) ? (isTop(val) ? `color:${GREEN};font-weight:700` : `color:${GREEN}`) : 'color:var(--text)';
 
-  // Poids porté : plus léger = meilleur
-  const poidsVals = liste.map(h=>h.handicap_poids).filter(v=>v!==null && v!==undefined && v>0);
+  // Poids porté : plus léger = meilleur (converti en kg : décigrammes / 10)
+  const poidsVals = liste.map(h=>h.handicap_poids>0 ? h.handicap_poids/10 : null).filter(v=>v!==null);
   const poidsSorted = [...new Set(poidsVals)].sort((a,b)=>a-b);
   const poidsTop5 = new Set(poidsSorted.slice(0,5));
   const poidsBest = poidsSorted[0];
@@ -1219,8 +1233,9 @@ function renderConseilPlat(data) {
 
   const lignes = liste.map((h,i)=>{
     const rang = i+1;
-    const poidsTxt = (h.handicap_poids!=null && h.handicap_poids>0) ? h.handicap_poids+' kg' : '—';
-    const poidsStyle = styleBest(h.handicap_poids>0?h.handicap_poids:null, poidsTop5, v=>v===poidsBest);
+    const poidsKg = (h.handicap_poids!=null && h.handicap_poids>0) ? (h.handicap_poids/10) : null;
+    const poidsTxt = poidsKg!=null ? poidsKg.toFixed(1)+' kg' : '—';
+    const poidsStyle = styleBest(poidsKg, poidsTop5, v=>v===poidsBest);
     const corde = h.place_corde!=null ? h.place_corde : '—';
     const terrainTxt = h.apt_terrain_actuel!=null ? h.apt_terrain_actuel+'%' : '—';
     const terrainStyle = styleBest(h.apt_terrain_actuel, terrainStat.top5, v=>v===terrainStat.best);

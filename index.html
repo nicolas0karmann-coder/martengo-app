@@ -170,27 +170,6 @@ input[readonly]{opacity:.5;cursor:default}
 #conseil-content table tbody tr:last-child{border-bottom:none}
 #conseil-content table tbody tr:hover{background:var(--bg2)}
 #conseil-content table td{padding:8px 10px;color:var(--text)}
-#intl-content{padding:12px}
-.intl-reunion{margin-bottom:16px;border:1px solid var(--border);border-radius:8px;overflow:hidden}
-.intl-reunion-header{background:var(--bg2);padding:10px 14px;font-family:'Space Mono',monospace;font-size:11px;display:flex;align-items:center;gap:8px}
-.intl-reunion-flag{font-size:16px}
-.intl-reunion-lieu{font-weight:700;color:var(--text)}
-.intl-reunion-pays{color:var(--text-dim);font-size:10px}
-.intl-courses{display:flex;flex-direction:column;gap:0}
-.intl-course{padding:8px 14px;border-top:1px solid var(--border);cursor:pointer;transition:background .15s;font-family:'Space Mono',monospace;font-size:10px;display:flex;align-items:center;gap:8px}
-.intl-course:hover{background:var(--bg2)}
-.intl-course-num{color:var(--gold);font-weight:700;min-width:24px}
-.intl-course-nom{flex:1;color:var(--text)}
-.intl-course-heure{color:var(--text-dim)}
-.intl-course-nb{color:var(--text-dim);font-size:9px}
-.intl-tableau{overflow-x:auto;border:1px solid var(--border);border-radius:8px}
-.intl-tableau table{width:100%;border-collapse:collapse;font-family:'Space Mono',monospace;font-size:11px;white-space:nowrap}
-.intl-tableau thead tr{background:var(--bg2);border-bottom:1px solid var(--border)}
-.intl-tableau th{padding:8px 12px;color:var(--text-dim);font-weight:400;text-align:left}
-.intl-tableau tbody tr{border-bottom:1px solid var(--border)}
-.intl-tableau tbody tr:last-child{border-bottom:none}
-.intl-tableau tbody tr:hover{background:var(--bg2)}
-.intl-tableau td{padding:8px 12px;color:var(--text)}
 
 .kpi-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
 .kpi{background:var(--bg3);border-radius:8px;padding:12px 14px;border:1px solid var(--border)}
@@ -255,7 +234,6 @@ input[readonly]{opacity:.5;cursor:default}
     <button class="nav-btn" onclick="goTo('selections')" id="tab-selections"><span class="nav-icon">🎯</span>Sélect.</button>
     <button class="nav-btn" onclick="goTo('analyse')" id="tab-analyse"><span class="nav-icon">🔬</span>Analyse</button>
     <button class="nav-btn" onclick="goTo('conseil')" id="tab-conseil"><span class="nav-icon">📝</span>Conseil</button>
-    <button class="nav-btn" onclick="goTo('intl')" id="tab-intl"><span class="nav-icon">🌏</span>Intl</button>
     <button class="nav-btn" onclick="goTo('dashboard')" id="tab-dashboard"><span class="nav-icon">📋</span>Journée<span class="nav-badge" id="badge-dashboard"></span></button>
     <button class="nav-btn" onclick="safeCharge=false;goTo('safe')" id="tab-safe"><span class="nav-icon">🛡️</span>Safe</button>
     <button class="nav-btn" onclick="goTo('trio')" id="tab-trio"><span class="nav-icon">🎯</span>Trio</button>
@@ -339,13 +317,6 @@ input[readonly]{opacity:.5;cursor:default}
     <div class="screen" id="screen-conseil">
       <div id="conseil-content">
         <div class="empty"><div class="empty-icon">📝</div>Chargez les notes PMU<br>pour voir le récapitulatif</div>
-      </div>
-    </div>
-
-    <!-- INTERNATIONAL -->
-    <div class="screen" id="screen-intl">
-      <div id="intl-content">
-        <div class="empty"><div class="empty-icon">🌏</div>Courses internationales<br>Australie & Japon</div>
       </div>
     </div>
 
@@ -474,7 +445,7 @@ async function fetchAPI(path, options = {}) {
   throw lastError || new Error('Tous les serveurs API sont indisponibles');
 }
 const LS_SAISIE = 'martengo_v3', LS_HIST = 'martengo_hist';
-const SCREENS = ['saisie','selections','analyse','conseil','intl','dashboard','safe','offensif','trio','pro','prosa','couple','stats'];
+const SCREENS = ['saisie','selections','analyse','conseil','dashboard','safe','offensif','trio','pro','prosa','couple','stats'];
 
 let chevaux = [], predictions = null, notesPMU = {}, notesPMUData = null;
 let currentDate = '', horseCounter = 0, apiPrete = false, currentScreen = 'saisie';
@@ -525,7 +496,6 @@ function goTo(screen) {
   if (screen === 'pro') { chargerPro(); }
   if (screen === 'prosa') { chargerProSA(); }
   if (screen === 'couple') { chargerCouple(); }
-  if (screen === 'intl') { chargerIntl(); }
 }
 function setBadge(show) { document.getElementById('badge-stats').classList.toggle('show', show && currentScreen !== 'stats'); }
 
@@ -1327,120 +1297,6 @@ function renderConseilPlat(data) {
       </table>
     </div>`;
 }
-
-// ── International (Australie + Japon via OddsPro) ──
-let intlCharge = false;
-let intlData = null;
-
-const PAYS_FLAG = { 'AUS': '🇦🇺', 'JPN': '🇯🇵' };
-const PAYS_NOM  = { 'AUS': 'Australie', 'JPN': 'Japon' };
-
-async function chargerIntl() {
-  if (intlCharge) return;
-  intlCharge = true;
-  document.getElementById('intl-content').innerHTML =
-    '<div class="empty"><div class="empty-icon">⏳</div>Chargement du programme international…</div>';
-  try {
-    // currentDate est au format YYYY-MM-DD → convertir en DDMMYYYY pour l'API
-    const cd = currentDate || new Date().toISOString().slice(0,10);
-    const [y,m,d] = cd.split('-');
-    const dateParam = `${d}${m}${y}`;
-    const resp = await fetch(`${API_URL_PRIMARY}/programme_international?date=${dateParam}`);
-    if (!resp.ok) throw new Error(`Erreur ${resp.status}`);
-    intlData = await resp.json();
-    renderIntlProgramme(intlData);
-  } catch(e) {
-    document.getElementById('intl-content').innerHTML =
-      `<div class="empty"><div class="empty-icon">⚠️</div>Impossible de charger le programme international<br><small>${e.message}</small></div>`;
-  }
-}
-
-function renderIntlProgramme(data) {
-  const reunions = data.reunions || [];
-  if (!reunions.length) {
-    document.getElementById('intl-content').innerHTML =
-      '<div class="empty"><div class="empty-icon">🌏</div>Aucune course disponible pour aujourd\'hui</div>';
-    return;
-  }
-
-  const html = reunions.map(r => {
-    const flag = PAYS_FLAG[r.pays] || '🏇';
-    const paysNom = PAYS_NOM[r.pays] || r.pays;
-    const courses = r.courses.map(c => {
-      const heure = c.heure ? c.heure.slice(11,16) : '—';
-      const nb = c.partants.length;
-      return `<div class="intl-course" onclick="renderIntlCourse('${r.lieu}', ${c.c_num})">
-        <span class="intl-course-num">C${c.c_num}</span>
-        <span class="intl-course-nom">${c.nom || 'Course '+c.c_num}</span>
-        <span class="intl-course-heure">${heure}</span>
-        <span class="intl-course-nb">${nb} partants</span>
-      </div>`;
-    }).join('');
-
-    return `<div class="intl-reunion">
-      <div class="intl-reunion-header">
-        <span class="intl-reunion-flag">${flag}</span>
-        <span class="intl-reunion-lieu">${r.lieu}</span>
-        <span class="intl-reunion-pays">${paysNom}</span>
-      </div>
-      <div class="intl-courses">${courses}</div>
-    </div>`;
-  }).join('');
-
-  document.getElementById('intl-content').innerHTML =
-    `<div class="pred-meta fade-in">${reunions.length} réunion(s) · ${data.date || ''}</div>
-     ${html}`;
-}
-
-function renderIntlCourse(lieu, courseNum) {
-  if (!intlData) return;
-  const reunion = intlData.reunions.find(r => r.lieu === lieu);
-  if (!reunion) return;
-  const course = reunion.courses.find(c => c.c_num === courseNum);
-  if (!course) return;
-
-  const flag = PAYS_FLAG[reunion.pays] || '🏇';
-  const heure = course.heure ? course.heure.slice(11,16) : '—';
-
-  // Trier par cote croissante (favori en 1er)
-  const partants = [...course.partants].sort((a,b) => (a.cote||999) - (b.cote||999));
-
-  const GREEN = '#3a9162';
-  const lignes = partants.map((p, i) => {
-    const rang = i + 1;
-    const coteTxt = p.cote ? `$${p.cote.toFixed(2)}` : '—';
-    const coteStyle = rang === 1 ? `color:${GREEN};font-weight:700` : rang <= 3 ? `color:${GREEN}` : '';
-    return `<tr>
-      <td style="text-align:center;font-weight:700;color:var(--gold)">${rang}</td>
-      <td><strong>#${p.numero}</strong> ${p.nom}</td>
-      <td style="text-align:center;${coteStyle}">${coteTxt}</td>
-      <td style="text-align:center;font-size:9px;color:var(--text-dim)">${p.bookmaker||''}</td>
-    </tr>`;
-  }).join('');
-
-  document.getElementById('intl-content').innerHTML = `
-    <div class="pred-meta fade-in" style="cursor:pointer" onclick="renderIntlProgramme(intlData)">
-      ← Retour &nbsp;|&nbsp; ${flag} ${lieu} · C${courseNum} · ${heure}
-    </div>
-    <div style="padding:4px 12px 8px;font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim)">
-      ${course.nom || ''} · ${partants.length} partants
-    </div>
-    <div class="no-swipe intl-tableau">
-      <table>
-        <thead>
-          <tr>
-            <th style="text-align:center">Rang</th>
-            <th>N° / Nom</th>
-            <th style="text-align:center">Meilleure cote</th>
-            <th style="text-align:center">Bookmaker</th>
-          </tr>
-        </thead>
-        <tbody>${lignes}</tbody>
-      </table>
-    </div>`;
-}
-
-// Charger le programme intl quand on arrive sur cet onglet — géré dans goTo()
 
 // ── Dashboard Journée ──
 let dashboardCharge = false;

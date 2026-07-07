@@ -1345,7 +1345,7 @@ async function chargerIntl() {
     const cd = currentDate || new Date().toISOString().slice(0,10);
     const [y,m,d] = cd.split('-');
     const dateParam = `${d}${m}${y}`;
-    const resp = await fetch(`${API_URL}/programme_international?date=${dateParam}`);
+    const resp = await fetch(`${API_URL_PRIMARY}/programme_international?date=${dateParam}`);
     if (!resp.ok) throw new Error(`Erreur ${resp.status}`);
     intlData = await resp.json();
     renderIntlProgramme(intlData);

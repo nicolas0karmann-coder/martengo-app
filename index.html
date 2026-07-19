@@ -1162,8 +1162,8 @@ function renderConseilTrot(data) {
     const disqStyle = styleBest(disqVal, disqTop5, v=>v===disqBest);
     const driverStyle = styleBest(wrVal, wrTop5, v=>v===wrBest);
 
-    // Engagement : ratio gains_carriere / handicap_valeur
-    const plafond = h.handicap_valeur || 0;
+    // Engagement : ratio gains_carriere / plafond_gains
+    const plafond = h.plafond_gains || 0;
     const gains = h.gains_carriere || 0;
     let engagementTxt = '—', engagementStyle = 'color:var(--text-dim)';
     if (plafond > 0) {
@@ -1277,7 +1277,7 @@ function renderConseilPlat(data) {
     const dateDerniereTxt = formatDateConseil(h.date_derniere_course);
 
     // Engagement PLAT
-    const plafondP = h.handicap_valeur || 0;
+    const plafondP = h.plafond_gains || 0;
     const gainsP = h.gains_carriere || 0;
     let engTxt = '—', engStyle = 'color:var(--text-dim)';
     if (plafondP > 0) {

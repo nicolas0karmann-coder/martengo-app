@@ -1162,6 +1162,19 @@ function renderConseilTrot(data) {
     const disqStyle = styleBest(disqVal, disqTop5, v=>v===disqBest);
     const driverStyle = styleBest(wrVal, wrTop5, v=>v===wrBest);
 
+    // Engagement : ratio gains_carriere / handicap_valeur
+    const plafond = h.handicap_valeur || 0;
+    const gains = h.gains_carriere || 0;
+    let engagementTxt = '—', engagementStyle = 'color:var(--text-dim)';
+    if (plafond > 0) {
+      const ratio = gains / plafond;
+      const pct = Math.round(ratio * 100);
+      engagementTxt = `${pct}%`;
+      if (ratio >= 0.9) engagementStyle = 'color:#3a9162;font-weight:700';
+      else if (ratio >= 0.7) engagementStyle = 'color:#d4a72c;font-weight:700';
+      else engagementStyle = 'color:#e05c5c;font-weight:700';
+    }
+
     return `<tr>
       <td style="text-align:center;font-weight:700;color:var(--gold)">${rang}</td>
       <td><strong>#${h.numero}</strong> ${h.nom||''}</td>
@@ -1173,6 +1186,7 @@ function renderConseilTrot(data) {
       <td style="text-align:center">${dateDerniereTxt}</td>
       <td style="text-align:center;${disqStyle}">${tauxDisqTxt}</td>
       <td style="${driverStyle}">${driverTxt}</td>
+      <td style="text-align:center;${engagementStyle}">${engagementTxt}</td>
     </tr>`;
   }).join('');
 
@@ -1192,6 +1206,7 @@ function renderConseilTrot(data) {
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Dernière<br>course</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Taux<br>disq.</th>
             <th style="padding:8px 10px;text-align:left;color:var(--text-dim)">Jockey (% victoire)</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Engagement</th>
           </tr>
         </thead>
         <tbody>${lignes}</tbody>
@@ -1261,6 +1276,19 @@ function renderConseilPlat(data) {
     const equipementTxt = h.oeilleres_brut || '—';
     const dateDerniereTxt = formatDateConseil(h.date_derniere_course);
 
+    // Engagement PLAT
+    const plafondP = h.handicap_valeur || 0;
+    const gainsP = h.gains_carriere || 0;
+    let engTxt = '—', engStyle = 'color:var(--text-dim)';
+    if (plafondP > 0) {
+      const ratio = gainsP / plafondP;
+      const pct = Math.round(ratio * 100);
+      engTxt = `${pct}%`;
+      if (ratio >= 0.9) engStyle = 'color:#3a9162;font-weight:700';
+      else if (ratio >= 0.7) engStyle = 'color:#d4a72c;font-weight:700';
+      else engStyle = 'color:#e05c5c;font-weight:700';
+    }
+
     return `<tr>
       <td style="text-align:center;font-weight:700;color:var(--gold)">${rang}</td>
       <td><strong>#${h.numero}</strong> ${h.nom||''}</td>
@@ -1277,6 +1305,7 @@ function renderConseilPlat(data) {
       <td style="text-align:center;${descenteStyle}">${descenteTxt}</td>
       <td style="text-align:center;font-size:9px">${equipementTxt}</td>
       <td style="text-align:center">${dateDerniereTxt}</td>
+      <td style="text-align:center;${engStyle}">${engTxt}</td>
     </tr>`;
   }).join('');
 
@@ -1301,6 +1330,7 @@ function renderConseilPlat(data) {
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Descente<br>lot</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Équipement</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Dernière<br>course</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Engagement</th>
           </tr>
         </thead>
         <tbody>${lignes}</tbody>

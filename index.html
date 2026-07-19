@@ -1164,7 +1164,7 @@ function renderConseilTrot(data) {
 
     // Engagement : ratio gains_carriere / plafond_gains
     const plafond = h.plafond_gains || 0;
-    const gains = h.gains_carriere || 0;
+    const gains = (h.gains_carriere || 0) / 100;  // gains en centimes → euros
     let engagementTxt = '—', engagementStyle = 'color:var(--text-dim)';
     if (plafond > 0) {
       const ratio = gains / plafond;
@@ -1278,7 +1278,7 @@ function renderConseilPlat(data) {
 
     // Engagement PLAT
     const plafondP = h.plafond_gains || 0;
-    const gainsP = h.gains_carriere || 0;
+    const gainsP = (h.gains_carriere || 0) / 100;  // gains en centimes → euros
     let engTxt = '—', engStyle = 'color:var(--text-dim)';
     if (plafondP > 0) {
       const ratio = gainsP / plafondP;

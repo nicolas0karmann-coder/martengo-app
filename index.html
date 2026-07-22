@@ -421,28 +421,15 @@ input[readonly]{opacity:.5;cursor:default}
 </div>
 <div id="toast"></div>
 <script>
-// URLs API — HuggingFace en priorite, Render en fallback si HF indisponible
+// URL API — HuggingFace uniquement
 const API_URL_PRIMARY   = "https://karmouille69-martengo-api.hf.space";
-const API_URL_FALLBACK  = "https://martengo-api-v5.onrender.com";
-let API_URL = API_URL_PRIMARY;  // URL active (mise a jour dynamiquement)
+let API_URL = API_URL_PRIMARY;
 
-// Fetch avec fallback automatique — essaie PRIMARY puis FALLBACK
+// Fetch vers l'API Hugging Face
 async function fetchAPI(path, options = {}) {
-  const urls = [API_URL_PRIMARY, API_URL_FALLBACK];
-  let lastError = null;
-  for (const url of urls) {
-    try {
-      const r = await fetch(url + path, options);
-      if (r.ok) {
-        API_URL = url;  // Mémorise l'URL qui a marché
-        return r;
-      }
-      lastError = new Error('HTTP ' + r.status);
-    } catch(e) {
-      lastError = e;
-    }
-  }
-  throw lastError || new Error('Tous les serveurs API sont indisponibles');
+  const r = await fetch(API_URL_PRIMARY + path, options);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r;
 }
 const LS_SAISIE = 'martengo_v3', LS_HIST = 'martengo_hist';
 const SCREENS = ['saisie','selections','analyse','conseil','dashboard','safe','offensif','trio','pro','prosa','couple','stats'];
@@ -530,7 +517,7 @@ async function checkHealth(isFirst) {
     clearInterval(_hTimer);
     _hTimer=setInterval(()=>{ _hPct=Math.min(_hPct+2,85); setPmuProgress(_hPct,'Chargement des données…'); },1200);
     try {
-      const resp=await fetch(`${API_URL}/health`,{signal:AbortSignal.timeout(50000)});
+      const resp=await fetch(`${API_URL_PRIMARY}/health`,{signal:AbortSignal.timeout(50000)});
       clearInterval(_hTimer);
       if (!resp.ok) throw new Error();
       const data=await resp.json(); apiPrete=true;
@@ -539,10 +526,10 @@ async function checkHealth(isFirst) {
       banner.classList.remove('show');
       setPmuProgress(100,'✓ Prêt','#5fcd8a');
       setTimeout(()=>clearPmuProgress(),1500);
-    } catch { clearInterval(_hTimer); dot.className='dot error'; text.textContent='hors ligne'; clearPmuProgress(''); banner.classList.add('show'); showPmuRetry('Serveur en démarrage — jusqu\'à 50s sur Render Free'); }
+    } catch { clearInterval(_hTimer); dot.className='dot error'; text.textContent='hors ligne'; clearPmuProgress(''); banner.classList.add('show'); showPmuRetry('Serveur en démarrage — jusqu\'à 60s au premier lancement'); }
   } else {
     try {
-      const resp=await fetch(`${API_URL}/health`,{signal:AbortSignal.timeout(10000)});
+      const resp=await fetch(`${API_URL_PRIMARY}/health`,{signal:AbortSignal.timeout(10000)});
       if (!resp.ok) throw new Error();
       const data=await resp.json();
       if (!apiPrete) { apiPrete=true; document.getElementById('btn-pmu').disabled=false; banner.classList.remove('show'); clearPmuProgress(''); }
@@ -581,7 +568,7 @@ async function chargerNotesPMU() {
   setPmuProgress(15,'Connexion API PMU…');
   let pt=setInterval(()=>{ const b=document.getElementById('pmu-progress-bar'); if(b){const c=parseFloat(b.style.width)||15; if(c<70) setPmuProgress(c+3,'Récupération des participants…');} },700);
   try {
-    const resp=await fetch(`${API_URL}/notes_pmu?date=${datePMU}&reunion=${reunVal}&course=${coursVal}`,{signal:AbortSignal.timeout(30000)});
+    const resp=await fetch(`${API_URL_PRIMARY}/notes_pmu?date=${datePMU}&reunion=${reunVal}&course=${coursVal}`,{signal:AbortSignal.timeout(30000)});
     clearInterval(pt);
     if (!resp.ok) { const t=await resp.text(); let m=`HTTP ${resp.status}`; try{m=JSON.parse(t).error||m;}catch(_){} throw new Error(m); }
     const data=JSON.parse(await resp.text());
@@ -615,7 +602,7 @@ async function chargerEtAnalyser() {
     const payload=chevaux.filter(c=>c.numero&&c.note!==''&&c.rapport!=='').map(c=>({numero:c.numero,note:c.note,rapport:c.rapport}));
     if (payload.length>=2) {
       try {
-        const resp2=await fetch(`${API_URL}/predict`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chevaux:payload}),signal:AbortSignal.timeout(30000)});
+        const resp2=await fetch(`${API_URL_PRIMARY}/predict`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chevaux:payload}),signal:AbortSignal.timeout(30000)});
         if (resp2.ok) { predictions=await resp2.json(); renderSelections(predictions,notesPMU); renderResultForm(payload); setBadge(true); }
       } catch(_) { /* predict optionnel */ }
     }
@@ -638,7 +625,7 @@ async function lancerPrediction() {
   goTo('selections');
   document.getElementById('selections-content').innerHTML='<div class="loading-block"><div class="spinner spinner-gold"></div><span>Calcul en cours…</span></div>';
   try {
-    const resp=await fetch(`${API_URL}/predict`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chevaux:payload}),signal:AbortSignal.timeout(30000)});
+    const resp=await fetch(`${API_URL_PRIMARY}/predict`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({chevaux:payload}),signal:AbortSignal.timeout(30000)});
     if (!resp.ok) {
       const errData = await resp.json().catch(()=>null);
       const errMsg = errData?.error || `HTTP ${resp.status}`;
@@ -1073,6 +1060,25 @@ function formatDateConseil(d) {
 }
 
 // ── Routeur : choisit le tableau Conseil selon la discipline ──
+// ── Formate la musique : retourne les 7 dernières courses colorisées ──
+function formatMusique7(musique) {
+  if (!musique) return '—';
+  // Extraire chaque token : chiffre(0-9) ou lettre spéciale (D,A,T,R) suivi optionnellement d'une lettre de discipline
+  // Ignorer les parenthèses (ex: (25) = changement de distance)
+  const clean = musique.replace(/\(\d+\)/g, '');
+  const tokens = clean.match(/[0-9DATRdatr][amphscAMPHSC]?/g) || [];
+  const sept = tokens.slice(0, 7);
+  return sept.map(t => {
+    const c = t[0].toUpperCase();
+    let color = 'var(--text-dim)';
+    if (c === '1') color = '#3a9162';
+    else if (c === '2' || c === '3') color = '#5fa8d3';
+    else if (c === 'D') color = '#e05c5c';
+    else if (c === 'A' || c === 'T') color = '#d4a72c';
+    return `<span style="color:${color};font-weight:${c==='1'?'700':'400'}">${t}</span>`;
+  }).join('<span style="color:var(--text-dim);opacity:0.4">·</span>');
+}
+
 function renderConseil(data) {
   const version = data.version || 'v6';
   const isPlatConseil = version.includes('plat');
@@ -1159,9 +1165,23 @@ function renderConseilTrot(data) {
     const disqStyle = styleBest(disqVal, disqTop5, v=>v===disqBest);
     const driverStyle = styleBest(wrVal, wrTop5, v=>v===wrBest);
 
+    // Engagement : ratio gains_carriere / plafond_gains
+    const plafond = h.plafond_gains || 0;
+    const gains = (h.gains_carriere || 0) / 100;  // gains en centimes → euros
+    let engagementTxt = '—', engagementStyle = 'color:var(--text-dim)';
+    if (plafond > 0) {
+      const ratio = gains / plafond;
+      const pct = Math.round(ratio * 100);
+      engagementTxt = `${pct}%`;
+      if (ratio >= 0.9) engagementStyle = 'color:#3a9162;font-weight:700';
+      else if (ratio >= 0.7) engagementStyle = 'color:#d4a72c;font-weight:700';
+      else engagementStyle = 'color:#e05c5c;font-weight:700';
+    }
+
     return `<tr>
       <td style="text-align:center;font-weight:700;color:var(--gold)">${rang}</td>
       <td><strong>#${h.numero}</strong> ${h.nom||''}</td>
+      <td style="text-align:center;letter-spacing:0;font-family:monospace;font-size:10px">${formatMusique7(h.musique)}</td>
       <td style="text-align:center;${moyStyle}">${moyTxt}</td>
       <td style="text-align:center;${meilleurStyle}">${meilleurTxt}</td>
       <td style="text-align:center;${ferrureStyle}">${ferrureTxt}</td>
@@ -1169,6 +1189,7 @@ function renderConseilTrot(data) {
       <td style="text-align:center">${dateDerniereTxt}</td>
       <td style="text-align:center;${disqStyle}">${tauxDisqTxt}</td>
       <td style="${driverStyle}">${driverTxt}</td>
+      <td style="text-align:center;${engagementStyle}">${engagementTxt}</td>
     </tr>`;
   }).join('');
 
@@ -1180,6 +1201,7 @@ function renderConseilTrot(data) {
           <tr style="background:var(--bg2);border-bottom:1px solid var(--border)">
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Rang</th>
             <th style="padding:8px 10px;text-align:left;color:var(--text-dim)">N° / Nom</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Forme</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Médiane<br>3 dern.</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Meilleur chrono<br>(12 mois)</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Ferrure</th>
@@ -1187,6 +1209,7 @@ function renderConseilTrot(data) {
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Dernière<br>course</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Taux<br>disq.</th>
             <th style="padding:8px 10px;text-align:left;color:var(--text-dim)">Jockey (% victoire)</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Engagement</th>
           </tr>
         </thead>
         <tbody>${lignes}</tbody>
@@ -1256,9 +1279,23 @@ function renderConseilPlat(data) {
     const equipementTxt = h.oeilleres_brut || '—';
     const dateDerniereTxt = formatDateConseil(h.date_derniere_course);
 
+    // Engagement PLAT
+    const plafondP = h.plafond_gains || 0;
+    const gainsP = (h.gains_carriere || 0) / 100;  // gains en centimes → euros
+    let engTxt = '—', engStyle = 'color:var(--text-dim)';
+    if (plafondP > 0) {
+      const ratio = gainsP / plafondP;
+      const pct = Math.round(ratio * 100);
+      engTxt = `${pct}%`;
+      if (ratio >= 0.9) engStyle = 'color:#3a9162;font-weight:700';
+      else if (ratio >= 0.7) engStyle = 'color:#d4a72c;font-weight:700';
+      else engStyle = 'color:#e05c5c;font-weight:700';
+    }
+
     return `<tr>
       <td style="text-align:center;font-weight:700;color:var(--gold)">${rang}</td>
       <td><strong>#${h.numero}</strong> ${h.nom||''}</td>
+      <td style="text-align:center;letter-spacing:0;font-family:monospace;font-size:10px">${formatMusique7(h.musique)}</td>
       <td style="text-align:center;${styleBest(h.scores?.forme, formeTop5, v=>v===formeBest)}">${h.scores?.forme!=null ? h.scores.forme : '—'}</td>
       <td style="text-align:center;${styleBest(h.score_value, valeurTop5, v=>v===valeurBest)}">${h.score_value!=null ? h.score_value : '—'}</td>
       <td style="text-align:center;${poidsStyle}">${poidsTxt}</td>
@@ -1271,6 +1308,7 @@ function renderConseilPlat(data) {
       <td style="text-align:center;${descenteStyle}">${descenteTxt}</td>
       <td style="text-align:center;font-size:9px">${equipementTxt}</td>
       <td style="text-align:center">${dateDerniereTxt}</td>
+      <td style="text-align:center;${engStyle}">${engTxt}</td>
     </tr>`;
   }).join('');
 
@@ -1282,7 +1320,8 @@ function renderConseilPlat(data) {
           <tr style="background:var(--bg2);border-bottom:1px solid var(--border)">
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Rang</th>
             <th style="padding:8px 10px;text-align:left;color:var(--text-dim)">N° / Nom</th>
-            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Forme</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Musique</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Score<br>forme</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Valeur</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Poids<br>porté</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Corde</th>
@@ -1294,6 +1333,7 @@ function renderConseilPlat(data) {
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Descente<br>lot</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Équipement</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Dernière<br>course</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Engagement</th>
           </tr>
         </thead>
         <tbody>${lignes}</tbody>
@@ -1352,7 +1392,7 @@ async function chargerDashboard() {
 
   try {
     // Via notre proxy API pour éviter les problèmes CORS
-    const resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
+    const resp = await fetch(`${API_URL_PRIMARY}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
     if (!resp.ok) throw new Error('Programme indisponible (' + resp.status + ')');
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
@@ -1379,7 +1419,7 @@ async function chargerDashboard() {
     for (let i=0; i<courses.length; i+=5) {
       await Promise.all(courses.slice(i,i+5).map(async co => {
         try {
-          const r = await fetch(`${API_URL}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
+          const r = await fetch(`${API_URL_PRIMARY}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
           if (r.ok) allResults[`${co.r}-${co.c}`] = await r.json();
         } catch(e) {}
         loaded++;
@@ -1544,7 +1584,7 @@ async function testerConnexion() {
   let html = '<div style="padding:14px;font-family:Space Mono,monospace;font-size:10px;line-height:2">';
   // Test API Martengo
   try {
-    const r = await fetch(API_URL + '/health', {signal: AbortSignal.timeout(8000)});
+    const r = await fetch(API_URL_PRIMARY + '/health', {signal: AbortSignal.timeout(8000)});
     html += '<div style="color:#3a9162">✅ API Martengo OK (' + r.status + ')</div>';
   } catch(e) {
     html += '<div style="color:#8c3a3a">❌ API Martengo : ' + e.message + '</div>';
@@ -1554,7 +1594,7 @@ async function testerConnexion() {
     const today = new Date();
     const pad = n => String(n).padStart(2,'0');
     const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
-    const r = await fetch(API_URL + '/programme?date=' + dateStr, {signal: AbortSignal.timeout(10000)});
+    const r = await fetch(API_URL_PRIMARY + '/programme?date=' + dateStr, {signal: AbortSignal.timeout(10000)});
     const d = await r.json();
     html += '<div style="color:#3a9162">✅ Proxy programme OK → ' + (d.courses||[]).length + ' courses</div>';
   } catch(e) {
@@ -1577,11 +1617,11 @@ async function chargerOffensif() {
   const DISC_OK = ['ATTELE','TROT_ATTELE','MONTE'];
 
   try {
-    // Wake up Render si endormi — retry automatique
+    // Retry automatique si le serveur met du temps à répondre
     let resp;
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(40000)});
+        resp = await fetch(`${API_URL_PRIMARY}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(40000)});
         if (resp.ok) break;
       } catch(e) {
         if (attempt === 2) throw new Error('Serveur indisponible après 3 tentatives');
@@ -1611,7 +1651,7 @@ async function chargerOffensif() {
     for (let i=0; i<courses.length; i+=3) {
       await Promise.all(courses.slice(i,i+3).map(async co => {
         try {
-          const r = await fetch(`${API_URL}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`,
+          const r = await fetch(`${API_URL_PRIMARY}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`,
             {signal: AbortSignal.timeout(20000)});
           if (r.ok) allResults[`${co.r}-${co.c}`] = await r.json();
         } catch(e) {}
@@ -1740,7 +1780,7 @@ async function chargerSafe() {
   const DISC_OK = ['ATTELE','TROT_ATTELE','MONTE','TROT_MONTE'];  // ATTELÉ + MONTÉ
 
   try {
-    const resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
+    const resp = await fetch(`${API_URL_PRIMARY}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
     if (!resp.ok) throw new Error('Programme indisponible');
     const data = await resp.json();
     const courses = (data.courses || []).filter(c => {
@@ -1764,7 +1804,7 @@ async function chargerSafe() {
     for (let i=0; i<courses.length; i+=5) {
       await Promise.all(courses.slice(i,i+5).map(async co => {
         try {
-          const r = await fetch(`${API_URL}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
+          const r = await fetch(`${API_URL_PRIMARY}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
           if (r.ok) allResults[`${co.r}-${co.c}`] = await r.json();
         } catch(e) {}
         loaded++; updateProgress();
@@ -1882,7 +1922,7 @@ async function chargerTrio() {
   const DISC_OK = ['ATTELE','TROT_ATTELE','PLAT','HAIE','MONTE'];
 
   try {
-    const resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
+    const resp = await fetch(`${API_URL_PRIMARY}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
     if (!resp.ok) throw new Error('Programme indisponible');
     const data = await resp.json();
     const courses = (data.courses || []).filter(c => {
@@ -1905,7 +1945,7 @@ async function chargerTrio() {
     for (let i=0; i<courses.length; i+=5) {
       await Promise.all(courses.slice(i,i+5).map(async co => {
         try {
-          const r = await fetch(`${API_URL}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
+          const r = await fetch(`${API_URL_PRIMARY}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
           if (r.ok) allResults[`${co.r}-${co.c}`] = await r.json();
         } catch(e) {}
         loaded++; updateProgress();
@@ -2020,7 +2060,7 @@ async function chargerPro() {
   const isEuropean = (c) => c.is_european === true;
 
   try {
-    const resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
+    const resp = await fetch(`${API_URL_PRIMARY}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
     if (!resp.ok) throw new Error('Programme indisponible');
     const data = await resp.json();
     // Debug : affiche les 3 premières courses reçues
@@ -2045,7 +2085,7 @@ async function chargerPro() {
     for (let i=0; i<courses.length; i+=5) {
       await Promise.all(courses.slice(i,i+5).map(async co => {
         try {
-          const r = await fetch(`${API_URL}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
+          const r = await fetch(`${API_URL_PRIMARY}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
           if (r.ok) allResults[`${co.r}-${co.c}`] = await r.json();
         } catch(e) {}
         loaded++; updateProgress();
@@ -2252,7 +2292,7 @@ async function chargerProSA() {
   };
 
   try {
-    const resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
+    const resp = await fetch(`${API_URL_PRIMARY}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
     if (!resp.ok) throw new Error('Programme indisponible');
     const data = await resp.json();
     const courses = (data.courses || []).filter(c => {
@@ -2275,7 +2315,7 @@ async function chargerProSA() {
     for (let i=0; i<courses.length; i+=5) {
       await Promise.all(courses.slice(i,i+5).map(async co => {
         try {
-          const r = await fetch(`${API_URL}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
+          const r = await fetch(`${API_URL_PRIMARY}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
           if (r.ok) allResults[`${co.r}-${co.c}`] = await r.json();
         } catch(e) {}
         loaded++; updateProgress();
@@ -2440,7 +2480,7 @@ async function chargerCouple() {
   const DISC_LABELS = {'TROT_ATTELE':'ATTEL\u00c9','ATTELE':'ATTEL\u00c9','PLAT':'PLAT','HAIE':'HAIE','STEEPLE':'STEEPLE','CROSS':'CROSS','MONTE':'MONT\u00c9'};
 
   try {
-    const resp = await fetch(`${API_URL}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
+    const resp = await fetch(`${API_URL_PRIMARY}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
     if (!resp.ok) throw new Error('Programme indisponible');
     const data = await resp.json();
     const courses = (data.courses || [])
@@ -2461,7 +2501,7 @@ async function chargerCouple() {
     for (let i=0; i<courses.length; i+=5) {
       await Promise.all(courses.slice(i,i+5).map(async co => {
         try {
-          const r = await fetch(`${API_URL}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
+          const r = await fetch(`${API_URL_PRIMARY}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
           if (r.ok) allResults[`${co.r}-${co.c}`] = await r.json();
         } catch(e) {}
         loaded++; updateProgress();
@@ -2627,7 +2667,7 @@ async function chargerStats() {
   if (statsChargees) return;
   document.getElementById('stats-content').innerHTML='<div class="loading-block"><div class="spinner spinner-gold"></div><span>Calcul…</span></div>';
   try {
-    const resp=await fetch(`${API_URL}/health`,{signal:AbortSignal.timeout(10000)});
+    const resp=await fetch(`${API_URL_PRIMARY}/health`,{signal:AbortSignal.timeout(10000)});
     const data=resp.ok?await resp.json():{};
     const hist=JSON.parse(localStorage.getItem(LS_HIST)||'[]');
     renderStats(data.courses||0,hist); statsNbCourses=data.courses||0; statsHistData=hist; statsChargees=true;
@@ -2886,7 +2926,7 @@ async function envoyerResultats() {
   if (!ok||!cr.length){toast('Remplissez tous les rangs','error');return;}
   const btn=event.target; btn.disabled=true; btn.innerHTML='<div class="spinner"></div> Enregistrement…';
   try {
-    const resp=await fetch(`${API_URL}/ajouter`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,chevaux:cr}),signal:AbortSignal.timeout(60000)});
+    const resp=await fetch(`${API_URL_PRIMARY}/ajouter`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,chevaux:cr}),signal:AbortSignal.timeout(60000)});
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     const res=await resp.json();
     try {

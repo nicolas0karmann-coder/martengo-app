@@ -1967,14 +1967,15 @@ function calculerTrio() {
   };
 
   const fraicheurScore = (dateStr) => {
-    if (!dateStr) return 40;
+    if (!dateStr) return 30;
     const d = new Date(dateStr);
     const jours = Math.round((Date.now() - d.getTime()) / 86400000);
-    if (jours < 0)   return 40;
-    if (jours <= 30) return 100;
-    if (jours <= 60) return 100 - (jours - 30) * 1.5;
-    if (jours <= 120) return 55 - (jours - 60) * 0.5;
-    return Math.max(10, 25 - (jours - 120) * 0.1);
+    if (jours < 0)    return 30;
+    if (jours < 15)   return 80;  // très récent, léger malus (fatigue possible)
+    if (jours <= 45)  return 100; // optimal — bon rythme de course
+    if (jours <= 90)  return 100 - (jours - 45) * 1.2; // déclin progressif
+    if (jours <= 180) return 46 - (jours - 90) * 0.4;  // en manque de rythme
+    return Math.max(5, 10 - (jours - 180) * 0.05);     // absence prolongée
   };
 
   const driverScore = (wr) => {

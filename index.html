@@ -2080,13 +2080,20 @@ function _renderTrio(el, v2) {
   const scored = chevaux.map(h => {
     const elimine = [];
 
-    // Élimination Da
-    const tauxDisq = h.taux_disq ?? 0;
+    // Calcul du taux Da sur les 5 dernières courses depuis la musique
     const musiq = h.musique || '';
-    const dernierToken = musiq.replace(/\(\d+\)/g, '').match(/[0-9DATRdatr][amphscAMPHSC]?/g)?.[0]?.toUpperCase()?.[0];
+    const cleanMusiq = musiq.replace(/\(\d+\)/g, '');
+    const tokens5 = (cleanMusiq.match(/[0-9DATRdatr][amphscAMPHSC]?/g) || [])
+      .filter(t => t[1]?.toLowerCase() !== 'm') // ignorer lignes monté
+      .slice(0, 5);
+    const nbDa5 = tokens5.filter(t => t[0].toUpperCase() === 'D').length;
+    const taux5 = tokens5.length > 0 ? (nbDa5 / tokens5.length) * 100 : 0;
+    const dernierToken = tokens5[0]?.[0]?.toUpperCase();
     const dernierDa = dernierToken === 'D';
-    if (tauxDisq >= 30) elimine.push('Taux Da ≥30%');
-    if (dernierDa && tauxDisq >= 20) elimine.push('Da récent + taux ≥20%');
+
+    // Conditions d'exclusion — sur les 5 dernières courses
+    if (taux5 >= 30) elimine.push(`Da ≥30% (${nbDa5}/${tokens5.length})`);
+    if (dernierDa && taux5 >= 20) elimine.push(`Da récent + ≥20% (${nbDa5}/${tokens5.length})`);
 
     // Score vitesse (médiane 3 courses, normalisé dans le lot)
     // Score vitesse : rk_corrige en priorité (corrigé hippodrome), fallback médiane brute
@@ -2103,11 +2110,13 @@ function _renderTrio(el, v2) {
     return {
       h,
       elimine,
+      tokens5,
+      taux5,
       rk,
       pointeRk: h.rk_meilleur_an,
       pointeAge: h.rk_meilleur_an_date ? Math.round((Date.now() - new Date(h.rk_meilleur_an_date).getTime()) / 86400000) : 999,
       scoreMusique:    scoreMusique(h.musique),
-      scoreFiabilite:  Math.max(0, 100 - (tauxDisq || 0) * 3),
+      scoreFiabilite:  Math.max(0, 100 - taux5 * 3),
       scoreFerrure:    ferrureScore(h.deferre, h.changement_ferrure, h.ferrure_precedente),
       scoreEngagement: engagementScore(h.gains_carriere, h.plafond_gains, h.nb_courses_base),
       scoreDriver:     driverScore(h.driver_win_rate),
@@ -2218,7 +2227,7 @@ function _renderTrio(el, v2) {
         <span>Algo: <span style="color:var(--text)">${s.scoreAlgo}</span></span>
         <span>Critères: <span style="color:var(--text)">${Math.round(s.scoreVitesse*.25+s.scorePointe*.12+s.scoreMusique*.18+s.scoreFiabilite*.15+s.scoreFerrure*.12+s.scoreEngagement*.08+s.scoreDriver*.06+s.scoreFraicheur*.04)}</span></span>
         ${h.rk_corrige ? `<span>RK corrigé: <span style="color:var(--text)">${Math.round(h.rk_corrige)}</span></span>` : h.rk_moyenne_3courses ? `<span>RK méd: <span style="color:var(--text)">${Math.round(h.rk_moyenne_3courses)}</span></span>` : ''}
-        ${h.taux_disq != null ? `<span>Da: <span style="color:${h.taux_disq>=20?RED:'var(--text)'}">${h.taux_disq}%</span></span>` : ''}
+        ${s.tokens5.length > 0 ? `<span>Da/5: <span style="color:${s.taux5>=20?RED:'var(--text)'}">${Math.round(s.taux5)}%</span></span>` : ''}
       </div>
     </div>`;
   };

@@ -2233,9 +2233,12 @@ function _renderTrio(el, v2) {
   };
 
   const numsTop4 = top4.map(s => `#${s.h.numero}`).join(' · ');
-  const indecisWarning = indecis
+  const indecisWarning = indecis && sortedElig[4]
     ? `<div style="background:rgba(200,148,42,.1);border:1px solid rgba(200,148,42,.3);border-radius:6px;padding:8px 12px;font-family:'Space Mono',monospace;font-size:9px;color:${GOLD};margin-bottom:12px">
-        ⚠️ Écart 4e/5e = ${ecart45} pts — lot indécis, réduire la mise
+        ⚠️ Écart 4e/5e = ${ecart45} pts — lot indécis, réduire la mise<br>
+        <span style="color:var(--text);margin-top:4px;display:block">
+          5e : <strong>#${sortedElig[4].h.numero} ${sortedElig[4].h.nom}</strong> · ${sortedElig[4].scoreFinal} pts
+        </span>
       </div>` : '';
 
   const eliminésHtml = elimines.length

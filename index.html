@@ -356,11 +356,11 @@ input[readonly]{opacity:.5;cursor:default}
       <div id="trio-content">
         <div class="empty">
           <div class="empty-icon">🎯</div>
-          Trio désordre validé sur 7 semaines<br>
+          Sélection des 4 meilleurs chevaux<br>
           <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
-            #1 #2 #3 dans le top3 · si écart34≥3 · ROI +530%
+            ATTELÉ &amp; MONTE · Algorithme multi-critères
           </small>
-          <button class="btn full" onclick="chargerTrio()" style="margin-top:16px;font-size:11px">Charger Trio →</button>
+          <button class="btn full" onclick="calculerTrio()" style="margin-top:16px;font-size:11px">Calculer →</button>
         </div>
       </div>
     </div>
@@ -1105,12 +1105,6 @@ function renderConseilTrot(data) {
   const moyTop5 = new Set(moySorted.slice(0,5));
   const moyBest = moySorted[0];
 
-  // RK corrigé : plus bas = meilleur
-  const corrigeVals = liste.map(h=>h.rk_corrige!=null ? Math.round(h.rk_corrige) : null).filter(v=>v!==null);
-  const corrigeSorted = [...new Set(corrigeVals)].sort((a,b)=>a-b);
-  const corrigeTop5 = new Set(corrigeSorted.slice(0,5));
-  const corrigeBest = corrigeSorted[0];
-
   // Meilleur chrono 12 mois : plus bas = meilleur (arrondi pour matcher l'affichage)
   const meilleurVals = liste.map(h=>h.rk_meilleur_an!=null ? Math.round(h.rk_meilleur_an) : null).filter(v=>v!==null);
   const meilleurSorted = [...new Set(meilleurVals)].sort((a,b)=>a-b);
@@ -1132,13 +1126,8 @@ function renderConseilTrot(data) {
   const lignes = liste.map((h,i)=>{
     const rang = i+1;
     const moyVal = h.rk_moyenne_3courses ? Math.round(h.rk_moyenne_3courses) : null;
-    const meilleur3Val = h.rk_meilleur_3courses ? Math.round(h.rk_meilleur_3courses) : null;
-    const corrigeVal = h.rk_corrige ? Math.round(h.rk_corrige) : null;
     const meilleurVal = h.rk_meilleur_an ? Math.round(h.rk_meilleur_an) : null;
-    const moyTxt = moyVal!==null
-      ? `${moyVal}${meilleur3Val!==null && meilleur3Val!==moyVal ? ' ('+meilleur3Val+')' : ''}`
-      : '—';
-    const corrigeTxt = corrigeVal!==null ? corrigeVal : '—';
+    const moyTxt = moyVal!==null ? moyVal : '—';
     const meilleurTxt = meilleurVal!==null
       ? `${meilleurVal}${h.rk_meilleur_an_date ? ' ('+formatDateConseil(h.rk_meilleur_an_date)+')' : ''}`
       : '—';
@@ -1191,7 +1180,6 @@ function renderConseilTrot(data) {
       <td><strong>#${h.numero}</strong> ${h.nom||''}</td>
       <td style="text-align:center;letter-spacing:0;font-family:monospace;font-size:10px">${formatMusique7(h.musique)}</td>
       <td style="text-align:center;${moyStyle}">${moyTxt}</td>
-      <td style="text-align:center;${styleBest(corrigeVal, corrigeTop5, v=>v===corrigeBest)}">${corrigeTxt}</td>
       <td style="text-align:center;${meilleurStyle}">${meilleurTxt}</td>
       <td style="text-align:center;${ferrureStyle}">${ferrureTxt}</td>
       <td style="text-align:center;${changtFerrureStyle}">${changtFerrureTxt}</td>
@@ -1211,8 +1199,7 @@ function renderConseilTrot(data) {
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Rang</th>
             <th style="padding:8px 10px;text-align:left;color:var(--text-dim)">N° / Nom</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Forme</th>
-            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Médiane<br>3 dern.</th>
-            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">RK<br>corrigé</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Chrono moy.<br>3 dern.</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Meilleur chrono<br>(12 mois)</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Ferrure</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Changt<br>ferrure</th>
@@ -1921,137 +1908,284 @@ async function chargerSafe() {
 }
 
 let trioCharge = false;
-async function chargerTrio() {
-  if (trioCharge) return;
+// ── TRIO — Sélection des 4 meilleurs (ATTELÉ & MONTE) ──
+
+function calculerTrio() {
   const el = document.getElementById('trio-content');
-  el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement Trio…</span></div>';
-  const today = new Date();
-  const pad = n => String(n).padStart(2,'0');
-  const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
-  const DISC_LABELS = {'TROT_ATTELE':'ATTELÉ','ATTELE':'ATTELÉ','PLAT':'PLAT','HAIE':'HAIE','MONTE':'MONTÉ'};
-  const DISC_OK = ['ATTELE','TROT_ATTELE','PLAT','HAIE','MONTE'];
 
-  try {
-    const resp = await fetch(`${API_URL_PRIMARY}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
-    if (!resp.ok) throw new Error('Programme indisponible');
-    const data = await resp.json();
-    const courses = (data.courses || []).filter(c => {
-      const d = c.disc === 'TROT_ATTELE' ? 'ATTELE' : c.disc;
-      return DISC_OK.includes(d);
-    }).map(c => ({r: c.r_num, c: c.c_num, disc: c.disc, dist: c.dist, lieu: c.lieu, heure: c.heure}));
-
-    if (!courses.length) {
-      el.innerHTML = '<div class="empty"><div class="empty-icon">🎯</div>Aucune course éligible aujourd\'hui</div>';
-      return;
-    }
-
-    const allResults = {};
-    const total = courses.length; let loaded = 0;
-    const updateProgress = () => {
-      const pct = Math.round(loaded/total*100);
-      el.innerHTML = `<div class="dash-progress">Chargement Trio… ${loaded}/${total} (${pct}%)<div class="dash-progress-bar"><div class="dash-progress-fill" style="width:${pct}%"></div></div></div>`;
-    };
-    updateProgress();
-    for (let i=0; i<courses.length; i+=5) {
-      await Promise.all(courses.slice(i,i+5).map(async co => {
-        try {
-          const r = await fetch(`${API_URL_PRIMARY}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
-          if (r.ok) allResults[`${co.r}-${co.c}`] = await r.json();
-        } catch(e) {}
-        loaded++; updateProgress();
-      }));
-    }
-    trioCharge = true;
-
-    const byR = {};
-    for (const co of courses) {
-      if (!byR[co.r]) byR[co.r] = {lieu: co.lieu, courses:[]};
-      byR[co.r].courses.push(co);
-    }
-
-    const renderTrioRow = (co, d) => {
-      const disc    = co.disc === 'TROT_ATTELE' ? 'ATTELE' : co.disc;
-      const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
-      const chevaux = d?.chevaux || [];
-
-      if (chevaux.length < 4) {
-        return `<div class="dash-row" onclick="${onclick}" style="opacity:.4">
-          <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
-          <div><div class="dash-cheval" style="color:var(--text-dim)">Moins de 4 partants</div><div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m</div></div>
-          <div><div class="dash-signal skip">⛔ SKIP</div></div>
-        </div>`;
-      }
-
-      const sorted = [...chevaux].sort((a,b) => {
-        if (b.note_pmu !== a.note_pmu) return b.note_pmu - a.note_pmu;
-        return (b.proba_pmu||0) - (a.proba_pmu||0);
-      });
-
-      const h1=sorted[0], h2=sorted[1], h3=sorted[2], h4=sorted[3];
-      const note3   = h3.note_pmu ?? 0;
-      const note4   = h4.note_pmu ?? 0;
-      const ecart34 = note3 - note4;
-      const nom1 = h1.nom ? h1.nom.split(' ')[0] : `#${h1.numero}`;
-      const nom2 = h2.nom ? h2.nom.split(' ')[0] : `#${h2.numero}`;
-      const nom3 = h3.nom ? h3.nom.split(' ')[0] : `#${h3.numero}`;
-
-      // Stratégie validée vrais rapports PMU Jan→Mars 2026
-      // TRIO sur TOUTES confiances · taux 46→67% · ROI +4327%→+6403%
-      const confTrio = d?.confiance || '';
-      const trioSignal = true;  // toutes les courses ATTELÉ
-      const confPictoTrio = confTrio === 'fort'
-        ? '<span style="font-size:14px">🔥</span>'
-        : confTrio === 'moyen'
-        ? '<span style="font-size:14px">〜</span>'
-        : '<span style="font-size:14px">❄️</span>';
-
-      return '<div class="dash-row" onclick="' + onclick + '" style="border-left:2px solid #8a6cbf;grid-template-columns:48px 1fr">'
-        + '<div><div class="dash-course">R' + co.r + 'C' + co.c + '</div><div style="font-size:9px;color:var(--text-dim)">' + co.heure + '</div></div>'
-        + '<div style="min-width:0">'
-        + '<div style="display:flex;justify-content:space-between;align-items:flex-start">'
-        + '<div>'
-        + '<div class="dash-cheval" style="font-size:10px">#' + h1.numero + ' ' + nom1 + ' · #' + h2.numero + ' ' + nom2 + ' · #' + h3.numero + ' ' + nom3 + '</div>'
-        + '<div class="dash-disc">' + (DISC_LABELS[co.disc]||co.disc) + ' · ' + co.dist + 'm · e34:' + ecart34 + ' · ' + sorted.length + 'p</div>'
-        + '<div style="margin-top:4px;display:flex;gap:4px;align-items:center">'
-        + confPictoTrio
-        + '<span style="background:rgba(138,108,191,.2);border:1px solid rgba(138,108,191,.5);border-radius:4px;padding:2px 8px;color:#8a6cbf;font-size:8px;font-weight:700">🎯 TRIO 0.50€ · #' + h1.numero + '-#' + h2.numero + '-#' + h3.numero + '</span>'
-        + '</div>'
-        + '</div>'
-        + '</div>'
-        + '</div>'
-        + '</div>';
-    };
-
-    // Compteur
-    let n_trio = 0, n_passer = 0;
-    for (const co of courses) {
-      const d = allResults[`${co.r}-${co.c}`];
-      if (!d?.chevaux?.length || d.chevaux.length < 4) continue;
-      const sorted = [...d.chevaux].sort((a,b) => b.note_pmu-a.note_pmu);
-      const ecart34 = (sorted[2]?.note_pmu??0) - (sorted[3]?.note_pmu??0);
-      n_trio++;  // toutes les courses ATTELÉ
-    }
-
-    let html = `<div class="dash-refresh">
-      <span>🎯 Trio · ${n_trio} paris · ${n_passer} passés</span>
-      <button onclick="trioCharge=false;chargerTrio()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
-    </div>
-    <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
-      🎯 TRIO 0.50€ sur toutes les courses <span style="color:#8a6cbf">ROI +4327%→+6403% · taux 46→67% · médiane 29→41€ · vrais rapports PMU</span> · ATTELÉ uniquement
+  // Vérifier qu'une course est chargée
+  if (!notesPMUData || !notesPMUData.chevaux || notesPMUData.chevaux.length < 4) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">🎯</div>
+      Chargez d'abord une course ATTELÉ ou MONTE<br>
+      <small style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">
+        depuis l'onglet Saisie
+      </small>
+      <button class="btn full" onclick="goTo('saisie')" style="margin-top:16px;font-size:11px">Aller à Saisie →</button>
     </div>`;
-
-    for (const [rNum, rd] of Object.entries(byR)) {
-      html += `<div class="dash-reunion">R${rNum} · ${rd.lieu}</div>`;
-      for (const co of rd.courses) {
-        html += renderTrioRow(co, allResults[`${co.r}-${co.c}`]);
-      }
-    }
-    el.innerHTML = html;
-
-  } catch(e) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>${e.message}<br>
-    <button class="btn secondary" onclick="trioCharge=false;chargerTrio()" style="margin-top:12px;font-size:10px">↺ Réessayer</button></div>`;
+    return;
   }
+
+  const version = notesPMUData.version || '';
+  const isAttele = version.includes('attele') || version.includes('galop') || version.includes('v15');
+  const isMonte  = version.includes('monte');
+  if (!isAttele && !isMonte) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">🎯</div>
+      L'onglet TRIO est disponible uniquement pour ATTELÉ et MONTE<br>
+      <small style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">
+        Chargez une course de trot
+      </small>
+    </div>`;
+    return;
+  }
+
+  const chevaux = notesPMUData.chevaux;
+  const GREEN = '#3a9162';
+  const GOLD  = '#c8942a';
+  const RED   = '#e05c5c';
+
+  // ── 0. Helpers ──────────────────────────────────────────────────────────────
+
+  const scoreMusique = (musique) => {
+    if (!musique) return 50;
+    const pts = {1:20, 2:15, 3:12, 4:8, 5:6};
+    const clean = musique.replace(/\(\d+\)/g, '');
+    const tokens = clean.match(/[0-9DATRdatr][amphscAMPHSC]?/g) || [];
+    let num = 0, den = 0, i = 0;
+    for (const t of tokens) {
+      const c = t[0].toUpperCase();
+      const suf = t[1]?.toLowerCase() || '';
+      if (suf === 'm') { i++; continue; } // ignorer lignes monté
+      const w = Math.pow(0.85, i);
+      if (c === 'D') num += -15 * w;
+      else if (c === 'A' || c === 'T') { i++; continue; }
+      else { const n = parseInt(c); num += (pts[n] ?? (n >= 6 ? 3 : 0)) * w; }
+      den += w;
+      i++;
+      if (i >= 10) break;
+    }
+    return den > 0 ? Math.round((num / den) * 5 + 50) : 50; // normalise 0-100
+  };
+
+  const fraicheurScore = (dateStr) => {
+    if (!dateStr) return 40;
+    const d = new Date(dateStr);
+    const jours = Math.round((Date.now() - d.getTime()) / 86400000);
+    if (jours < 0)   return 40;
+    if (jours <= 30) return 100;
+    if (jours <= 60) return 100 - (jours - 30) * 1.5;
+    if (jours <= 120) return 55 - (jours - 60) * 0.5;
+    return Math.max(10, 25 - (jours - 120) * 0.1);
+  };
+
+  const driverScore = (wr) => {
+    if (wr == null) return 50;
+    return Math.min(100, Math.round(wr));
+  };
+
+  const ferrureScore = (deferre, changement, precedente) => {
+    const ordre = {FERRE:0, DEFERRE_PARTIEL:1, DEFERRE_TOTAL:2};
+    let base = deferre === 'DEFERRE_TOTAL' ? 70 : deferre === 'DEFERRE_PARTIEL' ? 60 : 50;
+    if (changement === true && precedente) {
+      const avant = ordre[precedente] ?? -1;
+      const apres = ordre[deferre]    ?? -1;
+      if (apres > avant) base += 20; // amélioration
+      else if (apres < avant) base -= 15; // régression
+    }
+    return Math.min(100, Math.max(0, base));
+  };
+
+  const engagementScore = (gains, plafond, nbCourses) => {
+    if (!plafond || plafond <= 0) return 50;
+    const gainsEuros = (gains || 0) / 100;
+    const ref = Math.max(nbCourses || 1, 15);
+    const corrected = gainsEuros * (ref / Math.max(nbCourses || 1, ref));
+    const ratio = corrected / plafond;
+    if (ratio < 0.30) return 20;
+    if (ratio < 0.60) return 40 + (ratio - 0.30) / 0.30 * 30;
+    if (ratio <= 1.00) return 70 + (ratio - 0.60) / 0.40 * 30;
+    return 60; // dépasse le plafond
+  };
+
+  // ── 1. Filtres éliminatoires ────────────────────────────────────────────────
+
+  const POIDS = {vitesse:25, pointe:12, musique:18, fiabilite:15, ferrure:12, engagement:8, driver:6, fraicheur:4};
+
+  const scored = chevaux.map(h => {
+    const elimine = [];
+
+    // Élimination Da
+    const tauxDisq = h.taux_disq ?? 0;
+    const musiq = h.musique || '';
+    const dernierToken = musiq.replace(/\(\d+\)/g, '').match(/[0-9DATRdatr][amphscAMPHSC]?/g)?.[0]?.toUpperCase()?.[0];
+    const dernierDa = dernierToken === 'D';
+    if (tauxDisq >= 30) elimine.push('Taux Da ≥30%');
+    if (dernierDa && tauxDisq >= 20) elimine.push('Da récent + taux ≥20%');
+
+    // Score vitesse (médiane 3 courses, normalisé dans le lot)
+    const rk = h.rk_moyenne_3courses || h.rk_corrige || null;
+
+    // Score pointe (meilleur 12 mois, pondéré par ancienneté)
+    let pointeScore = 50;
+    if (h.rk_meilleur_an && h.rk_meilleur_an_date) {
+      const ageJours = Math.round((Date.now() - new Date(h.rk_meilleur_an_date).getTime()) / 86400000);
+      const facteur = ageJours <= 120 ? 1 : ageJours <= 240 ? 0.7 : 0.4;
+      pointeScore = facteur * 80 + 20; // sera normalisé après
+    }
+
+    return {
+      h,
+      elimine,
+      rk,
+      pointeRk: h.rk_meilleur_an,
+      pointeAge: h.rk_meilleur_an_date ? Math.round((Date.now() - new Date(h.rk_meilleur_an_date).getTime()) / 86400000) : 999,
+      scoreMusique:    scoreMusique(h.musique),
+      scoreFiabilite:  Math.max(0, 100 - (tauxDisq || 0) * 3),
+      scoreFerrure:    ferrureScore(h.deferre, h.changement_ferrure, h.ferrure_precedente),
+      scoreEngagement: engagementScore(h.gains_carriere, h.plafond_gains, h.nb_courses_base),
+      scoreDriver:     driverScore(h.driver_win_rate),
+      scoreFraicheur:  fraicheurScore(h.date_derniere_course),
+      algoScore:       (h.note_pmu || 0),
+    };
+  });
+
+  // ── 2. Normalisation vitesse et pointe dans le lot ──────────────────────────
+
+  const rks = scored.map(s => s.rk).filter(v => v != null);
+  const rkMin = Math.min(...rks), rkMax = Math.max(...rks);
+  const pointes = scored.map(s => s.pointeRk).filter(v => v != null);
+  const poMin = Math.min(...pointes), poMax = Math.max(...pointes);
+  const algoMin = Math.min(...scored.map(s => s.algoScore));
+  const algoMax = Math.max(...scored.map(s => s.algoScore));
+
+  const norm = (val, min, max, inverse=false) => {
+    if (max === min || val == null) return 50;
+    const n = (val - min) / (max - min) * 100;
+    return Math.round(inverse ? 100 - n : n);
+  };
+
+  scored.forEach(s => {
+    s.scoreVitesse    = norm(s.rk, rkMin, rkMax, true); // plus bas = meilleur
+    s.scorePointe     = norm(s.pointeRk, poMin, poMax, true);
+    s.scoreAlgo       = norm(s.algoScore, algoMin, algoMax, false);
+
+    // Score final — fusion algo (50%) + critères (50%)
+    const criteres = (
+      s.scoreVitesse    * POIDS.vitesse +
+      s.scorePointe     * POIDS.pointe +
+      s.scoreMusique    * POIDS.musique +
+      s.scoreFiabilite  * POIDS.fiabilite +
+      s.scoreFerrure    * POIDS.ferrure +
+      s.scoreEngagement * POIDS.engagement +
+      s.scoreDriver     * POIDS.driver +
+      s.scoreFraicheur  * POIDS.fraicheur
+    ) / 100;
+
+    s.scoreFinal = Math.round(s.scoreAlgo * 0.50 + criteres * 0.50);
+  });
+
+  // ── 3. Sélection des 4 ──────────────────────────────────────────────────────
+
+  const eligibles = scored.filter(s => s.elimine.length === 0);
+  const elimines  = scored.filter(s => s.elimine.length > 0);
+
+  const sortedElig = [...eligibles].sort((a,b) => b.scoreFinal - a.scoreFinal);
+  const top4 = sortedElig.slice(0, 4);
+
+  // Vérifier si le 4e et 5e sont trop proches (lot indécis)
+  const ecart45 = top4.length === 4 && sortedElig[4]
+    ? top4[3].scoreFinal - sortedElig[4].scoreFinal
+    : 99;
+  const indecis = ecart45 < 3;
+
+  // ── 4. Rendu ────────────────────────────────────────────────────────────────
+
+  const barColor = (score) =>
+    score >= 70 ? GREEN : score >= 45 ? GOLD : RED;
+
+  const barHtml = (label, score, poids) => {
+    const col = barColor(score);
+    return `<div style="margin-bottom:4px">
+      <div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text-dim);margin-bottom:2px">
+        <span>${label}</span><span style="color:${col}">${Math.round(score)}</span>
+      </div>
+      <div style="height:3px;background:var(--border);border-radius:2px;overflow:hidden">
+        <div style="height:100%;width:${Math.round(score)}%;background:${col};border-radius:2px;transition:width .3s"></div>
+      </div>
+    </div>`;
+  };
+
+  const cardHtml = (s, rang) => {
+    const h = s.h;
+    const rankColors = ['#c8942a','#9a8e7c','#7a6e5c','#5a5248'];
+    const rc = rankColors[rang] || '#5a5248';
+    const elimTag = s.elimine.length
+      ? `<span style="color:${RED};font-size:8px">⛔ ${s.elimine.join(' · ')}</span>`
+      : '';
+    return `<div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;background:var(--bg2)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div style="width:32px;height:32px;border-radius:50%;background:${rc}22;border:2px solid ${rc};display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:16px;color:${rc};flex-shrink:0">${rang+1}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:13px">#${h.numero} ${h.nom||''}</div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">${h.driver||'—'} · ${h.musique ? h.musique.slice(0,20) : '—'}</div>
+          ${elimTag}
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:${rc};line-height:1">${s.scoreFinal}</div>
+          <div style="font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim)">/ 100</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 16px">
+        ${barHtml('Vitesse (médiane RK)', s.scoreVitesse, 25)}
+        ${barHtml('Pointe 12 mois', s.scorePointe, 12)}
+        ${barHtml('Musique / régularité', s.scoreMusique, 18)}
+        ${barHtml('Fiabilité (anti-Da)', s.scoreFiabilite, 15)}
+        ${barHtml('Ferrure + changement', s.scoreFerrure, 12)}
+        ${barHtml('Engagement', s.scoreEngagement, 8)}
+        ${barHtml('Driver', s.scoreDriver, 6)}
+        ${barHtml('Fraîcheur', s.scoreFraicheur, 4)}
+      </div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);display:flex;gap:12px;flex-wrap:wrap">
+        <span>Algo: <span style="color:var(--text)">${s.scoreAlgo}</span></span>
+        <span>Critères: <span style="color:var(--text)">${Math.round(s.scoreVitesse*.25+s.scorePointe*.12+s.scoreMusique*.18+s.scoreFiabilite*.15+s.scoreFerrure*.12+s.scoreEngagement*.08+s.scoreDriver*.06+s.scoreFraicheur*.04)}</span></span>
+        ${h.rk_moyenne_3courses ? `<span>RK méd: <span style="color:var(--text)">${Math.round(h.rk_moyenne_3courses)}</span></span>` : ''}
+        ${h.taux_disq != null ? `<span>Da: <span style="color:${h.taux_disq>=20?RED:'var(--text)'}">${h.taux_disq}%</span></span>` : ''}
+      </div>
+    </div>`;
+  };
+
+  const numsTop4 = top4.map(s => `#${s.h.numero}`).join(' · ');
+  const indecisWarning = indecis
+    ? `<div style="background:rgba(200,148,42,.1);border:1px solid rgba(200,148,42,.3);border-radius:6px;padding:8px 12px;font-family:'Space Mono',monospace;font-size:9px;color:${GOLD};margin-bottom:12px">
+        ⚠️ Écart 4e/5e = ${ecart45} pts — lot indécis, réduire la mise
+      </div>` : '';
+
+  const eliminésHtml = elimines.length
+    ? `<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
+        <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);margin-bottom:8px">ÉLIMINÉS</div>
+        ${elimines.map(s => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-family:'Space Mono',monospace;font-size:9px;opacity:.6">
+          <span style="color:${RED}">⛔</span>
+          <span>#${s.h.numero} ${s.h.nom||''}</span>
+          <span style="color:${RED};margin-left:auto">${s.elimine.join(' · ')}</span>
+        </div>`).join('')}
+      </div>` : '';
+
+  el.innerHTML = `
+    <div style="padding:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;color:${GOLD}">🎯 SÉLECTION TRIO</div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">${notesPMUData.date||''} · R${notesPMUData.reunion||''}C${notesPMUData.course||''} · ${chevaux.length} partants</div>
+        </div>
+        <button onclick="calculerTrio()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:4px 10px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
+      </div>
+      <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-family:'Space Mono',monospace;font-size:11px;text-align:center">
+        <span style="color:var(--text-dim);font-size:9px">TOP 4 SÉLECTIONNÉS</span><br>
+        <span style="font-weight:700;color:${GREEN};font-size:14px">${numsTop4}</span>
+      </div>
+      ${indecisWarning}
+      ${top4.map((s, i) => cardHtml(s, i)).join('')}
+      ${eliminésHtml}
+    </div>`;
 }
 
 // ── PRO ──

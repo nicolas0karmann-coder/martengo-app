@@ -2089,7 +2089,8 @@ function _renderTrio(el, v2) {
     if (dernierDa && tauxDisq >= 20) elimine.push('Da récent + taux ≥20%');
 
     // Score vitesse (médiane 3 courses, normalisé dans le lot)
-    const rk = h.rk_moyenne_3courses || h.rk_corrige || null;
+    // Score vitesse : rk_corrige en priorité (corrigé hippodrome), fallback médiane brute
+    const rk = h.rk_corrige || h.rk_moyenne_3courses || null;
 
     // Score pointe (meilleur 12 mois, pondéré par ancienneté)
     let pointeScore = 50;
@@ -2204,7 +2205,7 @@ function _renderTrio(el, v2) {
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 16px">
-        ${barHtml('Vitesse (médiane RK)', s.scoreVitesse, 25)}
+        ${barHtml('Vitesse (RK corrigé)', s.scoreVitesse, 25)}
         ${barHtml('Pointe 12 mois', s.scorePointe, 12)}
         ${barHtml('Musique / régularité', s.scoreMusique, 18)}
         ${barHtml('Fiabilité (anti-Da)', s.scoreFiabilite, 15)}
@@ -2216,7 +2217,7 @@ function _renderTrio(el, v2) {
       <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);display:flex;gap:12px;flex-wrap:wrap">
         <span>Algo: <span style="color:var(--text)">${s.scoreAlgo}</span></span>
         <span>Critères: <span style="color:var(--text)">${Math.round(s.scoreVitesse*.25+s.scorePointe*.12+s.scoreMusique*.18+s.scoreFiabilite*.15+s.scoreFerrure*.12+s.scoreEngagement*.08+s.scoreDriver*.06+s.scoreFraicheur*.04)}</span></span>
-        ${h.rk_moyenne_3courses ? `<span>RK méd: <span style="color:var(--text)">${Math.round(h.rk_moyenne_3courses)}</span></span>` : ''}
+        ${h.rk_corrige ? `<span>RK corrigé: <span style="color:var(--text)">${Math.round(h.rk_corrige)}</span></span>` : h.rk_moyenne_3courses ? `<span>RK méd: <span style="color:var(--text)">${Math.round(h.rk_moyenne_3courses)}</span></span>` : ''}
         ${h.taux_disq != null ? `<span>Da: <span style="color:${h.taux_disq>=20?RED:'var(--text)'}">${h.taux_disq}%</span></span>` : ''}
       </div>
     </div>`;

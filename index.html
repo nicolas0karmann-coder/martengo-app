@@ -1105,6 +1105,12 @@ function renderConseilTrot(data) {
   const moyTop5 = new Set(moySorted.slice(0,5));
   const moyBest = moySorted[0];
 
+  // RK corrigé : plus bas = meilleur
+  const corrigeVals = liste.map(h=>h.rk_corrige!=null ? Math.round(h.rk_corrige) : null).filter(v=>v!==null);
+  const corrigeSorted = [...new Set(corrigeVals)].sort((a,b)=>a-b);
+  const corrigeTop5 = new Set(corrigeSorted.slice(0,5));
+  const corrigeBest = corrigeSorted[0];
+
   // Meilleur chrono 12 mois : plus bas = meilleur (arrondi pour matcher l'affichage)
   const meilleurVals = liste.map(h=>h.rk_meilleur_an!=null ? Math.round(h.rk_meilleur_an) : null).filter(v=>v!==null);
   const meilleurSorted = [...new Set(meilleurVals)].sort((a,b)=>a-b);
@@ -1127,10 +1133,12 @@ function renderConseilTrot(data) {
     const rang = i+1;
     const moyVal = h.rk_moyenne_3courses ? Math.round(h.rk_moyenne_3courses) : null;
     const meilleur3Val = h.rk_meilleur_3courses ? Math.round(h.rk_meilleur_3courses) : null;
+    const corrigeVal = h.rk_corrige ? Math.round(h.rk_corrige) : null;
     const meilleurVal = h.rk_meilleur_an ? Math.round(h.rk_meilleur_an) : null;
     const moyTxt = moyVal!==null
       ? `${moyVal}${meilleur3Val!==null && meilleur3Val!==moyVal ? ' ('+meilleur3Val+')' : ''}`
       : '—';
+    const corrigeTxt = corrigeVal!==null ? corrigeVal : '—';
     const meilleurTxt = meilleurVal!==null
       ? `${meilleurVal}${h.rk_meilleur_an_date ? ' ('+formatDateConseil(h.rk_meilleur_an_date)+')' : ''}`
       : '—';
@@ -1183,6 +1191,7 @@ function renderConseilTrot(data) {
       <td><strong>#${h.numero}</strong> ${h.nom||''}</td>
       <td style="text-align:center;letter-spacing:0;font-family:monospace;font-size:10px">${formatMusique7(h.musique)}</td>
       <td style="text-align:center;${moyStyle}">${moyTxt}</td>
+      <td style="text-align:center;${styleBest(corrigeVal, corrigeTop5, v=>v===corrigeBest)}">${corrigeTxt}</td>
       <td style="text-align:center;${meilleurStyle}">${meilleurTxt}</td>
       <td style="text-align:center;${ferrureStyle}">${ferrureTxt}</td>
       <td style="text-align:center;${changtFerrureStyle}">${changtFerrureTxt}</td>
@@ -1203,6 +1212,7 @@ function renderConseilTrot(data) {
             <th style="padding:8px 10px;text-align:left;color:var(--text-dim)">N° / Nom</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Forme</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Médiane<br>3 dern.</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">RK<br>corrigé</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Meilleur chrono<br>(12 mois)</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Ferrure</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Changt<br>ferrure</th>

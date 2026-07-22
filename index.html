@@ -2092,8 +2092,8 @@ function _renderTrio(el, v2) {
     const dernierDa = dernierToken === 'D';
 
     // Conditions d'exclusion — sur les 5 dernières courses
-    if (taux5 >= 30) elimine.push(`Da ≥30% (${nbDa5}/${tokens5.length})`);
-    if (dernierDa && taux5 >= 20) elimine.push(`Da récent + ≥20% (${nbDa5}/${tokens5.length})`);
+    if (taux5 >= 50) elimine.push(`Da ≥50% (${nbDa5}/${tokens5.length})`);
+    if (dernierDa && taux5 >= 50) elimine.push(`Da récent + ≥50% (${nbDa5}/${tokens5.length})`);
 
     // Score vitesse (médiane 3 courses, normalisé dans le lot)
     // Score vitesse : rk_corrige en priorité (corrigé hippodrome), fallback médiane brute

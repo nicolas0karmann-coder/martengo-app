@@ -1192,11 +1192,12 @@ function renderConseilTrot(data) {
     // Engagement : ratio gains_carriere / plafond_gains
     const plafond = h.plafond_gains || 0;
     const gains = (h.gains_carriere || 0) / 100;  // gains en centimes → euros
+    const nbC = h.nb_courses_base || null;
     let engagementTxt = '—', engagementStyle = 'color:var(--text-dim)';
     if (plafond > 0) {
       const ratio = gains / plafond;
       const pct = Math.round(ratio * 100);
-      engagementTxt = `${pct}%`;
+      engagementTxt = `${pct}%${nbC ? ' <span style="font-size:8px;opacity:.7">('+nbC+'c)</span>' : ''}`;
       if (ratio >= 0.9) engagementStyle = 'color:#3a9162;font-weight:700';
       else if (ratio >= 0.7) engagementStyle = 'color:#d4a72c;font-weight:700';
       else engagementStyle = 'color:#e05c5c;font-weight:700';
@@ -1308,11 +1309,12 @@ function renderConseilPlat(data) {
     // Engagement PLAT
     const plafondP = h.plafond_gains || 0;
     const gainsP = (h.gains_carriere || 0) / 100;  // gains en centimes → euros
+    const nbCP = h.nb_courses_base || null;
     let engTxt = '—', engStyle = 'color:var(--text-dim)';
     if (plafondP > 0) {
       const ratio = gainsP / plafondP;
       const pct = Math.round(ratio * 100);
-      engTxt = `${pct}%`;
+      engTxt = `${pct}%${nbCP ? ' <span style="font-size:8px;opacity:.7">('+nbCP+'c)</span>' : ''}`;
       if (ratio >= 0.9) engStyle = 'color:#3a9162;font-weight:700';
       else if (ratio >= 0.7) engStyle = 'color:#d4a72c;font-weight:700';
       else engStyle = 'color:#e05c5c;font-weight:700';

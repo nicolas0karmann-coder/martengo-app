@@ -2086,9 +2086,13 @@ function _renderTrio(el) {
     const dernierToken = tokens5[0]?.[0]?.toUpperCase();
     const dernierDa = dernierToken === 'D';
 
-    // Conditions d'exclusion — sur les 5 dernières courses
-    if (taux5 >= 50) elimine.push(`Da ≥50% (${nbDa5}/${tokens5.length})`);
-    if (dernierDa && taux5 >= 50) elimine.push(`Da récent + ≥50% (${nbDa5}/${tokens5.length})`);
+    // Da (disqualifications) : géré par une pénalité progressive (scoreFiabilite,
+    // 15% du score, ×3 sur le taux de Da), pas par une élimination automatique —
+    // audité sur 75 courses (20-22/07) : cette élimination ne se déclenchait que sur
+    // 2.7% des courses et n'a changé le résultat sur aucune d'elles. La retirer
+    // reste cohérent avec le principe déjà appliqué à l'absence et à la vitesse :
+    // un dossier par ailleurs solide ne doit pas être écarté d'office pour un seul
+    // critère faible, tant que la pénalité de score fait déjà son travail.
 
     // Absence prolongée : gérée par une pénalité progressive (scoreFraicheur, 10%
     // du score), pas par une élimination automatique — un cheval au dossier
@@ -2165,9 +2169,9 @@ function _renderTrio(el) {
 
     // Temps nettement plus faible que le lot — seulement si le lot a un écart significatif
     // (évite d'éliminer tout un lot très serré) et si le cheval est vraiment au fond du classement
-    if (s.rk != null && spreadVitesse > 0 && s.scoreVitesse < 15) {
-      s.elimine.push(`Temps nettement plus faible que le lot (RK ${Math.round(s.rk)})`);
-    }
+    // Vitesse nettement plus faible que le lot : géré par la pénalité graduée du
+    // z-score ci-dessus (déjà sévère : ~10-15/100 pour un cheval très en retrait),
+    // pas par une élimination automatique — même logique et même audit que ci-dessus.
 
     // Score final — fusion algo (50%) + critères (50%)
     const criteres = (

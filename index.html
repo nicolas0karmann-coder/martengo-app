@@ -2070,7 +2070,12 @@ function _renderTrio(el) {
 
   // ── 1. Filtres éliminatoires ────────────────────────────────────────────────
 
-  const POIDS = {vitesse:30, pointe:8, musique:18, fiabilite:15, ferrure:12, engagement:8, driver:5, fraicheur:10};
+  // Poids recalibrés sur backtest 75 courses (20-22/07/2026) : l'algo (scoreAlgo)
+  // s'est révélé le critère le plus prédictif (corrélation +0.36 avec une place
+  // top3 réelle, loin devant les autres) et le driver nettement sous-pondéré
+  // (+0.24, devant vitesse/fiabilité/ferrure malgré son poids initial de 5%).
+  // Repondération testée en A/B : 22.7% de réussite complète vs 16.0% avant.
+  const POIDS = {vitesse:22, pointe:8, musique:18, fiabilite:6, ferrure:8, engagement:4, driver:12, fraicheur:2, algo:20};
 
   const scored = chevaux.map(h => {
     const elimine = [];
@@ -2173,7 +2178,10 @@ function _renderTrio(el) {
     // z-score ci-dessus (déjà sévère : ~10-15/100 pour un cheval très en retrait),
     // pas par une élimination automatique — même logique et même audit que ci-dessus.
 
-    // Score final — fusion algo (50%) + critères (50%)
+    // Le modèle (algo PMU) est désormais un critère pondéré à part entière (20%) —
+    // le backtest sur 75 courses a montré que c'est en fait le signal le plus
+    // prédictif de tous (corrélation +0.36 avec une place réelle dans le top3),
+    // largement au-dessus de son ancien rôle de simple départage ±8 points.
     const criteres = (
       s.scoreVitesse    * POIDS.vitesse +
       s.scorePointe     * POIDS.pointe +
@@ -2182,15 +2190,11 @@ function _renderTrio(el) {
       s.scoreFerrure    * POIDS.ferrure +
       s.scoreEngagement * POIDS.engagement +
       s.scoreDriver     * POIDS.driver +
-      s.scoreFraicheur  * POIDS.fraicheur
+      s.scoreFraicheur  * POIDS.fraicheur +
+      s.scoreAlgo       * POIDS.algo
     ) / 100;
 
-    // Le modèle (algo PMU) sert de départageur, pas de critère à poids fixe :
-    // il ne peut faire pencher la balance que de ±8 points, pour trancher entre
-    // des chevaux déjà proches sur les critères — jamais dominer un écart de critères franc.
-    const bonusAlgo = (s.scoreAlgo - 50) * 0.16; // amplitude max ≈ ±8 pts
-
-    s.scoreFinal = Math.round(criteres + bonusAlgo);
+    s.scoreFinal = Math.round(criteres);
   });
 
   // ── 3. Sélection des 4 ──────────────────────────────────────────────────────
@@ -2245,18 +2249,18 @@ function _renderTrio(el) {
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 16px">
-        ${barHtml('Vitesse (RK corrigé)', s.scoreVitesse, 30)}
-        ${barHtml('Pointe 12 mois', s.scorePointe, 8)}
+        ${barHtml('Vitesse (RK corrigé)', s.scoreVitesse, 22)}
+        ${barHtml('Modèle (algo PMU)', s.scoreAlgo, 20)}
         ${barHtml('Musique / régularité', s.scoreMusique, 18)}
-        ${barHtml('Fiabilité (anti-Da)', s.scoreFiabilite, 15)}
-        ${barHtml('Ferrure + changement', s.scoreFerrure, 12)}
-        ${barHtml('Engagement', s.scoreEngagement, 8)}
-        ${barHtml('Driver', s.scoreDriver, 5)}
-        ${barHtml('Fraîcheur', s.scoreFraicheur, 10)}
+        ${barHtml('Driver', s.scoreDriver, 12)}
+        ${barHtml('Pointe 12 mois', s.scorePointe, 8)}
+        ${barHtml('Ferrure + changement', s.scoreFerrure, 8)}
+        ${barHtml('Fiabilité (anti-Da)', s.scoreFiabilite, 6)}
+        ${barHtml('Engagement', s.scoreEngagement, 4)}
+        ${barHtml('Fraîcheur', s.scoreFraicheur, 2)}
       </div>
       <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);display:flex;gap:12px;flex-wrap:wrap">
-        <span>Modèle (départage): <span style="color:var(--text)">${s.scoreAlgo}</span></span>
-        <span>Critères: <span style="color:var(--text)">${Math.round(s.scoreVitesse*.30+s.scorePointe*.08+s.scoreMusique*.18+s.scoreFiabilite*.15+s.scoreFerrure*.12+s.scoreEngagement*.08+s.scoreDriver*.05+s.scoreFraicheur*.10)}</span></span>
+        <span>Score final: <span style="color:var(--text)">${s.scoreFinal}</span></span>
         ${h.rk_corrige ? `<span>RK corrigé: <span style="color:var(--text)">${Math.round(h.rk_corrige)}</span></span>` : h.rk_moyenne_3courses ? `<span>RK méd: <span style="color:var(--text)">${Math.round(h.rk_moyenne_3courses)}</span></span>` : ''}
         ${s.tokens5.length > 0 ? `<span>Da/5: <span style="color:${s.taux5>=20?RED:'var(--text)'}">${Math.round(s.taux5)}%</span></span>` : ''}
       </div>
@@ -2287,7 +2291,7 @@ function _renderTrio(el) {
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div>
           <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;color:${GOLD}">🎯 SÉLECTION TRIO</div>
-          <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">${notesPMUData.date||''} · R${notesPMUData.reunion||''}C${notesPMUData.course||''} · ${chevaux.length} partants · Critères + modèle (départage)</div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">${notesPMUData.date||''} · R${notesPMUData.reunion||''}C${notesPMUData.course||''} · ${chevaux.length} partants · Vitesse+Algo+Musique+Driver…</div>
         </div>
         <button onclick="calculerTrio()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:4px 10px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
       </div>

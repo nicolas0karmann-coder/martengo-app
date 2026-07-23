@@ -2090,12 +2090,11 @@ function _renderTrio(el) {
     if (taux5 >= 50) elimine.push(`Da ≥50% (${nbDa5}/${tokens5.length})`);
     if (dernierDa && taux5 >= 50) elimine.push(`Da récent + ≥50% (${nbDa5}/${tokens5.length})`);
 
-    // Absence prolongée — cheval qui n'a plus couru depuis trop longtemps
-    let joursAbsence = null;
-    if (h.date_derniere_course) {
-      joursAbsence = Math.round((Date.now() - new Date(h.date_derniere_course).getTime()) / 86400000);
-      if (joursAbsence > 240) elimine.push(`Absence prolongée (${joursAbsence}j)`);
-    }
+    // Absence prolongée : gérée par une pénalité progressive (scoreFraicheur, 10%
+    // du score), pas par une élimination automatique — un cheval au dossier
+    // exceptionnel sur tous les autres critères ne doit pas être écarté d'office
+    // à cause d'une seule donnée (parfois incomplète, ex. chevaux étrangers dont
+    // l'historique de courses n'est que partiellement suivi par l'API).
 
     // Score vitesse (médiane 3 courses, normalisé dans le lot)
     // Score vitesse : rk_corrige en priorité (corrigé hippodrome), fallback médiane brute
@@ -2115,7 +2114,6 @@ function _renderTrio(el) {
       tokens5,
       taux5,
       rk,
-      joursAbsence,
       pointeRk: h.rk_meilleur_an,
       pointeAge: h.rk_meilleur_an_date ? Math.round((Date.now() - new Date(h.rk_meilleur_an_date).getTime()) / 86400000) : 999,
       scoreMusique:    scoreMusique(h.musique),

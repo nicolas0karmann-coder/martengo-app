@@ -237,7 +237,6 @@ input[readonly]{opacity:.5;cursor:default}
     <button class="nav-btn" onclick="goTo('dashboard')" id="tab-dashboard"><span class="nav-icon">📋</span>Journée<span class="nav-badge" id="badge-dashboard"></span></button>
     <button class="nav-btn" onclick="safeCharge=false;goTo('safe')" id="tab-safe"><span class="nav-icon">🛡️</span>Safe</button>
     <button class="nav-btn" onclick="goTo('trio')" id="tab-trio"><span class="nav-icon">🎯</span>Trio</button>
-    <button class="nav-btn" onclick="goTo('triov2')" id="tab-triov2"><span class="nav-icon">🎯</span>Trio V2</button>
     <button class="nav-btn" onclick="goTo('pro')" id="tab-pro"><span class="nav-icon">💎</span>Pro</button>
     <button class="nav-btn" onclick="goTo('prosa')" id="tab-prosa"><span class="nav-icon">🌎</span>Pro SA</button>
     <button class="nav-btn" onclick="goTo('couple')" id="tab-couple"><span class="nav-icon">🔗</span>Couplé</button>
@@ -367,20 +366,6 @@ input[readonly]{opacity:.5;cursor:default}
     </div>
 
     <!-- PRO -->
-    <!-- TRIO V2 -->
-    <div class="screen" id="screen-triov2">
-      <div id="triov2-content">
-        <div class="empty">
-          <div class="empty-icon">🎯</div>
-          Sélection 100% critères (sans algo)<br>
-          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
-            ATTELÉ &amp; MONTE · Vitesse · Musique · Ferrure · Engagement…
-          </small>
-          <button class="btn full" onclick="calculerTrioV2()" style="margin-top:16px;font-size:11px">Calculer V2 →</button>
-        </div>
-      </div>
-    </div>
-
     <div class="screen" id="screen-pro">
       <div id="pro-content">
         <div class="empty">
@@ -447,7 +432,7 @@ async function fetchAPI(path, options = {}) {
   return r;
 }
 const LS_SAISIE = 'martengo_v3', LS_HIST = 'martengo_hist';
-const SCREENS = ['saisie','selections','analyse','conseil','dashboard','safe','offensif','trio','triov2','pro','prosa','couple','stats'];
+const SCREENS = ['saisie','selections','analyse','conseil','dashboard','safe','offensif','trio','pro','prosa','couple','stats'];
 
 let chevaux = [], predictions = null, notesPMU = {}, notesPMUData = null;
 let currentDate = '', horseCounter = 0, apiPrete = false, currentScreen = 'saisie';
@@ -496,7 +481,6 @@ function goTo(screen) {
   if (screen === 'stats') { chargerStats(); document.getElementById('badge-stats').classList.remove('show'); }
   if (screen === 'dashboard') { document.getElementById('badge-dashboard').classList.remove('show'); }
   if (screen === 'pro') { chargerPro(); }
-  if (screen === 'triov2') { /* Manuel — bouton Calculer */ }
   if (screen === 'prosa') { chargerProSA(); }
   if (screen === 'couple') { chargerCouple(); }
 }
@@ -1959,10 +1943,10 @@ function calculerTrio() {
       L'onglet TRIO est disponible uniquement pour ATTELÉ et MONTE</div>`;
     return;
   }
-  _renderTrio(el, false);
+  _renderTrio(el);
 }
 
-function _renderTrio(el, v2) {
+function _renderTrio(el) {
   const chevaux = notesPMUData.chevaux;
   const GREEN = '#3a9162';
   const GOLD  = '#c8942a';
@@ -2077,7 +2061,7 @@ function _renderTrio(el, v2) {
 
   // ── 1. Filtres éliminatoires ────────────────────────────────────────────────
 
-  const POIDS = {vitesse:25, pointe:12, musique:18, fiabilite:15, ferrure:12, engagement:8, driver:6, fraicheur:4};
+  const POIDS = {vitesse:30, pointe:8, musique:18, fiabilite:15, ferrure:12, engagement:8, driver:5, fraicheur:10};
 
   const scored = chevaux.map(h => {
     const elimine = [];
@@ -2097,6 +2081,13 @@ function _renderTrio(el, v2) {
     if (taux5 >= 50) elimine.push(`Da ≥50% (${nbDa5}/${tokens5.length})`);
     if (dernierDa && taux5 >= 50) elimine.push(`Da récent + ≥50% (${nbDa5}/${tokens5.length})`);
 
+    // Absence prolongée — cheval qui n'a plus couru depuis trop longtemps
+    let joursAbsence = null;
+    if (h.date_derniere_course) {
+      joursAbsence = Math.round((Date.now() - new Date(h.date_derniere_course).getTime()) / 86400000);
+      if (joursAbsence > 240) elimine.push(`Absence prolongée (${joursAbsence}j)`);
+    }
+
     // Score vitesse (médiane 3 courses, normalisé dans le lot)
     // Score vitesse : rk_corrige en priorité (corrigé hippodrome), fallback médiane brute
     const rk = h.rk_corrige || h.rk_moyenne_3courses || null;
@@ -2115,6 +2106,7 @@ function _renderTrio(el, v2) {
       tokens5,
       taux5,
       rk,
+      joursAbsence,
       pointeRk: h.rk_meilleur_an,
       pointeAge: h.rk_meilleur_an_date ? Math.round((Date.now() - new Date(h.rk_meilleur_an_date).getTime()) / 86400000) : 999,
       scoreMusique:    scoreMusique(h.musique),
@@ -2142,10 +2134,18 @@ function _renderTrio(el, v2) {
     return Math.round(inverse ? 100 - n : n);
   };
 
+  const spreadVitesse = (rks.length > 1) ? (rkMax - rkMin) : 0;
+
   scored.forEach(s => {
     s.scoreVitesse    = norm(s.rk, rkMin, rkMax, true); // plus bas = meilleur
     s.scorePointe     = norm(s.pointeRk, poMin, poMax, true);
     s.scoreAlgo       = norm(s.algoScore, algoMin, algoMax, false);
+
+    // Temps nettement plus faible que le lot — seulement si le lot a un écart significatif
+    // (évite d'éliminer tout un lot très serré) et si le cheval est vraiment au fond du classement
+    if (s.rk != null && spreadVitesse > 0 && s.scoreVitesse < 15) {
+      s.elimine.push(`Temps nettement plus faible que le lot (RK ${Math.round(s.rk)})`);
+    }
 
     // Score final — fusion algo (50%) + critères (50%)
     const criteres = (
@@ -2159,9 +2159,12 @@ function _renderTrio(el, v2) {
       s.scoreFraicheur  * POIDS.fraicheur
     ) / 100;
 
-    s.scoreFinal = v2
-      ? Math.round(criteres)                           // V2 : 100% critères
-      : Math.round(s.scoreAlgo * 0.50 + criteres * 0.50); // V1 : 50/50
+    // Le modèle (algo PMU) sert de départageur, pas de critère à poids fixe :
+    // il ne peut faire pencher la balance que de ±8 points, pour trancher entre
+    // des chevaux déjà proches sur les critères — jamais dominer un écart de critères franc.
+    const bonusAlgo = (s.scoreAlgo - 50) * 0.16; // amplitude max ≈ ±8 pts
+
+    s.scoreFinal = Math.round(criteres + bonusAlgo);
   });
 
   // ── 3. Sélection des 4 ──────────────────────────────────────────────────────
@@ -2216,18 +2219,18 @@ function _renderTrio(el, v2) {
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 16px">
-        ${barHtml('Vitesse (RK corrigé)', s.scoreVitesse, 25)}
-        ${barHtml('Pointe 12 mois', s.scorePointe, 12)}
+        ${barHtml('Vitesse (RK corrigé)', s.scoreVitesse, 30)}
+        ${barHtml('Pointe 12 mois', s.scorePointe, 8)}
         ${barHtml('Musique / régularité', s.scoreMusique, 18)}
         ${barHtml('Fiabilité (anti-Da)', s.scoreFiabilite, 15)}
         ${barHtml('Ferrure + changement', s.scoreFerrure, 12)}
         ${barHtml('Engagement', s.scoreEngagement, 8)}
-        ${barHtml('Driver', s.scoreDriver, 6)}
-        ${barHtml('Fraîcheur', s.scoreFraicheur, 4)}
+        ${barHtml('Driver', s.scoreDriver, 5)}
+        ${barHtml('Fraîcheur', s.scoreFraicheur, 10)}
       </div>
       <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);display:flex;gap:12px;flex-wrap:wrap">
-        <span>Algo: <span style="color:var(--text)">${s.scoreAlgo}</span></span>
-        <span>Critères: <span style="color:var(--text)">${Math.round(s.scoreVitesse*.25+s.scorePointe*.12+s.scoreMusique*.18+s.scoreFiabilite*.15+s.scoreFerrure*.12+s.scoreEngagement*.08+s.scoreDriver*.06+s.scoreFraicheur*.04)}</span></span>
+        <span>Modèle (départage): <span style="color:var(--text)">${s.scoreAlgo}</span></span>
+        <span>Critères: <span style="color:var(--text)">${Math.round(s.scoreVitesse*.30+s.scorePointe*.08+s.scoreMusique*.18+s.scoreFiabilite*.15+s.scoreFerrure*.12+s.scoreEngagement*.08+s.scoreDriver*.05+s.scoreFraicheur*.10)}</span></span>
         ${h.rk_corrige ? `<span>RK corrigé: <span style="color:var(--text)">${Math.round(h.rk_corrige)}</span></span>` : h.rk_moyenne_3courses ? `<span>RK méd: <span style="color:var(--text)">${Math.round(h.rk_moyenne_3courses)}</span></span>` : ''}
         ${s.tokens5.length > 0 ? `<span>Da/5: <span style="color:${s.taux5>=20?RED:'var(--text)'}">${Math.round(s.taux5)}%</span></span>` : ''}
       </div>
@@ -2257,10 +2260,10 @@ function _renderTrio(el, v2) {
     <div style="padding:12px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div>
-          <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;color:${GOLD}">🎯 ${v2 ? 'TRIO V2 — 100% CRITÈRES' : 'SÉLECTION TRIO'}</div>
-          <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">${notesPMUData.date||''} · R${notesPMUData.reunion||''}C${notesPMUData.course||''} · ${chevaux.length} partants${v2 ? ' · Sans algo' : ' · Algo 50%'}</div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;color:${GOLD}">🎯 SÉLECTION TRIO</div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">${notesPMUData.date||''} · R${notesPMUData.reunion||''}C${notesPMUData.course||''} · ${chevaux.length} partants · Critères + modèle (départage)</div>
         </div>
-        <button onclick="${v2 ? 'calculerTrioV2' : 'calculerTrio'}()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:4px 10px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
+        <button onclick="calculerTrio()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:4px 10px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
       </div>
       <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-family:'Space Mono',monospace;font-size:11px;text-align:center">
         <span style="color:var(--text-dim);font-size:9px">TOP 4 SÉLECTIONNÉS</span><br>
@@ -2270,33 +2273,6 @@ function _renderTrio(el, v2) {
       ${top4.map((s, i) => cardHtml(s, i)).join('')}
       ${eliminésHtml}
     </div>`;
-}
-
-// ── TRIO V2 — 100% critères (sans algo) ──
-function calculerTrioV2() {
-  // Réutilise exactement la même logique que calculerTrio
-  // mais scoreFinal = 100% critères (pas de scoreAlgo)
-  const el = document.getElementById('triov2-content');
-
-  if (!notesPMUData || !notesPMUData.chevaux || notesPMUData.chevaux.length < 4) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">🎯</div>
-      Chargez d'abord une course ATTELÉ ou MONTE<br>
-      <button class="btn full" onclick="goTo('saisie')" style="margin-top:16px;font-size:11px">Aller à Saisie →</button>
-    </div>`;
-    return;
-  }
-
-  const version = notesPMUData.version || '';
-  const isAttele = version.includes('attele') || version.includes('galop') || version.includes('v15');
-  const isMonte  = version.includes('monte');
-  if (!isAttele && !isMonte) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">🎯</div>
-      Disponible uniquement pour ATTELÉ et MONTE</div>`;
-    return;
-  }
-
-  // Appelle le même moteur de calcul mais avec le flag v2
-  _renderTrio(el, true);
 }
 
 // ── PRO ──

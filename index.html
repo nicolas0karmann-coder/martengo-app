@@ -2044,19 +2044,28 @@ function _renderTrio(el) {
   };
 
   const engagementScore = (gains, plafond, nbCourses) => {
-    // engagement_corrigé = ratio_brut × (ref_courses / max(nb_courses, ref_courses))
-    // Zone idéale : 60-100% du plafond
+    // Niveau : le cheval est-il "à sa place" dans cette course (ratio gains/plafond) ?
+    // Efficacité : a-t-il atteint ce niveau en peu de courses (signe qu'il est peut-être
+    // encore sous-coté) ou en beaucoup de courses (probablement déjà à son plafond réel) ?
     if (!plafond || plafond <= 0) return 50;
     const gainsEuros = (gains || 0) / 100;
-    const ratio_brut = gainsEuros / plafond;
+    const ratio_brut = Math.max(0, Math.min(1, gainsEuros / plafond));
     const nb = nbCourses || 1;
     const REF = 20; // référence de normalisation (20 courses)
-    const engagement_corr = ratio_brut * (REF / Math.max(nb, REF));
-    // Zone idéale 60-100%
-    if (engagement_corr < 0.30) return 20;
-    if (engagement_corr < 0.60) return 20 + (engagement_corr - 0.30) / 0.30 * 50;
-    if (engagement_corr <= 1.00) return 70 + (engagement_corr - 0.60) / 0.40 * 30;
-    return 60; // dépasse le plafond → surcôté
+
+    // Score de niveau — zone idéale 60-100% du plafond, indépendant du nb de courses
+    let niveauScore;
+    if (ratio_brut < 0.30) niveauScore = 20;
+    else if (ratio_brut < 0.60) niveauScore = 20 + (ratio_brut - 0.30) / 0.30 * 50;
+    else niveauScore = 70 + Math.min(1, (ratio_brut - 0.60) / 0.40) * 30;
+
+    // Bonus/malus d'efficacité — continu sur toute la plage (contrairement à l'ancienne
+    // version qui ne réagissait qu'au-delà de 20 courses). Capé à ±10 pts pour éviter
+    // qu'un très petit échantillon (2-3 courses) ne fausse tout.
+    const efficacite = Math.max(-0.5, Math.min(0.5, (REF - nb) / REF));
+    const bonusEfficacite = efficacite * 20; // amplitude ±10 pts
+
+    return Math.round(Math.max(0, Math.min(100, niveauScore + bonusEfficacite)));
   };
 
   // ── 1. Filtres éliminatoires ────────────────────────────────────────────────
@@ -2134,11 +2143,26 @@ function _renderTrio(el) {
     return Math.round(inverse ? 100 - n : n);
   };
 
+  // Normalisation par écart-type (z-score) : contrairement au min-max, un cheval
+  // qui domine vraiment le lot (temps à plusieurs écarts-types de la moyenne)
+  // obtient un score nettement plus haut qu'un cheval juste "un peu devant".
+  // 1 écart-type d'avance/retard ≈ ±22 pts autour de 50, saturé à 0-100.
+  const zScoreNorm = (values, val, inverseBetter=false) => {
+    if (val == null || values.length < 2) return 50;
+    const mean = values.reduce((a,b) => a+b, 0) / values.length;
+    const variance = values.reduce((a,b) => a + (b-mean)**2, 0) / values.length;
+    const std = Math.sqrt(variance);
+    if (std === 0) return 50; // tout le lot au même niveau, aucune différenciation possible
+    let z = (val - mean) / std;
+    if (inverseBetter) z = -z; // temps : plus bas = meilleur, donc on inverse le signe
+    return Math.round(Math.max(0, Math.min(100, 50 + z * 22)));
+  };
+
   const spreadVitesse = (rks.length > 1) ? (rkMax - rkMin) : 0;
 
   scored.forEach(s => {
-    s.scoreVitesse    = norm(s.rk, rkMin, rkMax, true); // plus bas = meilleur
-    s.scorePointe     = norm(s.pointeRk, poMin, poMax, true);
+    s.scoreVitesse    = zScoreNorm(rks, s.rk, true);       // plus bas = meilleur
+    s.scorePointe     = zScoreNorm(pointes, s.pointeRk, true);
     s.scoreAlgo       = norm(s.algoScore, algoMin, algoMax, false);
 
     // Temps nettement plus faible que le lot — seulement si le lot a un écart significatif

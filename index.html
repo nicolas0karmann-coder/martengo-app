@@ -237,6 +237,7 @@ input[readonly]{opacity:.5;cursor:default}
     <button class="nav-btn" onclick="goTo('dashboard')" id="tab-dashboard"><span class="nav-icon">📋</span>Journée<span class="nav-badge" id="badge-dashboard"></span></button>
     <button class="nav-btn" onclick="safeCharge=false;goTo('safe')" id="tab-safe"><span class="nav-icon">🛡️</span>Safe</button>
     <button class="nav-btn" onclick="goTo('trio')" id="tab-trio"><span class="nav-icon">🎯</span>Trio</button>
+    <button class="nav-btn" onclick="goTo('trioall')" id="tab-trioall"><span class="nav-icon">📋</span>Trio All</button>
     <button class="nav-btn" onclick="goTo('pro')" id="tab-pro"><span class="nav-icon">💎</span>Pro</button>
     <button class="nav-btn" onclick="goTo('prosa')" id="tab-prosa"><span class="nav-icon">🌎</span>Pro SA</button>
     <button class="nav-btn" onclick="goTo('couple')" id="tab-couple"><span class="nav-icon">🔗</span>Couplé</button>
@@ -365,6 +366,20 @@ input[readonly]{opacity:.5;cursor:default}
       </div>
     </div>
 
+    <!-- TRIO ALL -->
+    <div class="screen" id="screen-trioall">
+      <div id="trioall-content">
+        <div class="empty">
+          <div class="empty-icon">📋</div>
+          Top 4 (+5e si indécis) de toutes les courses du jour<br>
+          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
+            ATTELÉ &amp; MONTE uniquement · Nombre de partants affiché
+          </small>
+          <button class="btn full" onclick="calculerTrioAll()" style="margin-top:16px;font-size:11px">Calculer →</button>
+        </div>
+      </div>
+    </div>
+
     <!-- PRO -->
     <div class="screen" id="screen-pro">
       <div id="pro-content">
@@ -432,7 +447,7 @@ async function fetchAPI(path, options = {}) {
   return r;
 }
 const LS_SAISIE = 'martengo_v3', LS_HIST = 'martengo_hist';
-const SCREENS = ['saisie','selections','analyse','conseil','dashboard','safe','offensif','trio','pro','prosa','couple','stats'];
+const SCREENS = ['saisie','selections','analyse','conseil','dashboard','safe','offensif','trio','trioall','pro','prosa','couple','stats'];
 
 let chevaux = [], predictions = null, notesPMU = {}, notesPMUData = null;
 let currentDate = '', horseCounter = 0, apiPrete = false, currentScreen = 'saisie';
@@ -1946,8 +1961,7 @@ function calculerTrio() {
   _renderTrio(el);
 }
 
-function _renderTrio(el) {
-  const chevaux = notesPMUData.chevaux;
+function _calculerTrioData(chevaux) {
   const GREEN = '#3a9162';
   const GOLD  = '#c8942a';
   const RED   = '#e05c5c';
@@ -2211,6 +2225,13 @@ function _renderTrio(el) {
     : 99;
   const indecis = ecart45 < 3;
 
+  return { chevaux, scored, eligibles, elimines, sortedElig, top4, ecart45, indecis, GREEN, GOLD, RED };
+}
+
+function _renderTrio(el) {
+  const data = _calculerTrioData(notesPMUData.chevaux);
+  const { chevaux, eligibles, elimines, sortedElig, top4, ecart45, indecis, GREEN, GOLD, RED } = data;
+
   // ── 4. Rendu ────────────────────────────────────────────────────────────────
 
   const barColor = (score) =>
@@ -2303,6 +2324,107 @@ function _renderTrio(el) {
       ${top4.map((s, i) => cardHtml(s, i)).join('')}
       ${eliminésHtml}
     </div>`;
+}
+
+// ── TRIO ALL — Top4 (+5e si indécis) pour TOUTES les courses ATTELÉ/MONTÉ du jour ──
+let trioAllCharge = false;
+async function calculerTrioAll() {
+  const el = document.getElementById('trioall-content');
+  el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement des courses du jour…</span></div>';
+  await acquireWakeLock();
+
+  const today = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
+  const dateGeny = today.getFullYear() + '-' + pad(today.getMonth()+1) + '-' + pad(today.getDate());
+  const DISC_LABELS = {'TROT_ATTELE':'ATTELÉ','ATTELE':'ATTELÉ','MONTE':'MONTÉ'};
+
+  try {
+    const resp = await fetch(`${API_URL_PRIMARY}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
+    if (!resp.ok) throw new Error('Programme indisponible (' + resp.status + ')');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    // Uniquement ATTELÉ et MONTÉ — les seules disciplines gérées par TRIO
+    const courses = (data.courses || [])
+      .filter(c => ['ATTELE','TROT_ATTELE','MONTE'].includes(c.disc))
+      .map(c => ({ r: c.r_num, c: c.c_num, disc: c.disc, dist: c.dist, lieu: c.lieu, heure: c.heure }));
+
+    if (!courses.length) { el.innerHTML='<div class="empty"><div class="empty-icon">📋</div>Aucune course ATTELÉ/MONTÉ aujourd\'hui</div>'; return; }
+
+    const allResults = {};
+    const total = courses.length;
+    let loaded = 0;
+    const updateProgress = () => {
+      const pct = Math.round(loaded/total*100);
+      el.innerHTML = `<div class="dash-progress">
+        Calcul TRIO… ${loaded}/${total} courses (${pct}%)
+        <div class="dash-progress-bar"><div class="dash-progress-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    };
+    updateProgress();
+
+    for (let i=0; i<courses.length; i+=5) {
+      await Promise.all(courses.slice(i,i+5).map(async co => {
+        try {
+          const r = await fetch(`${API_URL_PRIMARY}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
+          if (r.ok) {
+            const d = await r.json();
+            if (d?.chevaux?.length >= 4) allResults[`${co.r}-${co.c}`] = _calculerTrioData(d.chevaux);
+          }
+        } catch(e) {}
+        loaded++;
+        updateProgress();
+      }));
+    }
+
+    await releaseWakeLock();
+
+    const renderRow = (co, tdata) => {
+      const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
+      if (!tdata) {
+        return `<div class="dash-row" onclick="${onclick}"><div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div><div><div class="dash-cheval" style="color:var(--text-dim)">Non disponible</div><div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m</div></div></div>`;
+      }
+      const { chevaux, top4, sortedElig, ecart45, indecis, GREEN, GOLD } = tdata;
+      const nbPartants = chevaux.length;
+      const partantsOk = nbPartants <= 12;
+      const numsTop4 = top4.map(s => `#${s.h.numero}`).join(' · ');
+      const numsAvecCinquieme = indecis && sortedElig[4]
+        ? `${numsTop4} <span style="color:${GOLD}">· #${sortedElig[4].h.numero}</span>`
+        : numsTop4;
+      return `<div class="dash-row" onclick="${onclick}">
+        <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:12px;color:${GREEN}">${numsAvecCinquieme}</div>
+          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · <span style="font-weight:${partantsOk?700:400};color:${partantsOk?GREEN:'var(--text-dim)'}">${nbPartants} partants</span>${indecis ? ` · <span style="color:${GOLD}">lot indécis</span>` : ''}</div>
+        </div>
+      </div>`;
+    };
+
+    let html = `<div class="dash-refresh">
+      <span>📋 ${courses.length} courses ATTELÉ/MONTÉ · ${dateGeny}</span>
+      <button onclick="trioAllCharge=false;calculerTrioAll()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
+    </div>`;
+
+    const byR = {};
+    for (const co of courses) {
+      if (!byR[co.r]) byR[co.r] = { lieu: co.lieu, courses: [] };
+      byR[co.r].courses.push(co);
+    }
+    for (const [rNum, rd] of Object.entries(byR)) {
+      html += `<div class="dash-reunion">R${rNum} · ${rd.lieu}</div>`;
+      for (const co of rd.courses) {
+        html += renderRow(co, allResults[`${co.r}-${co.c}`]);
+      }
+    }
+
+    el.innerHTML = html;
+    trioAllCharge = true;
+  } catch(e) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Erreur : ${e.message}<br>
+    <button class="btn secondary" onclick="calculerTrioAll()" style="margin-top:12px;font-size:10px">↺ Réessayer</button>
+    </div>`;
+  }
 }
 
 // ── PRO ──

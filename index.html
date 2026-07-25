@@ -2126,10 +2126,10 @@ function _renderTrio(el) {
 
   const chevalLigne = (s) => {
     const commun = numsModele.includes(s.numero) && numsCriteres.includes(s.numero);
-    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;margin-bottom:4px;background:${commun ? 'rgba(58,145,98,.08)' : 'var(--bg2)'};border:1px solid ${commun ? 'rgba(58,145,98,.3)' : 'var(--border)'}">
-      <span style="font-family:'Bebas Neue',sans-serif;font-size:15px;color:${commun ? GREEN : 'var(--text-dim)'}">#${s.numero}</span>
-      <span style="flex:1;font-size:12px;font-weight:${commun?700:400}">${s.h.nom||''}</span>
-      ${commun ? `<span style="font-size:8px;color:${GREEN};font-family:'Space Mono',monospace">✓ commun</span>` : ''}
+    return `<div style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:6px;margin-bottom:4px;background:${commun ? 'rgba(58,145,98,.08)' : 'var(--bg2)'};border:1px solid ${commun ? 'rgba(58,145,98,.3)' : 'var(--border)'};min-width:0">
+      <span style="font-family:'Bebas Neue',sans-serif;font-size:15px;color:${commun ? GREEN : 'var(--text-dim)'};flex-shrink:0">#${s.numero}</span>
+      <span style="flex:1;min-width:0;font-size:12px;font-weight:${commun?700:400};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.h.nom||''}</span>
+      ${commun ? `<span style="font-size:8px;color:${GREEN};font-family:'Space Mono',monospace;flex-shrink:0">✓</span>` : ''}
     </div>`;
   };
 
@@ -2150,12 +2150,12 @@ function _renderTrio(el) {
         <span style="font-weight:700;color:${feuVert ? GREEN : GOLD};font-size:15px">${numsUnion}</span>
       </div>
 
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
-        <div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div style="min-width:0">
           <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);margin-bottom:6px;text-align:center">🤖 MODÈLE (algo PMU)</div>
           ${top4Modele.map(chevalLigne).join('')}
         </div>
-        <div>
+        <div style="min-width:0">
           <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);margin-bottom:6px;text-align:center">📊 CRITÈRES (sans algo)</div>
           ${top4Criteres.map(chevalLigne).join('')}
         </div>

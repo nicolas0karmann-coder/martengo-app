@@ -237,7 +237,6 @@ input[readonly]{opacity:.5;cursor:default}
     <button class="nav-btn" onclick="goTo('dashboard')" id="tab-dashboard"><span class="nav-icon">📋</span>Journée<span class="nav-badge" id="badge-dashboard"></span></button>
     <button class="nav-btn" onclick="safeCharge=false;goTo('safe')" id="tab-safe"><span class="nav-icon">🛡️</span>Safe</button>
     <button class="nav-btn" onclick="goTo('trio')" id="tab-trio"><span class="nav-icon">🎯</span>Trio</button>
-    <button class="nav-btn" onclick="goTo('trioall')" id="tab-trioall"><span class="nav-icon">📋</span>Trio All</button>
     <button class="nav-btn" onclick="goTo('pro')" id="tab-pro"><span class="nav-icon">💎</span>Pro</button>
     <button class="nav-btn" onclick="goTo('prosa')" id="tab-prosa"><span class="nav-icon">🌎</span>Pro SA</button>
     <button class="nav-btn" onclick="goTo('couple')" id="tab-couple"><span class="nav-icon">🔗</span>Couplé</button>
@@ -366,20 +365,6 @@ input[readonly]{opacity:.5;cursor:default}
       </div>
     </div>
 
-    <!-- TRIO ALL -->
-    <div class="screen" id="screen-trioall">
-      <div id="trioall-content">
-        <div class="empty">
-          <div class="empty-icon">📋</div>
-          Top 4 (+5e si indécis) de toutes les courses du jour<br>
-          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
-            ATTELÉ &amp; MONTE uniquement · Nombre de partants affiché
-          </small>
-          <button class="btn full" onclick="calculerTrioAll()" style="margin-top:16px;font-size:11px">Calculer →</button>
-        </div>
-      </div>
-    </div>
-
     <!-- PRO -->
     <div class="screen" id="screen-pro">
       <div id="pro-content">
@@ -447,7 +432,7 @@ async function fetchAPI(path, options = {}) {
   return r;
 }
 const LS_SAISIE = 'martengo_v3', LS_HIST = 'martengo_hist';
-const SCREENS = ['saisie','selections','analyse','conseil','dashboard','safe','offensif','trio','trioall','pro','prosa','couple','stats'];
+const SCREENS = ['saisie','selections','analyse','conseil','dashboard','safe','offensif','trio','pro','prosa','couple','stats'];
 
 let chevaux = [], predictions = null, notesPMU = {}, notesPMUData = null;
 let currentDate = '', horseCounter = 0, apiPrete = false, currentScreen = 'saisie';
@@ -1994,11 +1979,11 @@ function _calculerTrioData(chevaux) {
     const d = new Date(dateStr);
     const jours = Math.round((Date.now() - d.getTime()) / 86400000);
     if (jours < 0)    return 30;
-    if (jours < 15)   return 80;  // très récent, léger malus (fatigue possible)
-    if (jours <= 45)  return 100; // optimal — bon rythme de course
-    if (jours <= 90)  return 100 - (jours - 45) * 1.2; // déclin progressif
-    if (jours <= 180) return 46 - (jours - 90) * 0.4;  // en manque de rythme
-    return Math.max(5, 10 - (jours - 180) * 0.05);     // absence prolongée
+    if (jours < 15)   return 80;
+    if (jours <= 45)  return 100;
+    if (jours <= 90)  return 100 - (jours - 45) * 1.2;
+    if (jours <= 180) return 46 - (jours - 90) * 0.4;
+    return Math.max(5, 10 - (jours - 180) * 0.05);
   };
 
   const driverScore = (wr) => {
@@ -2006,157 +1991,20 @@ function _calculerTrioData(chevaux) {
     return Math.min(100, Math.round(wr));
   };
 
-  const ferrureScore = (deferre, changement, precedente) => {
-    // Ce qui compte : le CHANGEMENT et sa direction, pas la ferrure absolue
-    const ordre = {FERRE:0, DEFERRE_PARTIEL:1, DEFERRE_TOTAL:2};
-    if (changement !== true) {
-      // Pas de changement → neutre (l'effet est déjà dans les chronos)
-      return 50;
-    }
-    const avant = ordre[precedente] ?? -1;
-    const apres = ordre[deferre]    ?? -1;
-    if (avant === -1 || apres === -1) return 55; // changement mais direction inconnue
-    const delta = apres - avant;
-    if (delta === 2) return 95;  // FERRE → DEFERRE_TOTAL : bonus fort
-    if (delta === 1) return 75;  // FERRE → DEFERRE_PARTIEL ou DP → D4 : bonus modéré
-    if (delta === -1) return 25; // D4 → DP ou DP → FERRE : malus
-    if (delta === -2) return 10; // D4 → FERRE : malus fort
-    return 50;
-  };
-
-  const pointeScore = (rkMeilleur, dateMeilleur) => {
-    // La date est presque aussi informative que le chrono
-    // Record récent (<4 mois) = cheval en forme ; record vieux (>8 mois) = cheval qui régresse
-    if (!rkMeilleur) return 50;
-    let facteurAge = 1.0;
-    if (dateMeilleur) {
-      const ageJours = Math.round((Date.now() - new Date(dateMeilleur).getTime()) / 86400000);
-      if (ageJours <= 120)       facteurAge = 1.0;  // < 4 mois : plein bonus
-      else if (ageJours <= 240)  facteurAge = 0.65; // 4-8 mois : déclin modéré
-      else                       facteurAge = 0.30; // > 8 mois : cheval qui régresse
-    }
-    return { rk: rkMeilleur, facteur: facteurAge }; // sera normalisé après
-  };
-
-  const regulariteScore = (musique) => {
-    // Favorise la régularité dans les places : 3a-4a-2a-3a vaut mieux que 1a-Da-0a-1a
-    if (!musique) return 50;
-    const clean = musique.replace(/\(\d+\)/g, '');
-    const tokens = clean.match(/[0-9DATRdatr][amphscAMPHSC]?/g) || [];
-    let enPlaces = 0, total = 0;
-    for (const t of tokens.slice(0, 10)) {
-      const c = t[0].toUpperCase();
-      const suf = t[1]?.toLowerCase() || '';
-      if (suf === 'm') continue;
-      if (c === 'A' || c === 'T') continue;
-      if (c === 'D') { total++; continue; }
-      const n = parseInt(c);
-      if (n >= 1 && n <= 3) enPlaces++;
-      total++;
-    }
-    return total > 0 ? Math.round((enPlaces / total) * 100) : 50;
-  };
-
   const engagementScore = (gains, plafond, nbCourses) => {
-    // Niveau : le cheval est-il "à sa place" dans cette course (ratio gains/plafond) ?
-    // Efficacité : a-t-il atteint ce niveau en peu de courses (signe qu'il est peut-être
-    // encore sous-coté) ou en beaucoup de courses (probablement déjà à son plafond réel) ?
     if (!plafond || plafond <= 0) return 50;
     const gainsEuros = (gains || 0) / 100;
     const ratio_brut = Math.max(0, Math.min(1, gainsEuros / plafond));
     const nb = nbCourses || 1;
-    const REF = 20; // référence de normalisation (20 courses)
-
-    // Score de niveau — zone idéale 60-100% du plafond, indépendant du nb de courses
+    const REF = 20;
     let niveauScore;
     if (ratio_brut < 0.30) niveauScore = 20;
     else if (ratio_brut < 0.60) niveauScore = 20 + (ratio_brut - 0.30) / 0.30 * 50;
     else niveauScore = 70 + Math.min(1, (ratio_brut - 0.60) / 0.40) * 30;
-
-    // Bonus/malus d'efficacité — continu sur toute la plage (contrairement à l'ancienne
-    // version qui ne réagissait qu'au-delà de 20 courses). Capé à ±10 pts pour éviter
-    // qu'un très petit échantillon (2-3 courses) ne fausse tout.
     const efficacite = Math.max(-0.5, Math.min(0.5, (REF - nb) / REF));
-    const bonusEfficacite = efficacite * 20; // amplitude ±10 pts
-
+    const bonusEfficacite = efficacite * 20;
     return Math.round(Math.max(0, Math.min(100, niveauScore + bonusEfficacite)));
   };
-
-  // ── 1. Filtres éliminatoires ────────────────────────────────────────────────
-
-  // Poids recalibrés sur backtest 75 courses (20-22/07/2026) : l'algo (scoreAlgo)
-  // s'est révélé le critère le plus prédictif (corrélation +0.36 avec une place
-  // top3 réelle, loin devant les autres) et le driver nettement sous-pondéré
-  // (+0.24, devant vitesse/fiabilité/ferrure malgré son poids initial de 5%).
-  // Repondération testée en A/B : 22.7% de réussite complète vs 16.0% avant.
-  const POIDS = {vitesse:22, pointe:8, musique:18, fiabilite:6, ferrure:8, engagement:4, driver:12, fraicheur:2, algo:20};
-
-  const scored = chevaux.map(h => {
-    const elimine = [];
-
-    // Calcul du taux Da sur les 5 dernières courses depuis la musique
-    const musiq = h.musique || '';
-    const cleanMusiq = musiq.replace(/\(\d+\)/g, '');
-    const tokens5 = (cleanMusiq.match(/[0-9DATRdatr][amphscAMPHSC]?/g) || [])
-      .filter(t => t[1]?.toLowerCase() !== 'm') // ignorer lignes monté
-      .slice(0, 5);
-    const nbDa5 = tokens5.filter(t => t[0].toUpperCase() === 'D').length;
-    const taux5 = tokens5.length > 0 ? (nbDa5 / tokens5.length) * 100 : 0;
-    const dernierToken = tokens5[0]?.[0]?.toUpperCase();
-    const dernierDa = dernierToken === 'D';
-
-    // Da (disqualifications) : géré par une pénalité progressive (scoreFiabilite,
-    // 15% du score, ×3 sur le taux de Da), pas par une élimination automatique —
-    // audité sur 75 courses (20-22/07) : cette élimination ne se déclenchait que sur
-    // 2.7% des courses et n'a changé le résultat sur aucune d'elles. La retirer
-    // reste cohérent avec le principe déjà appliqué à l'absence et à la vitesse :
-    // un dossier par ailleurs solide ne doit pas être écarté d'office pour un seul
-    // critère faible, tant que la pénalité de score fait déjà son travail.
-
-    // Absence prolongée : gérée par une pénalité progressive (scoreFraicheur, 10%
-    // du score), pas par une élimination automatique — un cheval au dossier
-    // exceptionnel sur tous les autres critères ne doit pas être écarté d'office
-    // à cause d'une seule donnée (parfois incomplète, ex. chevaux étrangers dont
-    // l'historique de courses n'est que partiellement suivi par l'API).
-
-    // Score vitesse (médiane 3 courses, normalisé dans le lot)
-    // Score vitesse : rk_corrige en priorité (corrigé hippodrome), fallback médiane brute
-    const rk = h.rk_corrige || h.rk_moyenne_3courses || null;
-
-    // Score pointe (meilleur 12 mois, pondéré par ancienneté)
-    let pointeScore = 50;
-    if (h.rk_meilleur_an && h.rk_meilleur_an_date) {
-      const ageJours = Math.round((Date.now() - new Date(h.rk_meilleur_an_date).getTime()) / 86400000);
-      const facteur = ageJours <= 120 ? 1 : ageJours <= 240 ? 0.7 : 0.4;
-      pointeScore = facteur * 80 + 20; // sera normalisé après
-    }
-
-    return {
-      h,
-      elimine,
-      tokens5,
-      taux5,
-      rk,
-      pointeRk: h.rk_meilleur_an,
-      pointeAge: h.rk_meilleur_an_date ? Math.round((Date.now() - new Date(h.rk_meilleur_an_date).getTime()) / 86400000) : 999,
-      scoreMusique:    scoreMusique(h.musique),
-      scoreFiabilite:  Math.max(0, 100 - taux5 * 3),
-      scoreFerrure:    ferrureScore(h.deferre, h.changement_ferrure, h.ferrure_precedente),
-      scoreEngagement: engagementScore(h.gains_carriere, h.plafond_gains, h.nb_courses_base),
-      scoreDriver:     driverScore(h.driver_win_rate),
-      scoreFraicheur:  fraicheurScore(h.date_derniere_course),
-      algoScore:       (h.note_pmu || 0),
-    };
-  });
-
-  // ── 2. Normalisation vitesse et pointe dans le lot ──────────────────────────
-
-  const rks = scored.map(s => s.rk).filter(v => v != null);
-  const rkMin = Math.min(...rks), rkMax = Math.max(...rks);
-  const pointes = scored.map(s => s.pointeRk).filter(v => v != null);
-  const poMin = Math.min(...pointes), poMax = Math.max(...pointes);
-  const algoMin = Math.min(...scored.map(s => s.algoScore));
-  const algoMax = Math.max(...scored.map(s => s.algoScore));
 
   const norm = (val, min, max, inverse=false) => {
     if (max === min || val == null) return 50;
@@ -2164,267 +2012,160 @@ function _calculerTrioData(chevaux) {
     return Math.round(inverse ? 100 - n : n);
   };
 
-  // Normalisation par écart-type (z-score) : contrairement au min-max, un cheval
-  // qui domine vraiment le lot (temps à plusieurs écarts-types de la moyenne)
+  // Normalisation par écart-type (z-score) : un cheval qui domine vraiment le lot
   // obtient un score nettement plus haut qu'un cheval juste "un peu devant".
-  // 1 écart-type d'avance/retard ≈ ±22 pts autour de 50, saturé à 0-100.
   const zScoreNorm = (values, val, inverseBetter=false) => {
     if (val == null || values.length < 2) return 50;
     const mean = values.reduce((a,b) => a+b, 0) / values.length;
     const variance = values.reduce((a,b) => a + (b-mean)**2, 0) / values.length;
     const std = Math.sqrt(variance);
-    if (std === 0) return 50; // tout le lot au même niveau, aucune différenciation possible
+    if (std === 0) return 50;
     let z = (val - mean) / std;
-    if (inverseBetter) z = -z; // temps : plus bas = meilleur, donc on inverse le signe
+    if (inverseBetter) z = -z;
     return Math.round(Math.max(0, Math.min(100, 50 + z * 22)));
   };
 
-  const spreadVitesse = (rks.length > 1) ? (rkMax - rkMin) : 0;
+  // ── 1. Sous-scores par cheval ────────────────────────────────────────────────
+  // NOTE MÉTHODOLOGIQUE : ferrure, fiabilité (anti-Da) et pointe (meilleur 12 mois)
+  // ont été retirées suite au backtest du 25/07/2026 sur 223 courses garanties
+  // sans fuite de données (16-22/07 + 24-25/07) : leur corrélation avec le résultat
+  // réel était quasi nulle (0.04, 0.02, 0.12) et/ou largement redondante avec
+  // d'autres critères déjà présents (fiabilité <-> musique : 0.69).
 
-  scored.forEach(s => {
-    s.scoreVitesse    = zScoreNorm(rks, s.rk, true);       // plus bas = meilleur
-    s.scorePointe     = zScoreNorm(pointes, s.pointeRk, true);
-    s.scoreAlgo       = norm(s.algoScore, algoMin, algoMax, false);
-
-    // Temps nettement plus faible que le lot — seulement si le lot a un écart significatif
-    // (évite d'éliminer tout un lot très serré) et si le cheval est vraiment au fond du classement
-    // Vitesse nettement plus faible que le lot : géré par la pénalité graduée du
-    // z-score ci-dessus (déjà sévère : ~10-15/100 pour un cheval très en retrait),
-    // pas par une élimination automatique — même logique et même audit que ci-dessus.
-
-    // Le modèle (algo PMU) est désormais un critère pondéré à part entière (20%) —
-    // le backtest sur 75 courses a montré que c'est en fait le signal le plus
-    // prédictif de tous (corrélation +0.36 avec une place réelle dans le top3),
-    // largement au-dessus de son ancien rôle de simple départage ±8 points.
-    const criteres = (
-      s.scoreVitesse    * POIDS.vitesse +
-      s.scorePointe     * POIDS.pointe +
-      s.scoreMusique    * POIDS.musique +
-      s.scoreFiabilite  * POIDS.fiabilite +
-      s.scoreFerrure    * POIDS.ferrure +
-      s.scoreEngagement * POIDS.engagement +
-      s.scoreDriver     * POIDS.driver +
-      s.scoreFraicheur  * POIDS.fraicheur +
-      s.scoreAlgo       * POIDS.algo
-    ) / 100;
-
-    s.scoreFinal = Math.round(criteres);
+  const scored = chevaux.map(h => {
+    const rk = h.rk_corrige || h.rk_moyenne_3courses || null;
+    return {
+      h,
+      numero: h.numero,
+      rk,
+      scoreMusique:    scoreMusique(h.musique),
+      scoreEngagement: engagementScore(h.gains_carriere, h.plafond_gains, h.nb_courses_base),
+      scoreDriver:     driverScore(h.driver_win_rate),
+      scoreFraicheur:  fraicheurScore(h.date_derniere_course),
+      algoScore:       (h.note_pmu || 0),
+    };
   });
 
-  // ── 3. Sélection des 4 ──────────────────────────────────────────────────────
+  const rks = scored.map(s => s.rk).filter(v => v != null);
+  const algoScores = scored.map(s => s.algoScore);
+  const algoMin = Math.min(...algoScores), algoMax = Math.max(...algoScores);
 
-  const eligibles = scored.filter(s => s.elimine.length === 0);
-  const elimines  = scored.filter(s => s.elimine.length > 0);
+  scored.forEach(s => {
+    s.scoreVitesse = zScoreNorm(rks, s.rk, true);        // plus bas = meilleur
+    s.scoreAlgo    = norm(s.algoScore, algoMin, algoMax, false);
+  });
 
-  const sortedElig = [...eligibles].sort((a,b) => b.scoreFinal - a.scoreFinal);
-  const top4 = sortedElig.slice(0, 4);
+  // ── 2. DEUX classements indépendants — approche validée par backtest le 25/07/2026 ──
+  // Au lieu de mélanger modèle + critères dans une seule formule (où un désaccord
+  // se noie dans la moyenne sans qu'on le voie), on calcule deux classements séparés
+  // et on utilise leur ACCORD comme signal de confiance :
+  //   - "Modèle"   : algo PMU seul (le signal individuel le plus prédictif : corr. 0.35)
+  //   - "Critères" : vitesse + musique + driver + engagement + fraîcheur (sans l'algo)
+  // Sur 223 courses garanties sans fuite : jouer l'UNION des deux Top4 quand ils sont
+  // d'accord sur au moins 3 chevaux (overlap ≥3) donne 44.2% de réussite complète
+  // (vs 23.1% pour le modèle seul, 40.0% pour l'union jouée sans filtre).
+  const POIDS_CRITERES = {vitesse:28, musique:33, driver:23, engagement:10, fraicheur:6};
 
-  // Vérifier si le 4e et 5e sont trop proches (lot indécis)
-  const ecart45 = top4.length === 4 && sortedElig[4]
-    ? top4[3].scoreFinal - sortedElig[4].scoreFinal
-    : 99;
-  const indecis = ecart45 < 3;
+  scored.forEach(s => {
+    s.scoreCriteres = (
+      s.scoreVitesse    * POIDS_CRITERES.vitesse +
+      s.scoreMusique    * POIDS_CRITERES.musique +
+      s.scoreDriver     * POIDS_CRITERES.driver +
+      s.scoreEngagement * POIDS_CRITERES.engagement +
+      s.scoreFraicheur  * POIDS_CRITERES.fraicheur
+    ) / 100;
+  });
 
-  return { chevaux, scored, eligibles, elimines, sortedElig, top4, ecart45, indecis, GREEN, GOLD, RED };
+  const parModele   = [...scored].sort((a,b) => b.scoreAlgo - a.scoreAlgo);
+  const parCriteres = [...scored].sort((a,b) => b.scoreCriteres - a.scoreCriteres);
+  const top4Modele   = parModele.slice(0, 4);
+  const top4Criteres = parCriteres.slice(0, 4);
+
+  const numsModele   = top4Modele.map(s => s.numero);
+  const numsCriteres = top4Criteres.map(s => s.numero);
+  const overlap = numsModele.filter(n => numsCriteres.includes(n)).length;
+
+  // Union dédupliquée, triée par score combiné pour un affichage cohérent
+  const unionMap = new Map();
+  [...top4Modele, ...top4Criteres].forEach(s => unionMap.set(s.numero, s));
+  const union = [...unionMap.values()].sort((a,b) => (b.scoreAlgo + b.scoreCriteres) - (a.scoreAlgo + a.scoreCriteres));
+
+  const feuVert = overlap >= 3; // seuil validé par backtest (44.2% vs 33-38% en dessous)
+
+  return { chevaux, scored, top4Modele, top4Criteres, overlap, union, feuVert, GREEN, GOLD, RED };
 }
 
 function _renderTrio(el) {
   const data = _calculerTrioData(notesPMUData.chevaux);
-  const { chevaux, eligibles, elimines, sortedElig, top4, ecart45, indecis, GREEN, GOLD, RED } = data;
+  const { chevaux, top4Modele, top4Criteres, overlap, union, feuVert, GREEN, GOLD, RED } = data;
 
-  // ── 4. Rendu ────────────────────────────────────────────────────────────────
+  // ── Rendu ────────────────────────────────────────────────────────────────
 
-  const barColor = (score) =>
-    score >= 70 ? GREEN : score >= 45 ? GOLD : RED;
+  const nbPartants = chevaux.length;
+  const partantsOk = nbPartants <= 12; // cf. audit : champs ≤12 nettement plus fiables
+  const partantsHtml = `<span style="font-weight:${partantsOk ? 700 : 400};color:${partantsOk ? GREEN : 'var(--text)'}">${nbPartants} partants</span>`;
 
-  const barHtml = (label, score, poids) => {
-    const col = barColor(score);
-    return `<div style="margin-bottom:4px">
-      <div style="display:flex;justify-content:space-between;font-size:8px;color:var(--text-dim);margin-bottom:2px">
-        <span>${label}</span><span style="color:${col}">${Math.round(score)}</span>
-      </div>
-      <div style="height:3px;background:var(--border);border-radius:2px;overflow:hidden">
-        <div style="height:100%;width:${Math.round(score)}%;background:${col};border-radius:2px;transition:width .3s"></div>
-      </div>
+  const numsModele   = top4Modele.map(s => s.numero);
+  const numsCriteres = top4Criteres.map(s => s.numero);
+
+  const ligneChevaux = (list, autreListe) => list.map(s => {
+    const enCommun = autreListe.includes(s.numero);
+    const style = enCommun ? `font-weight:700;color:${GREEN}` : `color:var(--text)`;
+    return `<span style="${style}">#${s.numero}</span>`;
+  }).join(' · ');
+
+  const confianceBadge = feuVert
+    ? `<div style="background:rgba(58,145,98,.12);border:1px solid rgba(58,145,98,.4);border-radius:6px;padding:8px 12px;font-family:'Space Mono',monospace;font-size:10px;color:${GREEN};margin-bottom:10px">
+        🟢 FEU VERT — Accord ${overlap}/4 entre le modèle et les critères
+      </div>`
+    : `<div style="background:rgba(200,148,42,.1);border:1px solid rgba(200,148,42,.3);border-radius:6px;padding:8px 12px;font-family:'Space Mono',monospace;font-size:10px;color:${GOLD};margin-bottom:10px">
+        🟠 PRUDENCE — Accord ${overlap}/4 seulement entre le modèle et les critères
+      </div>`;
+
+  const numsUnion = union.map(s => `#${s.numero}`).join(' · ');
+
+  const chevalLigne = (s) => {
+    const commun = numsModele.includes(s.numero) && numsCriteres.includes(s.numero);
+    return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;margin-bottom:4px;background:${commun ? 'rgba(58,145,98,.08)' : 'var(--bg2)'};border:1px solid ${commun ? 'rgba(58,145,98,.3)' : 'var(--border)'}">
+      <span style="font-family:'Bebas Neue',sans-serif;font-size:15px;color:${commun ? GREEN : 'var(--text-dim)'}">#${s.numero}</span>
+      <span style="flex:1;font-size:12px;font-weight:${commun?700:400}">${s.h.nom||''}</span>
+      ${commun ? `<span style="font-size:8px;color:${GREEN};font-family:'Space Mono',monospace">✓ commun</span>` : ''}
     </div>`;
   };
-
-  const cardHtml = (s, rang) => {
-    const h = s.h;
-    const rankColors = ['#c8942a','#9a8e7c','#7a6e5c','#5a5248'];
-    const rc = rankColors[rang] || '#5a5248';
-    const elimTag = s.elimine.length
-      ? `<span style="color:${RED};font-size:8px">⛔ ${s.elimine.join(' · ')}</span>`
-      : '';
-    return `<div style="border:1px solid var(--border);border-radius:8px;padding:12px;margin-bottom:10px;background:var(--bg2)">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-        <div style="width:32px;height:32px;border-radius:50%;background:${rc}22;border:2px solid ${rc};display:flex;align-items:center;justify-content:center;font-family:'Bebas Neue',sans-serif;font-size:16px;color:${rc};flex-shrink:0">${rang+1}</div>
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:13px">#${h.numero} ${h.nom||''}</div>
-          <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">${h.driver||'—'} · ${h.musique ? h.musique.slice(0,20) : '—'}</div>
-          ${elimTag}
-        </div>
-        <div style="text-align:right;flex-shrink:0">
-          <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;color:${rc};line-height:1">${s.scoreFinal}</div>
-          <div style="font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim)">/ 100</div>
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 16px">
-        ${barHtml('Vitesse (RK corrigé)', s.scoreVitesse, 22)}
-        ${barHtml('Modèle (algo PMU)', s.scoreAlgo, 20)}
-        ${barHtml('Musique / régularité', s.scoreMusique, 18)}
-        ${barHtml('Driver', s.scoreDriver, 12)}
-        ${barHtml('Pointe 12 mois', s.scorePointe, 8)}
-        ${barHtml('Ferrure + changement', s.scoreFerrure, 8)}
-        ${barHtml('Fiabilité (anti-Da)', s.scoreFiabilite, 6)}
-        ${barHtml('Engagement', s.scoreEngagement, 4)}
-        ${barHtml('Fraîcheur', s.scoreFraicheur, 2)}
-      </div>
-      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);display:flex;gap:12px;flex-wrap:wrap">
-        <span>Score final: <span style="color:var(--text)">${s.scoreFinal}</span></span>
-        ${h.rk_corrige ? `<span>RK corrigé: <span style="color:var(--text)">${Math.round(h.rk_corrige)}</span></span>` : h.rk_moyenne_3courses ? `<span>RK méd: <span style="color:var(--text)">${Math.round(h.rk_moyenne_3courses)}</span></span>` : ''}
-        ${s.tokens5.length > 0 ? `<span>Da/5: <span style="color:${s.taux5>=20?RED:'var(--text)'}">${Math.round(s.taux5)}%</span></span>` : ''}
-      </div>
-    </div>`;
-  };
-
-  const numsTop4 = top4.map(s => `#${s.h.numero}`).join(' · ');
-  const indecisWarning = indecis && sortedElig[4]
-    ? `<div style="background:rgba(200,148,42,.1);border:1px solid rgba(200,148,42,.3);border-radius:6px;padding:8px 12px;font-family:'Space Mono',monospace;font-size:9px;color:${GOLD};margin-bottom:12px">
-        ⚠️ Écart 4e/5e = ${ecart45} pts — lot indécis, réduire la mise<br>
-        <span style="color:var(--text);margin-top:4px;display:block">
-          5e : <strong>#${sortedElig[4].h.numero} ${sortedElig[4].h.nom}</strong> · ${sortedElig[4].scoreFinal} pts
-        </span>
-      </div>` : '';
-
-  const eliminésHtml = elimines.length
-    ? `<div style="margin-top:16px;padding-top:12px;border-top:1px solid var(--border)">
-        <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);margin-bottom:8px">ÉLIMINÉS</div>
-        ${elimines.map(s => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-family:'Space Mono',monospace;font-size:9px;opacity:.6">
-          <span style="color:${RED}">⛔</span>
-          <span>#${s.h.numero} ${s.h.nom||''}</span>
-          <span style="color:${RED};margin-left:auto">${s.elimine.join(' · ')}</span>
-        </div>`).join('')}
-      </div>` : '';
 
   el.innerHTML = `
     <div style="padding:12px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div>
           <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;color:${GOLD}">🎯 SÉLECTION TRIO</div>
-          <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">${notesPMUData.date||''} · R${notesPMUData.reunion||''}C${notesPMUData.course||''} · ${chevaux.length} partants · Vitesse+Algo+Musique+Driver…</div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">${notesPMUData.date||''} · R${notesPMUData.reunion||''}C${notesPMUData.course||''} · ${partantsHtml}</div>
         </div>
         <button onclick="calculerTrio()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:4px 10px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
       </div>
-      <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-family:'Space Mono',monospace;font-size:11px;text-align:center">
-        <span style="color:var(--text-dim);font-size:9px">TOP 4 SÉLECTIONNÉS</span><br>
-        <span style="font-weight:700;color:${GREEN};font-size:14px">${numsTop4}</span>
+
+      ${confianceBadge}
+
+      <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-family:'Space Mono',monospace;font-size:11px;text-align:center">
+        <span style="color:var(--text-dim);font-size:9px">SÉLECTION RECOMMANDÉE (${union.length} chevaux)</span><br>
+        <span style="font-weight:700;color:${feuVert ? GREEN : GOLD};font-size:15px">${numsUnion}</span>
       </div>
-      ${indecisWarning}
-      ${top4.map((s, i) => cardHtml(s, i)).join('')}
-      ${eliminésHtml}
-    </div>`;
-}
 
-// ── TRIO ALL — Top4 (+5e si indécis) pour TOUTES les courses ATTELÉ/MONTÉ du jour ──
-let trioAllCharge = false;
-async function calculerTrioAll() {
-  const el = document.getElementById('trioall-content');
-  el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement des courses du jour…</span></div>';
-  await acquireWakeLock();
-
-  const today = new Date();
-  const pad = n => String(n).padStart(2,'0');
-  const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
-  const dateGeny = today.getFullYear() + '-' + pad(today.getMonth()+1) + '-' + pad(today.getDate());
-  const DISC_LABELS = {'TROT_ATTELE':'ATTELÉ','ATTELE':'ATTELÉ','MONTE':'MONTÉ'};
-
-  try {
-    const resp = await fetch(`${API_URL_PRIMARY}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
-    if (!resp.ok) throw new Error('Programme indisponible (' + resp.status + ')');
-    const data = await resp.json();
-    if (data.error) throw new Error(data.error);
-
-    // Uniquement ATTELÉ et MONTÉ — les seules disciplines gérées par TRIO
-    const courses = (data.courses || [])
-      .filter(c => ['ATTELE','TROT_ATTELE','MONTE'].includes(c.disc))
-      .map(c => ({ r: c.r_num, c: c.c_num, disc: c.disc, dist: c.dist, lieu: c.lieu, heure: c.heure }));
-
-    if (!courses.length) { el.innerHTML='<div class="empty"><div class="empty-icon">📋</div>Aucune course ATTELÉ/MONTÉ aujourd\'hui</div>'; return; }
-
-    const allResults = {};
-    const total = courses.length;
-    let loaded = 0;
-    const updateProgress = () => {
-      const pct = Math.round(loaded/total*100);
-      el.innerHTML = `<div class="dash-progress">
-        Calcul TRIO… ${loaded}/${total} courses (${pct}%)
-        <div class="dash-progress-bar"><div class="dash-progress-fill" style="width:${pct}%"></div></div>
-      </div>`;
-    };
-    updateProgress();
-
-    for (let i=0; i<courses.length; i+=5) {
-      await Promise.all(courses.slice(i,i+5).map(async co => {
-        try {
-          const r = await fetch(`${API_URL_PRIMARY}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
-          if (r.ok) {
-            const d = await r.json();
-            if (d?.chevaux?.length >= 4) allResults[`${co.r}-${co.c}`] = _calculerTrioData(d.chevaux);
-          }
-        } catch(e) {}
-        loaded++;
-        updateProgress();
-      }));
-    }
-
-    await releaseWakeLock();
-
-    const renderRow = (co, tdata) => {
-      const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
-      if (!tdata) {
-        return `<div class="dash-row" onclick="${onclick}"><div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div><div><div class="dash-cheval" style="color:var(--text-dim)">Non disponible</div><div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m</div></div></div>`;
-      }
-      const { chevaux, top4, sortedElig, ecart45, indecis, GREEN, GOLD } = tdata;
-      const nbPartants = chevaux.length;
-      const partantsOk = nbPartants <= 12;
-      const numsTop4 = top4.map(s => `#${s.h.numero}`).join(' · ');
-      const numsAvecCinquieme = indecis && sortedElig[4]
-        ? `${numsTop4} <span style="color:${GOLD}">· #${sortedElig[4].h.numero}</span>`
-        : numsTop4;
-      return `<div class="dash-row" onclick="${onclick}">
-        <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:12px;color:${GREEN}">${numsAvecCinquieme}</div>
-          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · <span style="font-weight:${partantsOk?700:400};color:${partantsOk?GREEN:'var(--text-dim)'}">${nbPartants} partants</span>${indecis ? ` · <span style="color:${GOLD}">lot indécis</span>` : ''}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);margin-bottom:6px;text-align:center">🤖 MODÈLE (algo PMU)</div>
+          ${top4Modele.map(chevalLigne).join('')}
         </div>
-      </div>`;
-    };
+        <div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);margin-bottom:6px;text-align:center">📊 CRITÈRES (sans algo)</div>
+          ${top4Criteres.map(chevalLigne).join('')}
+        </div>
+      </div>
 
-    let html = `<div class="dash-refresh">
-      <span>📋 ${courses.length} courses ATTELÉ/MONTÉ · ${dateGeny}</span>
-      <button onclick="trioAllCharge=false;calculerTrioAll()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
+      <div style="font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);text-align:center;line-height:1.6">
+        Basé sur un backtest de 223 courses (16-25/07/2026, garanties sans fuite de données) :<br>
+        accord ≥3/4 + union jouée → <span style="color:${GREEN}">44.2% de réussite complète</span> (contre ~23% pour le modèle seul)
+      </div>
     </div>`;
-
-    const byR = {};
-    for (const co of courses) {
-      if (!byR[co.r]) byR[co.r] = { lieu: co.lieu, courses: [] };
-      byR[co.r].courses.push(co);
-    }
-    for (const [rNum, rd] of Object.entries(byR)) {
-      html += `<div class="dash-reunion">R${rNum} · ${rd.lieu}</div>`;
-      for (const co of rd.courses) {
-        html += renderRow(co, allResults[`${co.r}-${co.c}`]);
-      }
-    }
-
-    el.innerHTML = html;
-    trioAllCharge = true;
-  } catch(e) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Erreur : ${e.message}<br>
-    <button class="btn secondary" onclick="calculerTrioAll()" style="margin-top:12px;font-size:10px">↺ Réessayer</button>
-    </div>`;
-  }
 }
 
 // ── PRO ──

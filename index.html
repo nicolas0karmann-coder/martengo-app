@@ -241,6 +241,8 @@ input[readonly]{opacity:.5;cursor:default}
     <button class="nav-btn" onclick="goTo('pro')" id="tab-pro"><span class="nav-icon">💎</span>Pro</button>
     <button class="nav-btn" onclick="goTo('prosa')" id="tab-prosa"><span class="nav-icon">🌎</span>Pro SA</button>
     <button class="nav-btn" onclick="goTo('couple')" id="tab-couple"><span class="nav-icon">🔗</span>Couplé</button>
+    <button class="nav-btn" onclick="goTo('couple2')" id="tab-couple2"><span class="nav-icon">👥</span>Couple</button>
+    <button class="nav-btn" onclick="goTo('couple2all')" id="tab-couple2all"><span class="nav-icon">👥</span>Couple All</button>
     <button class="nav-btn" onclick="goTo('stats')" id="tab-stats">
       <span class="nav-icon">📊</span>Stats
       <span class="nav-badge" id="badge-stats"></span>
@@ -422,6 +424,35 @@ input[readonly]{opacity:.5;cursor:default}
         </div>
       </div>
     </div>
+
+    <!-- COUPLE (nouveau — même logique modèle/critères que TRIO) -->
+    <div class="screen" id="screen-couple2">
+      <div id="couple2-content">
+        <div class="empty">
+          <div class="empty-icon">👥</div>
+          Couplé Placé — accord modèle/critères<br>
+          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
+            ATTELÉ &amp; MONTE · Top3 modèle vs Top3 critères
+          </small>
+          <button class="btn full" onclick="calculerCouple()" style="margin-top:16px;font-size:11px">Calculer →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- COUPLE ALL -->
+    <div class="screen" id="screen-couple2all">
+      <div id="couple2all-content">
+        <div class="empty">
+          <div class="empty-icon">👥</div>
+          Toutes les courses jouables du jour (accord ≥2/3)<br>
+          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
+            ATTELÉ &amp; MONTE uniquement
+          </small>
+          <button class="btn full" onclick="calculerCoupleAll()" style="margin-top:16px;font-size:11px">Calculer →</button>
+        </div>
+      </div>
+    </div>
+
     <div class="screen" id="screen-stats">
       <div id="stats-content">
         <div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement…</span></div>
@@ -447,7 +478,7 @@ async function fetchAPI(path, options = {}) {
   return r;
 }
 const LS_SAISIE = 'martengo_v3', LS_HIST = 'martengo_hist';
-const SCREENS = ['saisie','selections','analyse','conseil','dashboard','safe','offensif','trio','trioall','pro','prosa','couple','stats'];
+const SCREENS = ['saisie','selections','analyse','conseil','dashboard','safe','offensif','trio','trioall','pro','prosa','couple','couple2','couple2all','stats'];
 
 let chevaux = [], predictions = null, notesPMU = {}, notesPMUData = null;
 let currentDate = '', horseCounter = 0, apiPrete = false, currentScreen = 'saisie';
@@ -2314,6 +2345,323 @@ async function calculerTrioAll() {
   } catch(e) {
     el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Erreur : ${e.message}<br>
     <button class="btn secondary" onclick="calculerTrioAll()" style="margin-top:12px;font-size:10px">↺ Réessayer</button>
+    </div>`;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// COUPLE (nouveau) — même principe que TRIO : Top3 modèle vs Top3 critères
+// ══════════════════════════════════════════════════════════════════════════
+//   overlap 3/3 → jouer les 2 meilleurs parmi les 3 (score combiné)
+//   overlap 2/3 → jouer les 2 chevaux communs
+//   overlap ≤1/3 → ne pas parier
+
+function _calculerCoupleData(chevaux) {
+  const GREEN = '#3a9162';
+  const GOLD  = '#c8942a';
+  const RED   = '#e05c5c';
+
+  const scoreMusique = (musique) => {
+    if (!musique) return 50;
+    const pts = {1:20, 2:15, 3:12, 4:8, 5:6};
+    const clean = musique.replace(/\(\d+\)/g, '');
+    const tokens = clean.match(/[0-9DATRdatr][amphscAMPHSC]?/g) || [];
+    let num = 0, den = 0, i = 0;
+    for (const t of tokens) {
+      const c = t[0].toUpperCase();
+      const suf = t[1]?.toLowerCase() || '';
+      if (suf === 'm') { i++; continue; }
+      const w = Math.pow(0.85, i);
+      if (c === 'D') num += -15 * w;
+      else if (c === 'A' || c === 'T') { i++; continue; }
+      else { const n = parseInt(c); num += (pts[n] ?? (n >= 6 ? 3 : 0)) * w; }
+      den += w; i++;
+      if (i >= 10) break;
+    }
+    return den > 0 ? Math.max(0, Math.min(100, Math.round((num / den) * 3.5 + 50))) : 50;
+  };
+
+  const fraicheurScore = (dateStr) => {
+    if (!dateStr) return 30;
+    const d = new Date(dateStr);
+    const jours = Math.round((Date.now() - d.getTime()) / 86400000);
+    if (jours < 0) return 30;
+    if (jours < 15) return 80;
+    if (jours <= 45) return 100;
+    if (jours <= 90) return 100 - (jours - 45) * 1.2;
+    if (jours <= 180) return 46 - (jours - 90) * 0.4;
+    return Math.max(5, 10 - (jours - 180) * 0.05);
+  };
+
+  const driverScore = (wr) => wr == null ? 50 : Math.min(100, Math.round(wr));
+
+  const engagementScore = (gains, plafond, nbCourses) => {
+    if (!plafond || plafond <= 0) return 50;
+    const gainsEuros = (gains || 0) / 100;
+    const ratio_brut = Math.max(0, Math.min(1, gainsEuros / plafond));
+    const nb = nbCourses || 1;
+    const REF = 20;
+    let niveauScore;
+    if (ratio_brut < 0.30) niveauScore = 20;
+    else if (ratio_brut < 0.60) niveauScore = 20 + (ratio_brut - 0.30) / 0.30 * 50;
+    else niveauScore = 70 + Math.min(1, (ratio_brut - 0.60) / 0.40) * 30;
+    const efficacite = Math.max(-0.5, Math.min(0.5, (REF - nb) / REF));
+    return Math.round(Math.max(0, Math.min(100, niveauScore + efficacite * 20)));
+  };
+
+  const norm = (val, min, max, inverse=false) => {
+    if (max === min || val == null) return 50;
+    const n = (val - min) / (max - min) * 100;
+    return Math.round(inverse ? 100 - n : n);
+  };
+
+  const zScoreNorm = (values, val, inverseBetter=false) => {
+    if (val == null || values.length < 2) return 50;
+    const mean = values.reduce((a,b) => a+b, 0) / values.length;
+    const variance = values.reduce((a,b) => a + (b-mean)**2, 0) / values.length;
+    const std = Math.sqrt(variance);
+    if (std === 0) return 50;
+    let z = (val - mean) / std;
+    if (inverseBetter) z = -z;
+    return Math.round(Math.max(0, Math.min(100, 50 + z * 22)));
+  };
+
+  const scored = chevaux.map(h => {
+    const rk = h.rk_corrige || h.rk_moyenne_3courses || null;
+    return {
+      h, numero: h.numero, rk,
+      scoreMusique:    scoreMusique(h.musique),
+      scoreEngagement: engagementScore(h.gains_carriere, h.plafond_gains, h.nb_courses_base),
+      scoreDriver:     driverScore(h.driver_win_rate),
+      scoreFraicheur:  fraicheurScore(h.date_derniere_course),
+      algoScore:       (h.note_pmu || 0),
+    };
+  });
+
+  const rks = scored.map(s => s.rk).filter(v => v != null);
+  const algoScores = scored.map(s => s.algoScore);
+  const algoMin = Math.min(...algoScores), algoMax = Math.max(...algoScores);
+
+  scored.forEach(s => {
+    s.scoreVitesse = zScoreNorm(rks, s.rk, true);
+    s.scoreAlgo    = norm(s.algoScore, algoMin, algoMax, false);
+  });
+
+  const POIDS_CRITERES = {vitesse:28, musique:33, driver:23, engagement:10, fraicheur:6};
+  scored.forEach(s => {
+    s.scoreCriteres = (
+      s.scoreVitesse    * POIDS_CRITERES.vitesse +
+      s.scoreMusique    * POIDS_CRITERES.musique +
+      s.scoreDriver     * POIDS_CRITERES.driver +
+      s.scoreEngagement * POIDS_CRITERES.engagement +
+      s.scoreFraicheur  * POIDS_CRITERES.fraicheur
+    ) / 100;
+  });
+
+  const parModele   = [...scored].sort((a,b) => b.scoreAlgo - a.scoreAlgo);
+  const parCriteres = [...scored].sort((a,b) => b.scoreCriteres - a.scoreCriteres);
+  const top3Modele   = parModele.slice(0, 3);
+  const top3Criteres = parCriteres.slice(0, 3);
+
+  const numsModele   = top3Modele.map(s => s.numero);
+  const numsCriteres = top3Criteres.map(s => s.numero);
+  const communs = scored.filter(s => numsModele.includes(s.numero) && numsCriteres.includes(s.numero));
+  const overlap = communs.length;
+
+  let selection = [];
+  let jouable = false;
+  if (overlap === 3) {
+    // Les 3 sont d'accord — on ne joue que les 2 meilleurs (score combiné)
+    selection = [...communs].sort((a,b) => (b.scoreAlgo+b.scoreCriteres) - (a.scoreAlgo+a.scoreCriteres)).slice(0, 2);
+    jouable = true;
+  } else if (overlap === 2) {
+    selection = communs;
+    jouable = true;
+  } else {
+    selection = [];
+    jouable = false;
+  }
+
+  return { chevaux, scored, top3Modele, top3Criteres, overlap, selection, jouable, GREEN, GOLD, RED };
+}
+
+function calculerCouple() {
+  const el = document.getElementById('couple2-content');
+  if (!notesPMUData || !notesPMUData.chevaux || notesPMUData.chevaux.length < 4) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">👥</div>
+      Chargez d'abord une course ATTELÉ ou MONTE<br>
+      <button class="btn full" onclick="goTo('saisie')" style="margin-top:16px;font-size:11px">Aller à Saisie →</button>
+    </div>`;
+    return;
+  }
+  _renderCouple(el);
+}
+
+function _renderCouple(el) {
+  const data = _calculerCoupleData(notesPMUData.chevaux);
+  const { chevaux, top3Modele, top3Criteres, overlap, selection, jouable, GREEN, GOLD, RED } = data;
+
+  const numsModele   = top3Modele.map(s => s.numero);
+  const numsCriteres = top3Criteres.map(s => s.numero);
+
+  const chevalLigne = (s) => {
+    const commun = numsModele.includes(s.numero) && numsCriteres.includes(s.numero);
+    return `<div style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:6px;margin-bottom:4px;background:${commun ? 'rgba(58,145,98,.08)' : 'var(--bg2)'};border:1px solid ${commun ? 'rgba(58,145,98,.3)' : 'var(--border)'};min-width:0">
+      <span style="font-family:'Bebas Neue',sans-serif;font-size:15px;color:${commun ? GREEN : 'var(--text-dim)'};flex-shrink:0">#${s.numero}</span>
+      <span style="flex:1;min-width:0;font-size:12px;font-weight:${commun?700:400};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.h.nom||''}</span>
+      ${commun ? `<span style="font-size:8px;color:${GREEN};font-family:'Space Mono',monospace;flex-shrink:0">✓</span>` : ''}
+    </div>`;
+  };
+
+  const badge = jouable
+    ? `<div style="background:rgba(58,145,98,.12);border:1px solid rgba(58,145,98,.4);border-radius:6px;padding:8px 12px;font-family:'Space Mono',monospace;font-size:10px;color:${GREEN};margin-bottom:10px">
+        🟢 JOUABLE — Accord ${overlap}/3 entre le modèle et les critères
+      </div>`
+    : `<div style="background:rgba(200,148,42,.1);border:1px solid rgba(200,148,42,.3);border-radius:6px;padding:8px 12px;font-family:'Space Mono',monospace;font-size:10px;color:${GOLD};margin-bottom:10px">
+        🟠 NE PAS PARIER — Accord ${overlap}/3 seulement (insuffisant)
+      </div>`;
+
+  const selectionHtml = jouable
+    ? `<span style="font-weight:700;color:${GREEN};font-size:15px">${selection.map(s=>`#${s.numero}`).join(' · ')}</span>`
+    : `<span style="font-weight:700;color:${GOLD};font-size:13px">Aucune mise recommandée</span>`;
+
+  el.innerHTML = `
+    <div style="padding:12px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div>
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:2px;color:${GOLD}">👥 COUPLÉ PLACÉ</div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">${notesPMUData.date||''} · R${notesPMUData.reunion||''}C${notesPMUData.course||''} · ${chevaux.length} partants</div>
+        </div>
+        <button onclick="calculerCouple()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:4px 10px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
+      </div>
+
+      ${badge}
+
+      <div style="background:var(--bg3);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-family:'Space Mono',monospace;font-size:11px;text-align:center">
+        <span style="color:var(--text-dim);font-size:9px">SÉLECTION RECOMMANDÉE</span><br>
+        ${selectionHtml}
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div style="min-width:0">
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);margin-bottom:6px;text-align:center">🤖 MODÈLE (algo PMU)</div>
+          ${top3Modele.map(chevalLigne).join('')}
+        </div>
+        <div style="min-width:0">
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);margin-bottom:6px;text-align:center">📊 CRITÈRES (sans algo)</div>
+          ${top3Criteres.map(chevalLigne).join('')}
+        </div>
+      </div>
+
+      <div style="font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);text-align:center;line-height:1.6">
+        Règle : accord 3/3 → 2 meilleurs du trio commun · accord 2/3 → les 2 communs · accord ≤1/3 → pas de pari.<br>
+        Approche non encore backtestée sur données historiques — à valider avant mise réelle.
+      </div>
+    </div>`;
+}
+
+// ── COUPLE ALL — toutes les courses ATTELÉ/MONTÉ du jour jouables (accord ≥2/3) ──
+async function calculerCoupleAll() {
+  const el = document.getElementById('couple2all-content');
+  el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement des courses du jour…</span></div>';
+  await acquireWakeLock();
+
+  const today = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
+  const dateAffiche = pad(today.getDate()) + '/' + pad(today.getMonth()+1) + '/' + today.getFullYear();
+  const DISC_LABELS = {'TROT_ATTELE':'ATTELÉ','ATTELE':'ATTELÉ','MONTE':'MONTÉ'};
+
+  try {
+    const resp = await fetch(`${API_URL_PRIMARY}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
+    if (!resp.ok) throw new Error('Programme indisponible (' + resp.status + ')');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    const courses = (data.courses || [])
+      .filter(c => ['ATTELE','TROT_ATTELE','MONTE'].includes(c.disc))
+      .map(c => ({ r: c.r_num, c: c.c_num, disc: c.disc, lieu: c.lieu, heure: c.heure }));
+
+    if (!courses.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">👥</div>Aucune course ATTELÉ/MONTÉ aujourd\'hui</div>';
+      await releaseWakeLock();
+      return;
+    }
+
+    const resultatsParCourse = {};
+    const total = courses.length;
+    let loaded = 0;
+    const updateProgress = () => {
+      const pct = Math.round(loaded/total*100);
+      el.innerHTML = `<div class="dash-progress">
+        Analyse des courses jouables… ${loaded}/${total} courses (${pct}%)
+        <div class="dash-progress-bar"><div class="dash-progress-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    };
+    updateProgress();
+
+    for (let i=0; i<courses.length; i+=5) {
+      await Promise.all(courses.slice(i,i+5).map(async co => {
+        try {
+          const r = await fetch(`${API_URL_PRIMARY}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
+          if (r.ok) {
+            const d = await r.json();
+            if (d?.chevaux?.length >= 4) resultatsParCourse[`${co.r}-${co.c}`] = _calculerCoupleData(d.chevaux);
+          }
+        } catch(e) {}
+        loaded++;
+        updateProgress();
+      }));
+    }
+
+    await releaseWakeLock();
+
+    const coursesJouables = courses.filter(co => resultatsParCourse[`${co.r}-${co.c}`]?.jouable);
+
+    if (!coursesJouables.length) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">🟠</div>
+        Aucune course jouable aujourd'hui<br>
+        <small style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">${courses.length} courses analysées, aucun accord ≥2/3 entre modèle et critères</small>
+        <button class="btn secondary" onclick="calculerCoupleAll()" style="margin-top:16px;font-size:10px">↺ Réessayer</button>
+      </div>`;
+      return;
+    }
+
+    const renderRow = (co, tdata) => {
+      const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
+      const { chevaux, selection, overlap, GREEN } = tdata;
+      const nbPartants = chevaux.length;
+      const numsSel = selection.map(s => `#${s.numero}`).join(' · ');
+      return `<div class="dash-row" onclick="${onclick}">
+        <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:12px;color:${GREEN}">${numsSel}</div>
+          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${nbPartants} partants · accord ${overlap}/3</div>
+        </div>
+      </div>`;
+    };
+
+    let html = `<div class="dash-refresh">
+      <span>👥 ${coursesJouables.length}/${courses.length} courses jouables · ${dateAffiche}</span>
+      <button onclick="calculerCoupleAll()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
+    </div>`;
+
+    const byR = {};
+    for (const co of coursesJouables) {
+      if (!byR[co.r]) byR[co.r] = { lieu: co.lieu, courses: [] };
+      byR[co.r].courses.push(co);
+    }
+    for (const [rNum, rd] of Object.entries(byR)) {
+      html += `<div class="dash-reunion">R${rNum} · ${rd.lieu}</div>`;
+      for (const co of rd.courses) {
+        html += renderRow(co, resultatsParCourse[`${co.r}-${co.c}`]);
+      }
+    }
+
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Erreur : ${e.message}<br>
+    <button class="btn secondary" onclick="calculerCoupleAll()" style="margin-top:12px;font-size:10px">↺ Réessayer</button>
     </div>`;
   }
 }

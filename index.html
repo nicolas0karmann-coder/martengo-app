@@ -2122,13 +2122,8 @@ function _calculerTrioData(chevaux) {
     ) / 100;
   });
 
-  // Départage déterministe par numéro en cas d'égalité — note_pmu est une échelle
-  // grossière (entiers ~1-20), les égalités exactes sont fréquentes. Sans ce
-  // départage, l'ordre dépend de l'ordre renvoyé par l'API (pas garanti stable
-  // d'un appel à l'autre), ce qui peut faire changer le Top4 sans qu'aucune
-  // vraie valeur n'ait bougé — observé concrètement le 26/07/2026 sur R6C9.
-  const parModele   = [...scored].sort((a,b) => (b.scoreAlgo - a.scoreAlgo) || (a.numero - b.numero));
-  const parCriteres = [...scored].sort((a,b) => (b.scoreCriteres - a.scoreCriteres) || (a.numero - b.numero));
+  const parModele   = [...scored].sort((a,b) => b.scoreAlgo - a.scoreAlgo);
+  const parCriteres = [...scored].sort((a,b) => b.scoreCriteres - a.scoreCriteres);
   const top4Modele   = parModele.slice(0, 4);
   const top4Criteres = parCriteres.slice(0, 4);
 
@@ -2463,8 +2458,8 @@ function _calculerCoupleData(chevaux) {
     ) / 100;
   });
 
-  const parModele   = [...scored].sort((a,b) => (b.scoreAlgo - a.scoreAlgo) || (a.numero - b.numero));
-  const parCriteres = [...scored].sort((a,b) => (b.scoreCriteres - a.scoreCriteres) || (a.numero - b.numero));
+  const parModele   = [...scored].sort((a,b) => b.scoreAlgo - a.scoreAlgo);
+  const parCriteres = [...scored].sort((a,b) => b.scoreCriteres - a.scoreCriteres);
   const top3Modele   = parModele.slice(0, 3);
   const top3Criteres = parCriteres.slice(0, 3);
   const top2Modele   = parModele.slice(0, 2);
@@ -2484,16 +2479,10 @@ function _calculerCoupleData(chevaux) {
   // vraies EN MÊME TEMPS. Un filtre seul (top3=3/3 seul : -2.0% ROI ; top2=2/2 seul :
   // -13.0% ROI ; aucun filtre : -23.9% ROI) ne suffit pas — c'est la conjonction
   // des deux qui isole un vrai signal.
-  // Filtre taille de champ (8-12 partants) : le Couplé Placé n'est proposé qu'à
-  // partir de 8 partants (même règle que TRIO), et l'analyse par taille de champ
-  // avait montré que les grands champs (>12) sont nettement moins rentables.
-  const nbPartants = chevaux.length;
-  const tailleOk = nbPartants >= 8 && nbPartants <= 12;
-
-  const jouable = (overlap === 3) && (overlap2 === 2) && tailleOk;
+  const jouable = (overlap === 3) && (overlap2 === 2);
   const selection = jouable ? top2Modele : []; // top2Modele === top2Criteres quand overlap2===2
 
-  return { chevaux, scored, top3Modele, top3Criteres, overlap, overlap2, tailleOk, nbPartants, selection, jouable, GREEN, GOLD, RED };
+  return { chevaux, scored, top3Modele, top3Criteres, overlap, overlap2, selection, jouable, GREEN, GOLD, RED };
 }
 
 function calculerCouple() {
@@ -2510,7 +2499,7 @@ function calculerCouple() {
 
 function _renderCouple(el) {
   const data = _calculerCoupleData(notesPMUData.chevaux);
-  const { chevaux, top3Modele, top3Criteres, overlap, overlap2, tailleOk, nbPartants, selection, jouable, GREEN, GOLD, RED } = data;
+  const { chevaux, top3Modele, top3Criteres, overlap, overlap2, selection, jouable, GREEN, GOLD, RED } = data;
 
   const numsModele   = top3Modele.map(s => s.numero);
   const numsCriteres = top3Criteres.map(s => s.numero);
@@ -2526,10 +2515,10 @@ function _renderCouple(el) {
 
   const badge = jouable
     ? `<div style="background:rgba(58,145,98,.12);border:1px solid rgba(58,145,98,.4);border-radius:6px;padding:8px 12px;font-family:'Space Mono',monospace;font-size:10px;color:${GREEN};margin-bottom:10px">
-        🟢 JOUABLE — Double accord total (top3 ${overlap}/3 ET top2 ${overlap2}/2) + ${nbPartants}p (8-12)
+        🟢 JOUABLE — Double accord total (top3 ${overlap}/3 ET top2 ${overlap2}/2)
       </div>`
     : `<div style="background:rgba(200,148,42,.1);border:1px solid rgba(200,148,42,.3);border-radius:6px;padding:8px 12px;font-family:'Space Mono',monospace;font-size:10px;color:${GOLD};margin-bottom:10px">
-        🟠 NE PAS PARIER — top3 ${overlap}/3, top2 ${overlap2}/2, ${nbPartants}p ${tailleOk ? '(ok)' : '(hors zone 8-12)'}
+        🟠 NE PAS PARIER — Accord top3 ${overlap}/3, top2 ${overlap2}/2 (double condition non remplie)
       </div>`;
 
   const selectionHtml = jouable

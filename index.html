@@ -444,7 +444,7 @@ input[readonly]{opacity:.5;cursor:default}
       <div id="couple2all-content">
         <div class="empty">
           <div class="empty-icon">👥</div>
-          Toutes les courses jouables du jour (accord ≥2/3)<br>
+          Toutes les courses jouables du jour (double accord total)<br>
           <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
             ATTELÉ &amp; MONTE uniquement
           </small>
@@ -2462,27 +2462,27 @@ function _calculerCoupleData(chevaux) {
   const parCriteres = [...scored].sort((a,b) => b.scoreCriteres - a.scoreCriteres);
   const top3Modele   = parModele.slice(0, 3);
   const top3Criteres = parCriteres.slice(0, 3);
+  const top2Modele   = parModele.slice(0, 2);
+  const top2Criteres = parCriteres.slice(0, 2);
 
-  const numsModele   = top3Modele.map(s => s.numero);
-  const numsCriteres = top3Criteres.map(s => s.numero);
-  const communs = scored.filter(s => numsModele.includes(s.numero) && numsCriteres.includes(s.numero));
-  const overlap = communs.length;
+  const numsModele3   = top3Modele.map(s => s.numero);
+  const numsCriteres3 = top3Criteres.map(s => s.numero);
+  const communs3 = scored.filter(s => numsModele3.includes(s.numero) && numsCriteres3.includes(s.numero));
+  const overlap = communs3.length; // affiché à titre indicatif (accord sur le trio)
 
-  let selection = [];
-  let jouable = false;
-  if (overlap === 3) {
-    // Les 3 sont d'accord — on ne joue que les 2 meilleurs (score combiné)
-    selection = [...communs].sort((a,b) => (b.scoreAlgo+b.scoreCriteres) - (a.scoreAlgo+a.scoreCriteres)).slice(0, 2);
-    jouable = true;
-  } else if (overlap === 2) {
-    selection = communs;
-    jouable = true;
-  } else {
-    selection = [];
-    jouable = false;
-  }
+  const numsModele2   = top2Modele.map(s => s.numero);
+  const numsCriteres2 = top2Criteres.map(s => s.numero);
+  const overlap2 = numsModele2.filter(n => numsCriteres2.includes(n)).length;
 
-  return { chevaux, scored, top3Modele, top3Criteres, overlap, selection, jouable, GREEN, GOLD, RED };
+  // Règle validée par backtest le 26/07/2026 (13 courses, +34.6% ROI — échantillon
+  // encore petit, à confirmer) : DOUBLE filtre, les deux conditions doivent être
+  // vraies EN MÊME TEMPS. Un filtre seul (top3=3/3 seul : -2.0% ROI ; top2=2/2 seul :
+  // -13.0% ROI ; aucun filtre : -23.9% ROI) ne suffit pas — c'est la conjonction
+  // des deux qui isole un vrai signal.
+  const jouable = (overlap === 3) && (overlap2 === 2);
+  const selection = jouable ? top2Modele : []; // top2Modele === top2Criteres quand overlap2===2
+
+  return { chevaux, scored, top3Modele, top3Criteres, overlap, overlap2, selection, jouable, GREEN, GOLD, RED };
 }
 
 function calculerCouple() {
@@ -2499,7 +2499,7 @@ function calculerCouple() {
 
 function _renderCouple(el) {
   const data = _calculerCoupleData(notesPMUData.chevaux);
-  const { chevaux, top3Modele, top3Criteres, overlap, selection, jouable, GREEN, GOLD, RED } = data;
+  const { chevaux, top3Modele, top3Criteres, overlap, overlap2, selection, jouable, GREEN, GOLD, RED } = data;
 
   const numsModele   = top3Modele.map(s => s.numero);
   const numsCriteres = top3Criteres.map(s => s.numero);
@@ -2515,10 +2515,10 @@ function _renderCouple(el) {
 
   const badge = jouable
     ? `<div style="background:rgba(58,145,98,.12);border:1px solid rgba(58,145,98,.4);border-radius:6px;padding:8px 12px;font-family:'Space Mono',monospace;font-size:10px;color:${GREEN};margin-bottom:10px">
-        🟢 JOUABLE — Accord ${overlap}/3 entre le modèle et les critères
+        🟢 JOUABLE — Double accord total (top3 ${overlap}/3 ET top2 ${overlap2}/2)
       </div>`
     : `<div style="background:rgba(200,148,42,.1);border:1px solid rgba(200,148,42,.3);border-radius:6px;padding:8px 12px;font-family:'Space Mono',monospace;font-size:10px;color:${GOLD};margin-bottom:10px">
-        🟠 NE PAS PARIER — Accord ${overlap}/3 seulement (insuffisant)
+        🟠 NE PAS PARIER — Accord top3 ${overlap}/3, top2 ${overlap2}/2 (double condition non remplie)
       </div>`;
 
   const selectionHtml = jouable
@@ -2554,13 +2554,13 @@ function _renderCouple(el) {
       </div>
 
       <div style="font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);text-align:center;line-height:1.6">
-        Règle : accord 3/3 → 2 meilleurs du trio commun · accord 2/3 → les 2 communs · accord ≤1/3 → pas de pari.<br>
-        Approche non encore backtestée sur données historiques — à valider avant mise réelle.
+        Règle : jouable seulement si le top3 modèle/critères s'accorde à 3/3 ET le top2 à 2/2 en même temps.<br>
+        Backtest 26/07/2026 : <span style="color:${GREEN}">+34.6% ROI</span> — mais sur seulement 13 courses (26€ misés). Échantillon minuscule, à confirmer avant mise réelle.
       </div>
     </div>`;
 }
 
-// ── COUPLE ALL — toutes les courses ATTELÉ/MONTÉ du jour jouables (accord ≥2/3) ──
+// ── COUPLE ALL — toutes les courses ATTELÉ/MONTÉ du jour jouables (double accord top3=3/3 ET top2=2/2) ──
 async function calculerCoupleAll() {
   const el = document.getElementById('couple2all-content');
   el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement des courses du jour…</span></div>';
@@ -2621,7 +2621,7 @@ async function calculerCoupleAll() {
     if (!coursesJouables.length) {
       el.innerHTML = `<div class="empty"><div class="empty-icon">🟠</div>
         Aucune course jouable aujourd'hui<br>
-        <small style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">${courses.length} courses analysées, aucun accord ≥2/3 entre modèle et critères</small>
+        <small style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">${courses.length} courses analysées, aucun double accord total (top3=3/3 et top2=2/2) entre modèle et critères — normal, la règle est volontairement très stricte</small>
         <button class="btn secondary" onclick="calculerCoupleAll()" style="margin-top:16px;font-size:10px">↺ Réessayer</button>
       </div>`;
       return;
@@ -2629,14 +2629,14 @@ async function calculerCoupleAll() {
 
     const renderRow = (co, tdata) => {
       const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
-      const { chevaux, selection, overlap, GREEN } = tdata;
+      const { chevaux, selection, overlap, overlap2, GREEN } = tdata;
       const nbPartants = chevaux.length;
       const numsSel = selection.map(s => `#${s.numero}`).join(' · ');
       return `<div class="dash-row" onclick="${onclick}">
         <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
         <div style="flex:1;min-width:0">
           <div style="font-weight:700;font-size:12px;color:${GREEN}">${numsSel}</div>
-          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${nbPartants} partants · accord ${overlap}/3</div>
+          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${nbPartants} partants · top3 ${overlap}/3 · top2 ${overlap2}/2</div>
         </div>
       </div>`;
     };

@@ -268,6 +268,8 @@ input[readonly]{opacity:.5;cursor:default}
     <button class="nav-btn" onclick="goTo('couple')" id="tab-couple"><span class="nav-icon">🔗</span>Couplé</button>
     <button class="nav-btn" onclick="goTo('couple2')" id="tab-couple2"><span class="nav-icon">👥</span>Couple</button>
     <button class="nav-btn" onclick="goTo('couple2all')" id="tab-couple2all"><span class="nav-icon">👥</span>Couple All</button>
+    <button class="nav-btn" onclick="goTo('trioallplat')" id="tab-trioallplat"><span class="nav-icon">🐎</span>Trio All Plat</button>
+    <button class="nav-btn" onclick="goTo('coupleallplat')" id="tab-coupleallplat"><span class="nav-icon">🐎</span>Couple All Plat</button>
     <button class="nav-btn" onclick="goTo('stats')" id="tab-stats">
       <span class="nav-icon">📊</span>Stats
       <span class="nav-badge" id="badge-stats"></span>
@@ -478,6 +480,34 @@ input[readonly]{opacity:.5;cursor:default}
       </div>
     </div>
 
+    <!-- TRIO ALL PLAT -->
+    <div class="screen" id="screen-trioallplat">
+      <div id="trioallplat-content">
+        <div class="empty">
+          <div class="empty-icon">🐎</div>
+          Toutes les courses PLAT du jour en feu vert<br>
+          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
+            PLAT uniquement · Pondération critères non backtestée — indicatif
+          </small>
+          <button class="btn full" onclick="calculerTrioAllPlat()" style="margin-top:16px;font-size:11px">Calculer →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- COUPLE ALL PLAT -->
+    <div class="screen" id="screen-coupleallplat">
+      <div id="coupleallplat-content">
+        <div class="empty">
+          <div class="empty-icon">🐎</div>
+          Toutes les courses PLAT jouables du jour<br>
+          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
+            PLAT uniquement · Pondération critères non backtestée — indicatif
+          </small>
+          <button class="btn full" onclick="calculerCoupleAllPlat()" style="margin-top:16px;font-size:11px">Calculer →</button>
+        </div>
+      </div>
+    </div>
+
     <div class="screen" id="screen-stats">
       <div id="stats-content">
         <div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement…</span></div>
@@ -503,7 +533,7 @@ async function fetchAPI(path, options = {}) {
   return r;
 }
 const LS_SAISIE = 'martengo_v3', LS_HIST = 'martengo_hist';
-const SCREENS = ['saisie','selections','analyse','conseil','dashboard','safe','offensif','trio','trioall','pro','prosa','couple','couple2','couple2all','stats'];
+const SCREENS = ['saisie','selections','analyse','conseil','dashboard','safe','offensif','trio','trioall','pro','prosa','couple','couple2','couple2all','trioallplat','coupleallplat','stats'];
 
 let chevaux = [], predictions = null, notesPMU = {}, notesPMUData = null;
 let currentDate = '', horseCounter = 0, apiPrete = false, currentScreen = 'saisie';
@@ -2755,6 +2785,324 @@ async function calculerCoupleAll() {
   } catch(e) {
     el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Erreur : ${e.message}<br>
     <button class="btn secondary" onclick="calculerCoupleAll()" style="margin-top:12px;font-size:10px">↺ Réessayer</button>
+    </div>`;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// PLAT — TRIO ALL / COUPLE ALL, même principe que ATTELÉ/MONTE mais avec les
+// scores déjà calculés par le pipeline PLAT (pas de RK/musique bruts à parser).
+// ⚠️ PONDÉRATION NON BACKTESTÉE — valeurs de départ raisonnables, à valider par
+// audit historique comme ça a été fait pour l'attelé (corrélation + A/B test).
+// ══════════════════════════════════════════════════════════════════════════
+
+function _scorerPlat(chevaux) {
+  const scored = chevaux.map(h => {
+    const sc = h.scores || {};
+    const algoBrut = (h.proba_pmu != null && h.proba_pmu !== 0) ? h.proba_pmu : (h.note_pmu || 0);
+    return {
+      h, numero: h.numero,
+      algoScore: algoBrut,
+      scoreForme:      sc.forme      ?? 50,
+      scoreJockey:     sc.jockey     ?? 50,
+      scoreHandicap:   sc.handicap   ?? 50,
+      scoreHistorique: sc.historique ?? 50,
+      scoreGains:      sc.gains      ?? 50,
+      scoreNiveau:     sc.niveau     ?? 50,
+    };
+  });
+  const algoScores = scored.map(s => s.algoScore);
+  const algoMin = Math.min(...algoScores), algoMax = Math.max(...algoScores);
+  const POIDS_CRITERES_PLAT = {scoreForme:30, scoreJockey:25, scoreHistorique:20, scoreGains:10, scoreHandicap:10, scoreNiveau:5};
+  scored.forEach(s => {
+    s.scoreAlgo = algoMax === algoMin ? 50 : Math.round((s.algoScore - algoMin) / (algoMax - algoMin) * 100);
+    s.scoreCriteres = (
+      s.scoreForme      * POIDS_CRITERES_PLAT.scoreForme +
+      s.scoreJockey     * POIDS_CRITERES_PLAT.scoreJockey +
+      s.scoreHistorique * POIDS_CRITERES_PLAT.scoreHistorique +
+      s.scoreGains      * POIDS_CRITERES_PLAT.scoreGains +
+      s.scoreHandicap   * POIDS_CRITERES_PLAT.scoreHandicap +
+      s.scoreNiveau     * POIDS_CRITERES_PLAT.scoreNiveau
+    ) / 100;
+  });
+  return scored;
+}
+
+function _classerPlat(scored) {
+  return {
+    parModele:   [...scored].sort((a,b) => (b.scoreAlgo - a.scoreAlgo) || (b.scoreCriteres - a.scoreCriteres) || (a.numero - b.numero)),
+    parCriteres: [...scored].sort((a,b) => (b.scoreCriteres - a.scoreCriteres) || (b.scoreAlgo - a.scoreAlgo) || (a.numero - b.numero)),
+  };
+}
+
+function _calculerTrioDataPlat(chevaux) {
+  const GREEN = '#3a9162', GOLD = '#c8942a';
+  const scored = _scorerPlat(chevaux);
+  const { parModele, parCriteres } = _classerPlat(scored);
+  const top4Modele = parModele.slice(0,4), top4Criteres = parCriteres.slice(0,4);
+  const numsModele = top4Modele.map(s=>s.numero), numsCriteres = top4Criteres.map(s=>s.numero);
+  const overlap = numsModele.filter(n => numsCriteres.includes(n)).length;
+  const unionMap = new Map();
+  [...top4Modele, ...top4Criteres].forEach(s => unionMap.set(s.numero, s));
+  const union = [...unionMap.values()].sort((a,b) => (b.scoreAlgo+b.scoreCriteres) - (a.scoreAlgo+a.scoreCriteres));
+  const feuVert = overlap >= 3;
+  const nbPartants = chevaux.length;
+  const niveauConfiance = !feuVert ? 'prudence' : (nbPartants <= 12 ? 'forte' : 'simple');
+  return { chevaux, scored, top4Modele, top4Criteres, overlap, union, feuVert, niveauConfiance, nbPartants, GREEN, GOLD };
+}
+
+function _calculerCoupleDataPlat(chevaux) {
+  const GREEN = '#3a9162', GOLD = '#c8942a';
+  const scored = _scorerPlat(chevaux);
+  const { parModele, parCriteres } = _classerPlat(scored);
+  const top3Modele = parModele.slice(0,3), top3Criteres = parCriteres.slice(0,3);
+  const top2Modele = parModele.slice(0,2), top2Criteres = parCriteres.slice(0,2);
+  const overlap  = top3Modele.map(s=>s.numero).filter(n => top3Criteres.map(s=>s.numero).includes(n)).length;
+  const overlap2 = top2Modele.map(s=>s.numero).filter(n => top2Criteres.map(s=>s.numero).includes(n)).length;
+  const nbPartants = chevaux.length;
+  const tailleOk = nbPartants >= 8 && nbPartants <= 12;
+  const doubleAccordBase = (overlap === 3) && (overlap2 === 2);
+  const top2AccordBase   = (overlap2 === 2) && !doubleAccordBase;
+  const conditionRemplie = doubleAccordBase || top2AccordBase;
+  const jouable = conditionRemplie;
+  let niveauConfiance = 'non';
+  if (conditionRemplie) niveauConfiance = tailleOk ? (doubleAccordBase ? 'forte' : 'jouable') : 'risque';
+  const typeAccord = doubleAccordBase ? 'double' : (top2AccordBase ? 'top2' : null);
+  const selection = jouable ? top2Modele : [];
+  return { chevaux, scored, top3Modele, top3Criteres, overlap, top2Modele, top2Criteres, overlap2, nbPartants, tailleOk, jouable, niveauConfiance, typeAccord, selection, GREEN, GOLD };
+}
+
+async function calculerTrioAllPlat() {
+  const el = document.getElementById('trioallplat-content');
+  el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement des courses PLAT du jour…</span></div>';
+  await acquireWakeLock();
+
+  const today = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
+  const dateAffiche = pad(today.getDate()) + '/' + pad(today.getMonth()+1) + '/' + today.getFullYear();
+
+  try {
+    const resp = await fetch(`${API_URL_PRIMARY}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
+    if (!resp.ok) throw new Error('Programme indisponible (' + resp.status + ')');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    const courses = (data.courses || [])
+      .filter(c => c.disc === 'PLAT')
+      .map(c => ({ r: c.r_num, c: c.c_num, lieu: c.lieu, heure: c.heure }));
+
+    if (!courses.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">🐎</div>Aucune course PLAT aujourd\'hui</div>';
+      await releaseWakeLock();
+      return;
+    }
+
+    const resultatsParCourse = {};
+    const total = courses.length;
+    let loaded = 0;
+    const updateProgress = () => {
+      const pct = Math.round(loaded/total*100);
+      el.innerHTML = `<div class="dash-progress">
+        Analyse des feux verts PLAT… ${loaded}/${total} courses (${pct}%)
+        <div class="dash-progress-bar"><div class="dash-progress-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    };
+    updateProgress();
+
+    for (let i=0; i<courses.length; i+=5) {
+      await Promise.all(courses.slice(i,i+5).map(async co => {
+        try {
+          const r = await fetch(`${API_URL_PRIMARY}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
+          if (r.ok) {
+            const d = await r.json();
+            if (d?.chevaux?.length >= 8) resultatsParCourse[`${co.r}-${co.c}`] = _calculerTrioDataPlat(d.chevaux);
+          }
+        } catch(e) {}
+        loaded++;
+        updateProgress();
+      }));
+    }
+
+    await releaseWakeLock();
+
+    const coursesVertes = courses.filter(co => resultatsParCourse[`${co.r}-${co.c}`]?.feuVert);
+    const nbForte = coursesVertes.filter(co => resultatsParCourse[`${co.r}-${co.c}`].niveauConfiance === 'forte').length;
+    const nbSimple = coursesVertes.length - nbForte;
+
+    if (!coursesVertes.length) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">🟠</div>
+        Aucune course PLAT en feu vert aujourd'hui<br>
+        <small style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">${courses.length} courses analysées</small>
+        <button class="btn secondary" onclick="calculerTrioAllPlat()" style="margin-top:16px;font-size:10px">↺ Réessayer</button>
+      </div>`;
+      return;
+    }
+
+    const renderRow = (co, tdata) => {
+      const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
+      const { union, overlap, niveauConfiance, nbPartants, GREEN, GOLD } = tdata;
+      const partantsOk = nbPartants <= 12;
+      const couleur = niveauConfiance === 'forte' ? GREEN : GOLD;
+      const numsUnion = union.map(s => `#${s.numero}`).join(' · ');
+      const icon = niveauConfiance === 'forte' ? '🟢🟢' : '🟢';
+      const label = niveauConfiance === 'forte' ? 'Confiance forte' : 'Confiance moyenne';
+      return `<div class="gc-card ${niveauConfiance}" onclick="${onclick}">
+        <div class="gc-left">
+          <div class="gc-course-num" style="color:${couleur}">R${co.r}C${co.c}</div>
+          <div class="gc-heure">${co.heure}</div>
+        </div>
+        <div class="gc-body">
+          <div class="gc-selection" style="color:${couleur}">${numsUnion}</div>
+          <div class="gc-meta">
+            <span class="gc-badge ${niveauConfiance}">${icon} ${label}</span>
+            <span class="gc-badge ${partantsOk?'partants-ok':'partants-risque'}">${nbPartants}p</span>
+            <span>accord ${overlap}/4</span>
+            <span>PLAT</span>
+          </div>
+        </div>
+      </div>`;
+    };
+
+    let html = `<div class="gc-refresh">
+      <span>🟢🟢 ${nbForte} forte · 🟢 ${nbSimple} moyenne · sur ${courses.length} PLAT · ${dateAffiche}</span>
+      <button onclick="calculerTrioAllPlat()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:6px;padding:4px 10px;font-family:'Space Mono',monospace;cursor:pointer">↺</button>
+    </div>
+    <div style="padding:10px 14px 0;font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">⚠️ Pondération critères PLAT non backtestée — indicatif seulement</div>`;
+
+    const byR = {};
+    for (const co of coursesVertes) {
+      if (!byR[co.r]) byR[co.r] = { lieu: co.lieu, courses: [] };
+      byR[co.r].courses.push(co);
+    }
+    for (const [rNum, rd] of Object.entries(byR)) {
+      html += `<div class="gc-reunion">R${rNum} · ${rd.lieu}</div>`;
+      for (const co of rd.courses) html += renderRow(co, resultatsParCourse[`${co.r}-${co.c}`]);
+    }
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Erreur : ${e.message}<br>
+    <button class="btn secondary" onclick="calculerTrioAllPlat()" style="margin-top:12px;font-size:10px">↺ Réessayer</button>
+    </div>`;
+  }
+}
+
+async function calculerCoupleAllPlat() {
+  const el = document.getElementById('coupleallplat-content');
+  el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement des courses PLAT du jour…</span></div>';
+  await acquireWakeLock();
+
+  const today = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
+  const dateAffiche = pad(today.getDate()) + '/' + pad(today.getMonth()+1) + '/' + today.getFullYear();
+
+  try {
+    const resp = await fetch(`${API_URL_PRIMARY}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
+    if (!resp.ok) throw new Error('Programme indisponible (' + resp.status + ')');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    const courses = (data.courses || [])
+      .filter(c => c.disc === 'PLAT')
+      .map(c => ({ r: c.r_num, c: c.c_num, lieu: c.lieu, heure: c.heure }));
+
+    if (!courses.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">🐎</div>Aucune course PLAT aujourd\'hui</div>';
+      await releaseWakeLock();
+      return;
+    }
+
+    const resultatsParCourse = {};
+    const total = courses.length;
+    let loaded = 0;
+    const updateProgress = () => {
+      const pct = Math.round(loaded/total*100);
+      el.innerHTML = `<div class="dash-progress">
+        Analyse des courses PLAT jouables… ${loaded}/${total} courses (${pct}%)
+        <div class="dash-progress-bar"><div class="dash-progress-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    };
+    updateProgress();
+
+    for (let i=0; i<courses.length; i+=5) {
+      await Promise.all(courses.slice(i,i+5).map(async co => {
+        try {
+          const r = await fetch(`${API_URL_PRIMARY}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
+          if (r.ok) {
+            const d = await r.json();
+            if (d?.chevaux?.length >= 4) resultatsParCourse[`${co.r}-${co.c}`] = _calculerCoupleDataPlat(d.chevaux);
+          }
+        } catch(e) {}
+        loaded++;
+        updateProgress();
+      }));
+    }
+
+    await releaseWakeLock();
+
+    const coursesJouables = courses.filter(co => resultatsParCourse[`${co.r}-${co.c}`]?.jouable);
+    const nbForte = coursesJouables.filter(co => resultatsParCourse[`${co.r}-${co.c}`].niveauConfiance === 'forte').length;
+    const nbJouable = coursesJouables.filter(co => resultatsParCourse[`${co.r}-${co.c}`].niveauConfiance === 'jouable').length;
+    const nbRisque = coursesJouables.filter(co => resultatsParCourse[`${co.r}-${co.c}`].niveauConfiance === 'risque').length;
+
+    if (!coursesJouables.length) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">🟠</div>
+        Aucune course PLAT jouable aujourd'hui<br>
+        <small style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">${courses.length} courses analysées</small>
+        <button class="btn secondary" onclick="calculerCoupleAllPlat()" style="margin-top:16px;font-size:10px">↺ Réessayer</button>
+      </div>`;
+      return;
+    }
+
+    const renderRow = (co, tdata) => {
+      const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
+      const { selection, overlap, overlap2, niveauConfiance, typeAccord, nbPartants, GREEN, GOLD } = tdata;
+      const BLEU = '#3b82f6';
+      const couleur = niveauConfiance === 'forte' ? GREEN : niveauConfiance === 'jouable' ? BLEU : GOLD;
+      const cardClass = niveauConfiance;
+      const icon = niveauConfiance === 'forte' ? '🟢' : niveauConfiance === 'jouable' ? '🔵' : '🟠';
+      const label = niveauConfiance === 'risque'
+        ? `Risqué (${typeAccord === 'double' ? 'double accord' : 'top2 accord'})`
+        : (niveauConfiance === 'forte' ? 'Double accord' : 'Top2 accord');
+      const partantsBadgeClass = niveauConfiance === 'risque' ? 'partants-risque' : 'partants-ok';
+      const numsSel = selection.map(s => `#${s.numero}`).join(' · ');
+      return `<div class="gc-card ${cardClass}" onclick="${onclick}">
+        <div class="gc-left">
+          <div class="gc-course-num" style="color:${couleur}">R${co.r}C${co.c}</div>
+          <div class="gc-heure">${co.heure}</div>
+        </div>
+        <div class="gc-body">
+          <div class="gc-selection" style="color:${couleur}">${numsSel}</div>
+          <div class="gc-meta">
+            <span class="gc-badge ${cardClass}">${icon} ${label}</span>
+            <span class="gc-badge ${partantsBadgeClass}">${nbPartants}p</span>
+            <span>top3 ${overlap}/3 · top2 ${overlap2}/2</span>
+            <span>PLAT</span>
+          </div>
+        </div>
+      </div>`;
+    };
+
+    let html = `<div class="gc-refresh">
+      <span>🟢 ${nbForte} double · 🔵 ${nbJouable} top2 · 🟠 ${nbRisque} risqué · sur ${courses.length} PLAT · ${dateAffiche}</span>
+      <button onclick="calculerCoupleAllPlat()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:6px;padding:4px 10px;font-family:'Space Mono',monospace;cursor:pointer">↺</button>
+    </div>
+    <div style="padding:10px 14px 0;font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">⚠️ Pondération critères PLAT non backtestée — indicatif seulement</div>`;
+
+    const byR = {};
+    for (const co of coursesJouables) {
+      if (!byR[co.r]) byR[co.r] = { lieu: co.lieu, courses: [] };
+      byR[co.r].courses.push(co);
+    }
+    for (const [rNum, rd] of Object.entries(byR)) {
+      html += `<div class="gc-reunion">R${rNum} · ${rd.lieu}</div>`;
+      for (const co of rd.courses) html += renderRow(co, resultatsParCourse[`${co.r}-${co.c}`]);
+    }
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Erreur : ${e.message}<br>
+    <button class="btn secondary" onclick="calculerCoupleAllPlat()" style="margin-top:12px;font-size:10px">↺ Réessayer</button>
     </div>`;
   }
 }

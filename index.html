@@ -60,7 +60,7 @@ html,body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;f
 .gc-meta{font-family:'Space Mono',monospace;font-size:12px;color:var(--text-dim);margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .gc-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap}
 .gc-badge.forte{background:rgba(58,145,98,.22);color:#3a9162}
-.gc-badge.simple{background:rgba(58,145,98,.12);color:#3a9162}
+.gc-badge.simple{background:rgba(200,148,42,.15);color:var(--gold)}
 .gc-badge.jouable{background:rgba(59,130,246,.18);color:#3b82f6}
 .gc-card.jouable{border-color:rgba(59,130,246,.45);background:rgba(59,130,246,.07)}
 .gc-badge.risque{background:rgba(200,148,42,.18);color:var(--gold)}
@@ -2188,7 +2188,7 @@ function _renderTrio(el) {
 
   const nbPartants = chevaux.length;
   const partantsOk = nbPartants <= 12; // cf. audit : champs ≤12 nettement plus fiables
-  const partantsHtml = `<span style="font-weight:${partantsOk ? 700 : 400};color:${partantsOk ? GREEN : 'var(--text)'}">${nbPartants} partants</span>`;
+  const partantsHtml = `<span style="font-weight:700;color:${partantsOk ? GREEN : '#e05c5c'}">${nbPartants} partants</span>`;
 
   const numsModele   = top4Modele.map(s => s.numero);
   const numsCriteres = top4Criteres.map(s => s.numero);
@@ -2204,7 +2204,7 @@ function _renderTrio(el) {
   const BADGES = {
     forte:    { icon: '🟢🟢', label: 'CONFIANCE FORTE', couleur: GREEN, bg: 'rgba(58,145,98,.15)', bord: 'rgba(58,145,98,.5)',
                 detail: `Accord ${overlap}/4 + champ ≤12 partants — ≈54% de réussite complète sur l'historique` },
-    simple:   { icon: '🟢', label: 'FEU VERT', couleur: GREEN, bg: 'rgba(58,145,98,.1)', bord: 'rgba(58,145,98,.3)',
+    simple:   { icon: '🟢', label: 'CONFIANCE MOYENNE', couleur: GOLD, bg: 'rgba(200,148,42,.1)', bord: 'rgba(200,148,42,.4)',
                 detail: `Accord ${overlap}/4, mais champ >12 partants — ≈21% seulement, restez prudent` },
     prudence: { icon: '🟠', label: 'PRUDENCE', couleur: GOLD, bg: 'rgba(200,148,42,.1)', bord: 'rgba(200,148,42,.3)',
                 detail: `Accord ${overlap}/4 seulement entre le modèle et les critères` },
@@ -2219,9 +2219,9 @@ function _renderTrio(el) {
   const chevalLigne = (s) => {
     const commun = numsModele.includes(s.numero) && numsCriteres.includes(s.numero);
     return `<div style="display:flex;align-items:center;gap:6px;padding:6px 8px;border-radius:6px;margin-bottom:4px;background:${commun ? 'rgba(58,145,98,.08)' : 'var(--bg2)'};border:1px solid ${commun ? 'rgba(58,145,98,.3)' : 'var(--border)'};min-width:0">
-      <span style="font-family:'Bebas Neue',sans-serif;font-size:15px;color:${commun ? GREEN : 'var(--text-dim)'};flex-shrink:0">#${s.numero}</span>
+      <span style="font-family:'Bebas Neue',sans-serif;font-size:15px;color:${commun ? b.couleur : 'var(--text-dim)'};flex-shrink:0">#${s.numero}</span>
       <span style="flex:1;min-width:0;font-size:12px;font-weight:${commun?700:400};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.h.nom||''}</span>
-      ${commun ? `<span style="font-size:8px;color:${GREEN};font-family:'Space Mono',monospace;flex-shrink:0">✓</span>` : ''}
+      ${commun ? `<span style="font-size:8px;color:${b.couleur};font-family:'Space Mono',monospace;flex-shrink:0">✓</span>` : ''}
     </div>`;
   };
 
@@ -2339,22 +2339,23 @@ async function calculerTrioAll() {
 
     const renderRow = (co, tdata) => {
       const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
-      const { chevaux, union, overlap, niveauConfiance, GREEN } = tdata;
+      const { chevaux, union, overlap, niveauConfiance, GREEN, GOLD } = tdata;
       const nbPartants = chevaux.length;
       const partantsOk = nbPartants <= 12;
+      const couleur = niveauConfiance === 'forte' ? GREEN : GOLD;
       const numsUnion = union.map(s => `#${s.numero}`).join(' · ');
       const icon = niveauConfiance === 'forte' ? '🟢🟢' : '🟢';
       const label = niveauConfiance === 'forte' ? 'Confiance forte' : 'Confiance moyenne';
       return `<div class="gc-card ${niveauConfiance}" onclick="${onclick}">
         <div class="gc-left">
-          <div class="gc-course-num" style="color:${GREEN}">R${co.r}C${co.c}</div>
+          <div class="gc-course-num" style="color:${couleur}">R${co.r}C${co.c}</div>
           <div class="gc-heure">${co.heure}</div>
         </div>
         <div class="gc-body">
-          <div class="gc-selection" style="color:${GREEN}">${numsUnion}</div>
+          <div class="gc-selection" style="color:${couleur}">${numsUnion}</div>
           <div class="gc-meta">
             <span class="gc-badge ${niveauConfiance}">${icon} ${label}</span>
-            <span class="gc-badge ${partantsOk?'partants-ok':'partants-off'}">${nbPartants}p</span>
+            <span class="gc-badge ${partantsOk?'partants-ok':'partants-risque'}">${nbPartants}p</span>
             <span>accord ${overlap}/4</span>
             <span>${DISC_LABELS[co.disc]||co.disc}</span>
           </div>

@@ -43,6 +43,26 @@ html,body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;f
 .dash-progress{padding:12px 14px;font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)}
 .dash-progress-bar{height:3px;background:var(--border);border-radius:2px;margin-top:6px;overflow:hidden}
 .dash-progress-fill{height:100%;background:var(--gold);border-radius:2px;transition:width .3s}
+
+/* ── GC (Grand Confort) — style dédié, plus lisible, pour TRIO ALL / COUPLE ALL ── */
+.gc-refresh{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;font-family:'Space Mono',monospace;font-size:12px;font-weight:600;color:var(--text);border-bottom:2px solid var(--border);background:var(--bg2)}
+.gc-refresh button{font-size:13px!important;padding:6px 12px!important}
+.gc-reunion{font-family:'Bebas Neue',sans-serif;font-size:19px;letter-spacing:2px;color:var(--gold);padding:14px 14px 6px;margin-top:4px}
+.gc-card{display:flex;align-items:center;gap:12px;padding:14px;margin:0 10px 10px;border-radius:10px;cursor:pointer;transition:transform .12s, background .12s;border:1px solid var(--border);background:var(--bg2)}
+.gc-card:active{transform:scale(.98)}
+.gc-card.forte{border-color:rgba(58,145,98,.5);background:rgba(58,145,98,.07)}
+.gc-card.simple{border-color:rgba(58,145,98,.25);background:rgba(58,145,98,.03)}
+.gc-left{flex-shrink:0;text-align:center;min-width:56px}
+.gc-course-num{font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:1px;line-height:1}
+.gc-heure{font-family:'Space Mono',monospace;font-size:12px;color:var(--text-dim);margin-top:2px}
+.gc-body{flex:1;min-width:0}
+.gc-selection{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:1px;line-height:1.15;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gc-meta{font-family:'Space Mono',monospace;font-size:12px;color:var(--text-dim);margin-top:4px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.gc-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap}
+.gc-badge.forte{background:rgba(58,145,98,.22);color:#3a9162}
+.gc-badge.simple{background:rgba(58,145,98,.12);color:#3a9162}
+.gc-badge.partants-ok{background:rgba(58,145,98,.15);color:#3a9162;font-weight:700}
+.gc-badge.partants-off{background:var(--bg3);color:var(--text-dim)}
 .header{display:flex;align-items:flex-end;justify-content:space-between;padding:20px 20px 14px;border-bottom:1px solid var(--border);position:relative}
 .header::after{content:'';position:absolute;bottom:0;left:20px;right:20px;height:1px;background:linear-gradient(90deg,var(--gold) 0%,transparent 60%);opacity:.4}
 .header-brand{display:flex;flex-direction:column;gap:2px}
@@ -2319,19 +2339,27 @@ async function calculerTrioAll() {
       const partantsOk = nbPartants <= 12;
       const numsUnion = union.map(s => `#${s.numero}`).join(' · ');
       const icon = niveauConfiance === 'forte' ? '🟢🟢' : '🟢';
-      const label = niveauConfiance === 'forte' ? 'confiance forte' : 'feu vert';
-      return `<div class="dash-row" onclick="${onclick}">
-        <div><div class="dash-course">${icon} R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:12px;color:${GREEN}">${numsUnion}</div>
-          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · <span style="font-weight:${partantsOk?700:400};color:${partantsOk?GREEN:'var(--text-dim)'}">${nbPartants} partants</span> · accord ${overlap}/4 · ${label}</div>
+      const label = niveauConfiance === 'forte' ? 'Confiance forte' : 'Feu vert';
+      return `<div class="gc-card ${niveauConfiance}" onclick="${onclick}">
+        <div class="gc-left">
+          <div class="gc-course-num" style="color:${GREEN}">R${co.r}C${co.c}</div>
+          <div class="gc-heure">${co.heure}</div>
+        </div>
+        <div class="gc-body">
+          <div class="gc-selection" style="color:${GREEN}">${numsUnion}</div>
+          <div class="gc-meta">
+            <span class="gc-badge ${niveauConfiance}">${icon} ${label}</span>
+            <span class="gc-badge ${partantsOk?'partants-ok':'partants-off'}">${nbPartants}p</span>
+            <span>accord ${overlap}/4</span>
+            <span>${DISC_LABELS[co.disc]||co.disc}</span>
+          </div>
         </div>
       </div>`;
     };
 
-    let html = `<div class="dash-refresh">
+    let html = `<div class="gc-refresh">
       <span>🟢🟢 ${nbForte} forte · 🟢 ${nbSimple} simple · sur ${courses.length} courses · ${dateAffiche}</span>
-      <button onclick="calculerTrioAll()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
+      <button onclick="calculerTrioAll()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:6px;padding:4px 10px;font-family:'Space Mono',monospace;cursor:pointer">↺</button>
     </div>`;
 
     const byR = {};
@@ -2340,7 +2368,7 @@ async function calculerTrioAll() {
       byR[co.r].courses.push(co);
     }
     for (const [rNum, rd] of Object.entries(byR)) {
-      html += `<div class="dash-reunion">R${rNum} · ${rd.lieu}</div>`;
+      html += `<div class="gc-reunion">R${rNum} · ${rd.lieu}</div>`;
       for (const co of rd.courses) {
         html += renderRow(co, resultatsParCourse[`${co.r}-${co.c}`]);
       }
@@ -2643,18 +2671,26 @@ async function calculerCoupleAll() {
       const { chevaux, selection, overlap, overlap2, GREEN } = tdata;
       const nbPartants = chevaux.length;
       const numsSel = selection.map(s => `#${s.numero}`).join(' · ');
-      return `<div class="dash-row" onclick="${onclick}">
-        <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:12px;color:${GREEN}">${numsSel}</div>
-          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${nbPartants} partants · top3 ${overlap}/3 · top2 ${overlap2}/2</div>
+      return `<div class="gc-card forte" onclick="${onclick}">
+        <div class="gc-left">
+          <div class="gc-course-num" style="color:${GREEN}">R${co.r}C${co.c}</div>
+          <div class="gc-heure">${co.heure}</div>
+        </div>
+        <div class="gc-body">
+          <div class="gc-selection" style="color:${GREEN}">${numsSel}</div>
+          <div class="gc-meta">
+            <span class="gc-badge forte">👥 Jouable</span>
+            <span class="gc-badge partants-ok">${nbPartants}p</span>
+            <span>top3 ${overlap}/3 · top2 ${overlap2}/2</span>
+            <span>${DISC_LABELS[co.disc]||co.disc}</span>
+          </div>
         </div>
       </div>`;
     };
 
-    let html = `<div class="dash-refresh">
+    let html = `<div class="gc-refresh">
       <span>👥 ${coursesJouables.length}/${courses.length} courses jouables · ${dateAffiche}</span>
-      <button onclick="calculerCoupleAll()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
+      <button onclick="calculerCoupleAll()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:6px;padding:4px 10px;font-family:'Space Mono',monospace;cursor:pointer">↺</button>
     </div>`;
 
     const byR = {};
@@ -2663,7 +2699,7 @@ async function calculerCoupleAll() {
       byR[co.r].courses.push(co);
     }
     for (const [rNum, rd] of Object.entries(byR)) {
-      html += `<div class="dash-reunion">R${rNum} · ${rd.lieu}</div>`;
+      html += `<div class="gc-reunion">R${rNum} · ${rd.lieu}</div>`;
       for (const co of rd.courses) {
         html += renderRow(co, resultatsParCourse[`${co.r}-${co.c}`]);
       }

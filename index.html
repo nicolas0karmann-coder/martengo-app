@@ -388,7 +388,7 @@ input[readonly]{opacity:.5;cursor:default}
           <div class="empty-icon">🎯</div>
           Sélection des 4 meilleurs chevaux<br>
           <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
-            ATTELÉ &amp; MONTE · Algorithme multi-critères
+            ATTELÉ, MONTE &amp; PLAT · Algorithme multi-critères
           </small>
           <button class="btn full" onclick="calculerTrio()" style="margin-top:16px;font-size:11px">Calculer →</button>
         </div>
@@ -2030,18 +2030,20 @@ function calculerTrio() {
   const el = document.getElementById('trio-content');
   if (!notesPMUData || !notesPMUData.chevaux || notesPMUData.chevaux.length < 4) {
     el.innerHTML = `<div class="empty"><div class="empty-icon">🎯</div>
-      Chargez d'abord une course ATTELÉ ou MONTE<br>
+      Chargez d'abord une course ATTELÉ, MONTE ou PLAT<br>
       <small style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">depuis l'onglet Saisie</small>
       <button class="btn full" onclick="goTo('saisie')" style="margin-top:16px;font-size:11px">Aller à Saisie →</button>
     </div>`;
     return;
   }
   const version = notesPMUData.version || '';
-  const isAttele = version.includes('attele') || version.includes('galop') || version.includes('v15');
-  const isMonte  = version.includes('monte');
-  if (!isAttele && !isMonte) {
+  const disc = notesPMUData.discipline || '';
+  const isAttele = version.includes('attele') || version.includes('v15');
+  const isMonte  = version.includes('monte') || disc === 'MONTE';
+  const isPlat   = disc === 'PLAT' || version.includes('plat');
+  if (!isAttele && !isMonte && !isPlat) {
     el.innerHTML = `<div class="empty"><div class="empty-icon">🎯</div>
-      L'onglet TRIO est disponible uniquement pour ATTELÉ et MONTE</div>`;
+      L'onglet TRIO est disponible pour ATTELÉ, MONTE et PLAT</div>`;
     return;
   }
   _renderTrio(el);
@@ -2211,7 +2213,8 @@ function _calculerTrioData(chevaux) {
 }
 
 function _renderTrio(el) {
-  const data = _calculerTrioData(notesPMUData.chevaux);
+  const esPlat = (notesPMUData.discipline === 'PLAT') || (notesPMUData.version || '').includes('plat');
+  const data = esPlat ? _calculerTrioDataPlat(notesPMUData.chevaux) : _calculerTrioData(notesPMUData.chevaux);
   const { chevaux, top4Modele, top4Criteres, overlap, union, feuVert, niveauConfiance, GREEN, GOLD, RED } = data;
 
   // ── Rendu ────────────────────────────────────────────────────────────────

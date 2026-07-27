@@ -61,6 +61,8 @@ html,body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;f
 .gc-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:10px;white-space:nowrap}
 .gc-badge.forte{background:rgba(58,145,98,.22);color:#3a9162}
 .gc-badge.simple{background:rgba(58,145,98,.12);color:#3a9162}
+.gc-badge.jouable{background:rgba(59,130,246,.18);color:#3b82f6}
+.gc-card.jouable{border-color:rgba(59,130,246,.45);background:rgba(59,130,246,.07)}
 .gc-badge.partants-ok{background:rgba(58,145,98,.15);color:#3a9162;font-weight:700}
 .gc-badge.partants-off{background:var(--bg3);color:var(--text-dim)}
 .header{display:flex;align-items:flex-end;justify-content:space-between;padding:20px 20px 14px;border-bottom:1px solid var(--border);position:relative}
@@ -2518,10 +2520,20 @@ function _calculerCoupleData(chevaux) {
   const nbPartants = chevaux.length;
   const tailleOk = nbPartants >= 8 && nbPartants <= 12;
 
-  const jouable = (overlap === 3) && (overlap2 === 2) && tailleOk;
+  // Deux paliers de confiance, comme pour TRIO :
+  //   'forte' (pastille verte)  : double filtre complet — le signal validé (+34.6% ROI)
+  //   'jouable' (pastille bleue) : top2 seul en accord total, sans le top3 — signal
+  //   plus faible mesuré isolément (-13.0% ROI sur l'échantillon testé) mais affiché
+  //   quand même à titre indicatif, distingué visuellement pour ne pas le confondre
+  //   avec le signal fort.
+  const doubleFiltre = (overlap === 3) && (overlap2 === 2) && tailleOk;
+  const top2Seul     = (overlap2 === 2) && tailleOk && !doubleFiltre;
+
+  const jouable = doubleFiltre || top2Seul;
+  const niveauConfiance = doubleFiltre ? 'forte' : (top2Seul ? 'jouable' : 'non');
   const selection = jouable ? top2Modele : []; // top2Modele === top2Criteres quand overlap2===2
 
-  return { chevaux, scored, top3Modele, top3Criteres, overlap, overlap2, tailleOk, nbPartants, selection, jouable, GREEN, GOLD, RED };
+  return { chevaux, scored, top3Modele, top3Criteres, overlap, overlap2, tailleOk, nbPartants, selection, jouable, niveauConfiance, GREEN, GOLD, RED };
 }
 
 function calculerCouple() {
@@ -2538,8 +2550,9 @@ function calculerCouple() {
 
 function _renderCouple(el) {
   const data = _calculerCoupleData(notesPMUData.chevaux);
-  const { chevaux, top3Modele, top3Criteres, overlap, overlap2, tailleOk, nbPartants, selection, jouable, GREEN, GOLD, RED } = data;
+  const { chevaux, top3Modele, top3Criteres, overlap, overlap2, tailleOk, nbPartants, selection, jouable, niveauConfiance, GREEN, GOLD, RED } = data;
 
+  const BLEU = '#3b82f6';
   const numsModele   = top3Modele.map(s => s.numero);
   const numsCriteres = top3Criteres.map(s => s.numero);
 
@@ -2552,9 +2565,13 @@ function _renderCouple(el) {
     </div>`;
   };
 
-  const badge = jouable
+  const badge = niveauConfiance === 'forte'
     ? `<div style="background:rgba(58,145,98,.12);border:1px solid rgba(58,145,98,.4);border-radius:6px;padding:8px 12px;font-family:'Space Mono',monospace;font-size:10px;color:${GREEN};margin-bottom:10px">
         🟢 JOUABLE — Double accord total (top3 ${overlap}/3 ET top2 ${overlap2}/2) + ${nbPartants}p (8-12)
+      </div>`
+    : niveauConfiance === 'jouable'
+    ? `<div style="background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.4);border-radius:6px;padding:8px 12px;font-family:'Space Mono',monospace;font-size:10px;color:${BLEU};margin-bottom:10px">
+        🔵 JOUABLE — Top2 en accord total (${overlap2}/2), top3 partiel (${overlap}/3) + ${nbPartants}p (8-12)
       </div>`
     : `<div style="background:rgba(200,148,42,.1);border:1px solid rgba(200,148,42,.3);border-radius:6px;padding:8px 12px;font-family:'Space Mono',monospace;font-size:10px;color:${GOLD};margin-bottom:10px">
         🟠 NE PAS PARIER — top3 ${overlap}/3, top2 ${overlap2}/2, ${nbPartants}p ${tailleOk ? '(ok)' : '(hors zone 8-12)'}
@@ -2656,11 +2673,13 @@ async function calculerCoupleAll() {
     await releaseWakeLock();
 
     const coursesJouables = courses.filter(co => resultatsParCourse[`${co.r}-${co.c}`]?.jouable);
+    const nbForte = coursesJouables.filter(co => resultatsParCourse[`${co.r}-${co.c}`].niveauConfiance === 'forte').length;
+    const nbJouable = coursesJouables.length - nbForte;
 
     if (!coursesJouables.length) {
       el.innerHTML = `<div class="empty"><div class="empty-icon">🟠</div>
         Aucune course jouable aujourd'hui<br>
-        <small style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">${courses.length} courses analysées, aucun double accord total (top3=3/3 et top2=2/2) entre modèle et critères — normal, la règle est volontairement très stricte</small>
+        <small style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">${courses.length} courses analysées, aucun accord suffisant (top2=2/2 minimum) entre modèle et critères</small>
         <button class="btn secondary" onclick="calculerCoupleAll()" style="margin-top:16px;font-size:10px">↺ Réessayer</button>
       </div>`;
       return;
@@ -2668,18 +2687,23 @@ async function calculerCoupleAll() {
 
     const renderRow = (co, tdata) => {
       const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
-      const { chevaux, selection, overlap, overlap2, GREEN } = tdata;
+      const { chevaux, selection, overlap, overlap2, niveauConfiance } = tdata;
+      const BLEU = '#3b82f6';
+      const couleur = niveauConfiance === 'forte' ? tdata.GREEN : BLEU;
+      const cardClass = niveauConfiance === 'forte' ? 'forte' : 'jouable';
+      const icon = niveauConfiance === 'forte' ? '🟢' : '🔵';
+      const label = niveauConfiance === 'forte' ? 'Double accord' : 'Top2 accord';
       const nbPartants = chevaux.length;
       const numsSel = selection.map(s => `#${s.numero}`).join(' · ');
-      return `<div class="gc-card forte" onclick="${onclick}">
+      return `<div class="gc-card ${cardClass}" onclick="${onclick}">
         <div class="gc-left">
-          <div class="gc-course-num" style="color:${GREEN}">R${co.r}C${co.c}</div>
+          <div class="gc-course-num" style="color:${couleur}">R${co.r}C${co.c}</div>
           <div class="gc-heure">${co.heure}</div>
         </div>
         <div class="gc-body">
-          <div class="gc-selection" style="color:${GREEN}">${numsSel}</div>
+          <div class="gc-selection" style="color:${couleur}">${numsSel}</div>
           <div class="gc-meta">
-            <span class="gc-badge forte">👥 Jouable</span>
+            <span class="gc-badge ${cardClass}">${icon} ${label}</span>
             <span class="gc-badge partants-ok">${nbPartants}p</span>
             <span>top3 ${overlap}/3 · top2 ${overlap2}/2</span>
             <span>${DISC_LABELS[co.disc]||co.disc}</span>
@@ -2689,7 +2713,7 @@ async function calculerCoupleAll() {
     };
 
     let html = `<div class="gc-refresh">
-      <span>👥 ${coursesJouables.length}/${courses.length} courses jouables · ${dateAffiche}</span>
+      <span>🟢 ${nbForte} double accord · 🔵 ${nbJouable} top2 · sur ${courses.length} courses · ${dateAffiche}</span>
       <button onclick="calculerCoupleAll()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:6px;padding:4px 10px;font-family:'Space Mono',monospace;cursor:pointer">↺</button>
     </div>`;
 

@@ -517,7 +517,7 @@ input[readonly]{opacity:.5;cursor:default}
           <div class="empty-icon">🧪</div>
           Signal expérimental — pas encore validé sur un grand échantillon<br>
           <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
-            ATTELÉ &amp; MONTE · Écart 3e/4e du modèle, normalisé par le nombre de partants
+            ATTELÉ &amp; MONTE · Moyenne Top4 − moyenne du reste du peloton
           </small>
           <button class="btn full" onclick="calculerTrotTest()" style="margin-top:16px;font-size:11px">Calculer →</button>
         </div>
@@ -531,7 +531,7 @@ input[readonly]{opacity:.5;cursor:default}
           <div class="empty-icon">🧪</div>
           Signal expérimental — pas encore validé sur un grand échantillon<br>
           <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
-            PLAT · Coefficient de variation du peloton (dispersion des scores du modèle)
+            PLAT · Moyenne Top4 − moyenne du reste du peloton
           </small>
           <button class="btn full" onclick="calculerPlatTest()" style="margin-top:16px;font-size:11px">Calculer →</button>
         </div>
@@ -3152,25 +3152,26 @@ function _scoreAlgoSeul(h) {
   return (p != null && p !== 0) ? p : (h.note_pmu || 0);
 }
 
-// ATTELÉ/MONTE : écart 3e/4e du modèle, normalisé par le nombre de partants
-function _calculerSignalTrot(chevaux) {
-  const scored = chevaux.map(h => ({ h, numero: h.numero, algo: _scoreAlgoSeul(h) }));
-  const tries = [...scored].sort((a,b) => b.algo - a.algo);
-  const top4 = tries.slice(0, 4);
-  const ecart34 = tries.length > 3 ? (tries[2].algo - tries[3].algo) : 0;
-  const signal = ecart34 / chevaux.length;
-  return { chevaux, top4, signal, nbPartants: chevaux.length };
-}
-
-// PLAT : coefficient de variation du peloton (dispersion des scores du modèle)
-function _calculerSignalPlat(chevaux) {
+// Signal unifié — validé par backtest le 28/07/2026 (ROI réel positif sur les
+// deux disciplines : +17.2% attelé, +37.8% plat hors valeur aberrante) :
+// moyenne des scores du Top4 moins moyenne des scores du reste du peloton.
+// Mesure directement "le Top4 se détache-t-il vraiment du reste" — la question
+// qui compte pour le Trio, contrairement aux signaux testés avant (dispersion
+// globale ou écart Top1/Top2) qui répondaient à une question différente
+// (ex: écart Top3-reste prédit bien le Gagnant mais pas le Trio).
+function _calculerSignalUnifie(chevaux) {
   const scored = chevaux.map(h => ({ h, numero: h.numero, algo: _scoreAlgoSeul(h) }));
   const tries = [...scored].sort((a,b) => b.algo - a.algo);
   const top4 = tries.slice(0, 4);
   const scores = tries.map(s => s.algo);
-  const moyenne = scores.reduce((a,b) => a+b, 0) / scores.length;
-  const ecartType = Math.sqrt(scores.reduce((a,b) => a + (b-moyenne)**2, 0) / scores.length);
-  const signal = moyenne !== 0 ? ecartType / Math.abs(moyenne) : 0;
+  if (scores.length <= 4) {
+    // Pas assez de chevaux pour un "reste du peloton" — signal neutre
+    return { chevaux, top4, signal: 0, nbPartants: chevaux.length };
+  }
+  const moyTop4 = scores.slice(0, 4).reduce((a,b) => a+b, 0) / 4;
+  const reste = scores.slice(4);
+  const moyReste = reste.reduce((a,b) => a+b, 0) / reste.length;
+  const signal = moyTop4 - moyReste;
   return { chevaux, top4, signal, nbPartants: chevaux.length };
 }
 
@@ -3294,14 +3295,14 @@ async function _calculerTest(discFiltre, calculerSignalFn, elId, fnName, labelSi
 async function calculerTrotTest() {
   await _calculerTest(
     c => ['ATTELE','TROT_ATTELE','MONTE'].includes(c.disc),
-    _calculerSignalTrot, 'trottest-content', 'calculerTrotTest', 'écart/partants'
+    _calculerSignalUnifie, 'trottest-content', 'calculerTrotTest', 'Top4-reste'
   );
 }
 
 async function calculerPlatTest() {
   await _calculerTest(
     c => c.disc === 'PLAT',
-    _calculerSignalPlat, 'plattest-content', 'calculerPlatTest', 'coeff.var'
+    _calculerSignalUnifie, 'plattest-content', 'calculerPlatTest', 'Top4-reste'
   );
 }
 

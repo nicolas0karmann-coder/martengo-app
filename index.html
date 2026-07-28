@@ -272,6 +272,8 @@ input[readonly]{opacity:.5;cursor:default}
     <button class="nav-btn" onclick="goTo('coupleallplat')" id="tab-coupleallplat"><span class="nav-icon">🐎</span>Couple All Plat</button>
     <button class="nav-btn" onclick="goTo('trottest')" id="tab-trottest"><span class="nav-icon">🧪</span>Trot Test</button>
     <button class="nav-btn" onclick="goTo('plattest')" id="tab-plattest"><span class="nav-icon">🧪</span>Plat Test</button>
+    <button class="nav-btn" onclick="goTo('gagnantplat')" id="tab-gagnantplat"><span class="nav-icon">🥇</span>Gagnant Plat</button>
+    <button class="nav-btn" onclick="goTo('gagnanttrot')" id="tab-gagnanttrot"><span class="nav-icon">🥇</span>Gagnant Trot</button>
     <button class="nav-btn" onclick="goTo('stats')" id="tab-stats">
       <span class="nav-icon">📊</span>Stats
       <span class="nav-badge" id="badge-stats"></span>
@@ -538,6 +540,34 @@ input[readonly]{opacity:.5;cursor:default}
       </div>
     </div>
 
+    <!-- GAGNANT PLAT — signal prometteur : ROI réel +125.6% sur 9 courses (26-27/07) -->
+    <div class="screen" id="screen-gagnantplat">
+      <div id="gagnantplat-content">
+        <div class="empty">
+          <div class="empty-icon">🥇</div>
+          Simple Gagnant — signal prometteur, échantillon encore petit<br>
+          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
+            PLAT · Moyenne Top3 − reste du peloton · Backtest 28/07 : 66.7% réussite, ROI +125.6% sur 9 courses
+          </small>
+          <button class="btn full" onclick="calculerGagnantPlat()" style="margin-top:16px;font-size:11px">Calculer →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- GAGNANT TROT — même signal, mais N'A PAS montré de résultat positif à l'attelé -->
+    <div class="screen" id="screen-gagnanttrot">
+      <div id="gagnanttrot-content">
+        <div class="empty">
+          <div class="empty-icon">🥇</div>
+          Simple Gagnant — ⚠️ signal NON concluant à l'attelé pour l'instant<br>
+          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
+            ATTELÉ &amp; MONTE · Moyenne Top3 − reste du peloton · Backtest 28/07 : ~27% réussite (proche du hasard), ROI négatif sur le signal testé — affiché à titre exploratoire uniquement
+          </small>
+          <button class="btn full" onclick="calculerGagnantTrot()" style="margin-top:16px;font-size:11px">Calculer →</button>
+        </div>
+      </div>
+    </div>
+
     <div class="screen" id="screen-stats">
       <div id="stats-content">
         <div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement…</span></div>
@@ -563,7 +593,7 @@ async function fetchAPI(path, options = {}) {
   return r;
 }
 const LS_SAISIE = 'martengo_v3', LS_HIST = 'martengo_hist';
-const SCREENS = ['saisie','selections','analyse','conseil','dashboard','safe','offensif','trio','trioall','pro','prosa','couple','couple2','couple2all','trioallplat','coupleallplat','trottest','plattest','stats'];
+const SCREENS = ['saisie','selections','analyse','conseil','dashboard','safe','offensif','trio','trioall','pro','prosa','couple','couple2','couple2all','trioallplat','coupleallplat','trottest','plattest','gagnantplat','gagnanttrot','stats'];
 
 let chevaux = [], predictions = null, notesPMU = {}, notesPMUData = null;
 let currentDate = '', horseCounter = 0, apiPrete = false, currentScreen = 'saisie';
@@ -3303,6 +3333,158 @@ async function calculerPlatTest() {
   await _calculerTest(
     c => c.disc === 'PLAT',
     _calculerSignalUnifie, 'plattest-content', 'calculerPlatTest', 'Top4-reste'
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// GAGNANT PLAT / GAGNANT TROT — sélection d'UN SEUL cheval (Simple Gagnant),
+// signal = moyenne Top3 − moyenne du reste du peloton. Backtest 28/07/2026 sur
+// 26-27/07 : PLAT = 66.7% réussite, ROI +125.6% (9 courses, prometteur mais
+// petit échantillon). ATTELÉ = ~27% réussite, PAS de signal exploitable —
+// onglet affiché à titre exploratoire uniquement pour cette discipline.
+// ══════════════════════════════════════════════════════════════════════════
+
+function _calculerSignalGagnant(chevaux) {
+  const scored = chevaux.map(h => ({ h, numero: h.numero, algo: _scoreAlgoSeul(h) }));
+  const tries = [...scored].sort((a,b) => b.algo - a.algo);
+  const top1 = tries[0];
+  const scores = tries.map(s => s.algo);
+  if (scores.length <= 3) {
+    return { chevaux, top1, signal: 0, nbPartants: chevaux.length };
+  }
+  const moyTop3 = scores.slice(0, 3).reduce((a,b) => a+b, 0) / 3;
+  const reste = scores.slice(3);
+  const moyReste = reste.reduce((a,b) => a+b, 0) / reste.length;
+  const signal = moyTop3 - moyReste;
+  return { chevaux, top1, signal, nbPartants: chevaux.length };
+}
+
+async function _calculerTestGagnant(discFiltre, elId, fnName, avertissement) {
+  const el = document.getElementById(elId);
+  el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement des courses du jour…</span></div>';
+  await acquireWakeLock();
+
+  const today = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
+  const dateAffiche = pad(today.getDate()) + '/' + pad(today.getMonth()+1) + '/' + today.getFullYear();
+
+  try {
+    const resp = await fetch(`${API_URL_PRIMARY}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
+    if (!resp.ok) throw new Error('Programme indisponible (' + resp.status + ')');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    const courses = (data.courses || []).filter(discFiltre)
+      .map(c => ({ r: c.r_num, c: c.c_num, lieu: c.lieu, heure: c.heure }));
+
+    if (!courses.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">🥇</div>Aucune course trouvée aujourd\'hui</div>';
+      await releaseWakeLock();
+      return;
+    }
+
+    const resultatsParCourse = {};
+    const total = courses.length;
+    let loaded = 0;
+    const updateProgress = () => {
+      const pct = Math.round(loaded/total*100);
+      el.innerHTML = `<div class="dash-progress">
+        Calcul du signal… ${loaded}/${total} courses (${pct}%)
+        <div class="dash-progress-bar"><div class="dash-progress-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    };
+    updateProgress();
+
+    for (let i=0; i<courses.length; i+=5) {
+      await Promise.all(courses.slice(i,i+5).map(async co => {
+        try {
+          const r = await fetch(`${API_URL_PRIMARY}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
+          if (r.ok) {
+            const d = await r.json();
+            if (d?.chevaux?.length >= 4) resultatsParCourse[`${co.r}-${co.c}`] = _calculerSignalGagnant(d.chevaux);
+          }
+        } catch(e) {}
+        loaded++;
+        updateProgress();
+      }));
+    }
+
+    await releaseWakeLock();
+
+    const coursesAvecSignal = courses.filter(co => resultatsParCourse[`${co.r}-${co.c}`]);
+    if (!coursesAvecSignal.length) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Aucune donnée exploitable aujourd'hui
+        <button class="btn secondary" onclick="${fnName}()" style="margin-top:16px;font-size:10px">↺ Réessayer</button></div>`;
+      return;
+    }
+
+    const triees = [...coursesAvecSignal].sort((a,b) => resultatsParCourse[`${b.r}-${b.c}`].signal - resultatsParCourse[`${a.r}-${a.c}`].signal);
+    const n = triees.length;
+    const taille = Math.floor(n / 3);
+    triees.forEach((co, i) => {
+      const niveau = i < taille ? 1 : (i < taille*2 ? 2 : 3);
+      resultatsParCourse[`${co.r}-${co.c}`].niveau = niveau;
+    });
+
+    const COULEURS = { 1: '#3a9162', 2: '#c8942a', 3: '#e05c5c' };
+    const CLASSES  = { 1: 'forte', 2: 'simple', 3: 'risque' };
+
+    const renderRow = (co, tdata) => {
+      const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
+      const { top1, signal, niveau, nbPartants } = tdata;
+      const couleur = COULEURS[niveau];
+      const cardClass = CLASSES[niveau];
+      return `<div class="gc-card ${cardClass}" onclick="${onclick}">
+        <div class="gc-left">
+          <div class="gc-course-num" style="color:${couleur}">R${co.r}C${co.c}</div>
+          <div class="gc-heure">${co.heure}</div>
+        </div>
+        <div class="gc-body">
+          <div class="gc-selection" style="color:${couleur}">#${top1.numero}</div>
+          <div class="gc-meta">
+            <span class="gc-badge ${cardClass}">Niveau ${niveau}</span>
+            <span class="gc-badge partants-ok">${nbPartants}p</span>
+            <span>signal=${signal.toFixed(2)}</span>
+          </div>
+        </div>
+      </div>`;
+    };
+
+    let html = `<div class="gc-refresh">
+      <span>🥇 Simple Gagnant · ${n} courses · ${dateAffiche}</span>
+      <button onclick="${fnName}()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:6px;padding:4px 10px;font-family:'Space Mono',monospace;cursor:pointer">↺</button>
+    </div>
+    <div style="padding:10px 14px 0;font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">${avertissement}</div>`;
+
+    const byR = {};
+    for (const co of triees) {
+      if (!byR[co.r]) byR[co.r] = { lieu: co.lieu, courses: [] };
+      byR[co.r].courses.push(co);
+    }
+    for (const [rNum, rd] of Object.entries(byR)) {
+      html += `<div class="gc-reunion">R${rNum} · ${rd.lieu}</div>`;
+      for (const co of rd.courses) html += renderRow(co, resultatsParCourse[`${co.r}-${co.c}`]);
+    }
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Erreur : ${e.message}<br>
+    <button class="btn secondary" onclick="${fnName}()" style="margin-top:12px;font-size:10px">↺ Réessayer</button>
+    </div>`;
+  }
+}
+
+async function calculerGagnantPlat() {
+  await _calculerTestGagnant(
+    c => c.disc === 'PLAT', 'gagnantplat-content', 'calculerGagnantPlat',
+    '⚠️ Échantillon encore petit (9 courses testées) — backtest 28/07 : 66.7% réussite, ROI +125.6%. Prometteur, à confirmer sur plus de volume.'
+  );
+}
+
+async function calculerGagnantTrot() {
+  await _calculerTestGagnant(
+    c => ['ATTELE','TROT_ATTELE','MONTE'].includes(c.disc), 'gagnanttrot-content', 'calculerGagnantTrot',
+    '⚠️ ATTENTION : ce signal N\'A PAS montré de résultat concluant à l\'attelé (~27% de réussite, proche du hasard, ROI négatif sur le test). Affiché à titre exploratoire uniquement — ne pas s\'y fier pour l\'instant.'
   );
 }
 

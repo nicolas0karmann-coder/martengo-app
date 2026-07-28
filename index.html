@@ -270,6 +270,8 @@ input[readonly]{opacity:.5;cursor:default}
     <button class="nav-btn" onclick="goTo('couple2all')" id="tab-couple2all"><span class="nav-icon">👥</span>Couple All</button>
     <button class="nav-btn" onclick="goTo('trioallplat')" id="tab-trioallplat"><span class="nav-icon">🐎</span>Trio All Plat</button>
     <button class="nav-btn" onclick="goTo('coupleallplat')" id="tab-coupleallplat"><span class="nav-icon">🐎</span>Couple All Plat</button>
+    <button class="nav-btn" onclick="goTo('trottest')" id="tab-trottest"><span class="nav-icon">🧪</span>Trot Test</button>
+    <button class="nav-btn" onclick="goTo('plattest')" id="tab-plattest"><span class="nav-icon">🧪</span>Plat Test</button>
     <button class="nav-btn" onclick="goTo('stats')" id="tab-stats">
       <span class="nav-icon">📊</span>Stats
       <span class="nav-badge" id="badge-stats"></span>
@@ -508,6 +510,34 @@ input[readonly]{opacity:.5;cursor:default}
       </div>
     </div>
 
+    <!-- TROT TEST — signal expérimental : écart 3e/4e normalisé par nb partants -->
+    <div class="screen" id="screen-trottest">
+      <div id="trottest-content">
+        <div class="empty">
+          <div class="empty-icon">🧪</div>
+          Signal expérimental — pas encore validé sur un grand échantillon<br>
+          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
+            ATTELÉ &amp; MONTE · Écart 3e/4e du modèle, normalisé par le nombre de partants
+          </small>
+          <button class="btn full" onclick="calculerTrotTest()" style="margin-top:16px;font-size:11px">Calculer →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PLAT TEST — signal expérimental : dispersion du peloton (coefficient de variation) -->
+    <div class="screen" id="screen-plattest">
+      <div id="plattest-content">
+        <div class="empty">
+          <div class="empty-icon">🧪</div>
+          Signal expérimental — pas encore validé sur un grand échantillon<br>
+          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
+            PLAT · Coefficient de variation du peloton (dispersion des scores du modèle)
+          </small>
+          <button class="btn full" onclick="calculerPlatTest()" style="margin-top:16px;font-size:11px">Calculer →</button>
+        </div>
+      </div>
+    </div>
+
     <div class="screen" id="screen-stats">
       <div id="stats-content">
         <div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement…</span></div>
@@ -533,7 +563,7 @@ async function fetchAPI(path, options = {}) {
   return r;
 }
 const LS_SAISIE = 'martengo_v3', LS_HIST = 'martengo_hist';
-const SCREENS = ['saisie','selections','analyse','conseil','dashboard','safe','offensif','trio','trioall','pro','prosa','couple','couple2','couple2all','trioallplat','coupleallplat','stats'];
+const SCREENS = ['saisie','selections','analyse','conseil','dashboard','safe','offensif','trio','trioall','pro','prosa','couple','couple2','couple2all','trioallplat','coupleallplat','trottest','plattest','stats'];
 
 let chevaux = [], predictions = null, notesPMU = {}, notesPMUData = null;
 let currentDate = '', horseCounter = 0, apiPrete = false, currentScreen = 'saisie';
@@ -3108,6 +3138,171 @@ async function calculerCoupleAllPlat() {
     <button class="btn secondary" onclick="calculerCoupleAllPlat()" style="margin-top:12px;font-size:10px">↺ Réessayer</button>
     </div>`;
   }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// TROT TEST / PLAT TEST — signaux expérimentaux, non validés sur un grand
+// échantillon (testés sur seulement 26-27/07/2026, ~40-45 courses). Classement
+// en 3 niveaux RELATIFS (tertiles) parmi les courses du jour, pas de seuils
+// absolus calibrés — on n'a pas assez de données pour ça pour l'instant.
+// ══════════════════════════════════════════════════════════════════════════
+
+function _scoreAlgoSeul(h) {
+  const p = h.proba_pmu;
+  return (p != null && p !== 0) ? p : (h.note_pmu || 0);
+}
+
+// ATTELÉ/MONTE : écart 3e/4e du modèle, normalisé par le nombre de partants
+function _calculerSignalTrot(chevaux) {
+  const scored = chevaux.map(h => ({ h, numero: h.numero, algo: _scoreAlgoSeul(h) }));
+  const tries = [...scored].sort((a,b) => b.algo - a.algo);
+  const top4 = tries.slice(0, 4);
+  const ecart34 = tries.length > 3 ? (tries[2].algo - tries[3].algo) : 0;
+  const signal = ecart34 / chevaux.length;
+  return { chevaux, top4, signal, nbPartants: chevaux.length };
+}
+
+// PLAT : coefficient de variation du peloton (dispersion des scores du modèle)
+function _calculerSignalPlat(chevaux) {
+  const scored = chevaux.map(h => ({ h, numero: h.numero, algo: _scoreAlgoSeul(h) }));
+  const tries = [...scored].sort((a,b) => b.algo - a.algo);
+  const top4 = tries.slice(0, 4);
+  const scores = tries.map(s => s.algo);
+  const moyenne = scores.reduce((a,b) => a+b, 0) / scores.length;
+  const ecartType = Math.sqrt(scores.reduce((a,b) => a + (b-moyenne)**2, 0) / scores.length);
+  const signal = moyenne !== 0 ? ecartType / Math.abs(moyenne) : 0;
+  return { chevaux, top4, signal, nbPartants: chevaux.length };
+}
+
+async function _calculerTest(discFiltre, calculerSignalFn, elId, fnName, labelSignal) {
+  const el = document.getElementById(elId);
+  el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement des courses du jour…</span></div>';
+  await acquireWakeLock();
+
+  const today = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
+  const dateAffiche = pad(today.getDate()) + '/' + pad(today.getMonth()+1) + '/' + today.getFullYear();
+
+  try {
+    const resp = await fetch(`${API_URL_PRIMARY}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
+    if (!resp.ok) throw new Error('Programme indisponible (' + resp.status + ')');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    const courses = (data.courses || []).filter(discFiltre)
+      .map(c => ({ r: c.r_num, c: c.c_num, lieu: c.lieu, heure: c.heure }));
+
+    if (!courses.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">🧪</div>Aucune course trouvée aujourd\'hui</div>';
+      await releaseWakeLock();
+      return;
+    }
+
+    const resultatsParCourse = {};
+    const total = courses.length;
+    let loaded = 0;
+    const updateProgress = () => {
+      const pct = Math.round(loaded/total*100);
+      el.innerHTML = `<div class="dash-progress">
+        Calcul du signal… ${loaded}/${total} courses (${pct}%)
+        <div class="dash-progress-bar"><div class="dash-progress-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    };
+    updateProgress();
+
+    for (let i=0; i<courses.length; i+=5) {
+      await Promise.all(courses.slice(i,i+5).map(async co => {
+        try {
+          const r = await fetch(`${API_URL_PRIMARY}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
+          if (r.ok) {
+            const d = await r.json();
+            if (d?.chevaux?.length >= 4) resultatsParCourse[`${co.r}-${co.c}`] = calculerSignalFn(d.chevaux);
+          }
+        } catch(e) {}
+        loaded++;
+        updateProgress();
+      }));
+    }
+
+    await releaseWakeLock();
+
+    const coursesAvecSignal = courses.filter(co => resultatsParCourse[`${co.r}-${co.c}`]);
+    if (!coursesAvecSignal.length) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Aucune donnée exploitable aujourd'hui
+        <button class="btn secondary" onclick="${fnName}()" style="margin-top:16px;font-size:10px">↺ Réessayer</button></div>`;
+      return;
+    }
+
+    // Tertiles RELATIFS au jour — pas de seuil absolu calibré
+    const triees = [...coursesAvecSignal].sort((a,b) => resultatsParCourse[`${b.r}-${b.c}`].signal - resultatsParCourse[`${a.r}-${a.c}`].signal);
+    const n = triees.length;
+    const taille = Math.floor(n / 3);
+    triees.forEach((co, i) => {
+      const niveau = i < taille ? 1 : (i < taille*2 ? 2 : 3);
+      resultatsParCourse[`${co.r}-${co.c}`].niveau = niveau;
+    });
+
+    const COULEURS = { 1: '#3a9162', 2: '#c8942a', 3: '#e05c5c' };
+    const CLASSES  = { 1: 'forte', 2: 'simple', 3: 'risque' };
+
+    const renderRow = (co, tdata) => {
+      const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
+      const { top4, signal, niveau, nbPartants } = tdata;
+      const couleur = COULEURS[niveau];
+      const cardClass = CLASSES[niveau];
+      const numsSel = top4.map(s => `#${s.numero}`).join(' · ');
+      return `<div class="gc-card ${cardClass}" onclick="${onclick}">
+        <div class="gc-left">
+          <div class="gc-course-num" style="color:${couleur}">R${co.r}C${co.c}</div>
+          <div class="gc-heure">${co.heure}</div>
+        </div>
+        <div class="gc-body">
+          <div class="gc-selection" style="color:${couleur}">${numsSel}</div>
+          <div class="gc-meta">
+            <span class="gc-badge ${cardClass}">Niveau ${niveau}</span>
+            <span class="gc-badge partants-ok">${nbPartants}p</span>
+            <span>${labelSignal}=${signal.toFixed(2)}</span>
+          </div>
+        </div>
+      </div>`;
+    };
+
+    let html = `<div class="gc-refresh">
+      <span>🧪 Signal expérimental · ${n} courses · ${dateAffiche}</span>
+      <button onclick="${fnName}()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:6px;padding:4px 10px;font-family:'Space Mono',monospace;cursor:pointer">↺</button>
+    </div>
+    <div style="padding:10px 14px 0;font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">⚠️ Non backtesté sur un grand échantillon — Niveau 1/2/3 relatifs aux courses du jour, pas des seuils fixes calibrés.</div>`;
+
+    const byR = {};
+    for (const co of triees) {
+      if (!byR[co.r]) byR[co.r] = { lieu: co.lieu, courses: [] };
+      byR[co.r].courses.push(co);
+    }
+    for (const [rNum, rd] of Object.entries(byR)) {
+      html += `<div class="gc-reunion">R${rNum} · ${rd.lieu}</div>`;
+      for (const co of rd.courses) html += renderRow(co, resultatsParCourse[`${co.r}-${co.c}`]);
+    }
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Erreur : ${e.message}<br>
+    <button class="btn secondary" onclick="${fnName}()" style="margin-top:12px;font-size:10px">↺ Réessayer</button>
+    </div>`;
+  }
+}
+
+async function calculerTrotTest() {
+  await _calculerTest(
+    c => ['ATTELE','TROT_ATTELE','MONTE'].includes(c.disc),
+    _calculerSignalTrot, 'trottest-content', 'calculerTrotTest', 'écart/partants'
+  );
+}
+
+async function calculerPlatTest() {
+  await _calculerTest(
+    c => c.disc === 'PLAT',
+    _calculerSignalPlat, 'plattest-content', 'calculerPlatTest', 'coeff.var'
+  );
 }
 
 // ── PRO ──

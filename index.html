@@ -3441,7 +3441,7 @@ async function _calculerTestGagnant(discFiltre, elId, fnName, avertissement) {
           <div class="gc-heure">${co.heure}</div>
         </div>
         <div class="gc-body">
-          <div class="gc-selection" style="color:${couleur}">#${top1.numero}</div>
+          <div class="gc-selection" style="color:${couleur};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">#${top1.numero} <span style="font-size:16px">${top1.h.nom||''}</span></div>
           <div class="gc-meta">
             <span class="gc-badge ${cardClass}">Niveau ${niveau}</span>
             <span class="gc-badge partants-ok">${nbPartants}p</span>

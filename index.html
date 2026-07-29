@@ -66,6 +66,26 @@ html,body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;f
 .gc-badge.risque{background:rgba(200,148,42,.18);color:var(--gold)}
 .gc-card.risque{border-color:rgba(200,148,42,.45);background:rgba(200,148,42,.08)}
 .gc-badge.partants-risque{background:rgba(224,92,92,.16);color:#e05c5c;font-weight:700}
+
+/* ── BEST SIMPLE ── */
+.bs-reunion-header{display:flex;align-items:center;justify-content:space-between;padding:14px;margin:8px 10px 0;border-radius:10px;background:var(--bg2);border:1px solid var(--border);cursor:pointer;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:1px;color:var(--gold)}
+.bs-reunion-header:active{transform:scale(.99)}
+.bs-chevron{font-size:14px;color:var(--text-dim)}
+.bs-reunion-body{margin:0 10px}
+.bs-course{border:1px solid var(--border);border-top:none;background:var(--bg3);padding:10px 12px}
+.bs-reunion-body .bs-course:first-child{border-top:1px solid var(--border);border-radius:0}
+.bs-course-header{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-family:'Space Mono',monospace}
+.bs-course-num{font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--text);letter-spacing:1px}
+.bs-course-heure{font-size:10px;color:var(--text-dim)}
+.bs-course-partants{font-size:10px;color:var(--text-dim)}
+.bs-course-signal{margin-left:auto;font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;border:1px solid}
+.bs-cheval-row{padding:6px 0;border-top:1px solid var(--border)}
+.bs-cheval-row:first-of-type{border-top:1px dashed var(--border);margin-top:2px}
+.bs-cheval-ligne1{display:flex;align-items:center;gap:8px;margin-bottom:3px}
+.bs-num{font-family:'Bebas Neue',sans-serif;font-size:15px;color:var(--gold);flex-shrink:0}
+.bs-nom{font-size:12px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bs-avis{font-size:13px;flex-shrink:0}
+.bs-cheval-ligne2{display:flex;flex-wrap:wrap;gap:10px;font-family:'Space Mono',monospace;font-size:9.5px;color:var(--text-dim);padding-left:2px}
 .gc-badge.partants-ok{background:rgba(58,145,98,.15);color:#3a9162;font-weight:700}
 .gc-badge.partants-off{background:var(--bg3);color:var(--text-dim)}
 .header{display:flex;align-items:flex-end;justify-content:space-between;padding:20px 20px 14px;border-bottom:1px solid var(--border);position:relative}
@@ -259,6 +279,7 @@ input[readonly]{opacity:.5;cursor:default}
     <button class="nav-btn" onclick="goTo('selections')" id="tab-selections"><span class="nav-icon">🎯</span>Sélect.</button>
     <button class="nav-btn" onclick="goTo('analyse')" id="tab-analyse"><span class="nav-icon">🔬</span>Analyse</button>
     <button class="nav-btn" onclick="goTo('conseil')" id="tab-conseil"><span class="nav-icon">📝</span>Conseil</button>
+    <button class="nav-btn" onclick="goTo('bestsimple')" id="tab-bestsimple"><span class="nav-icon">⭐</span>Best Simple</button>
     <button class="nav-btn" onclick="goTo('dashboard')" id="tab-dashboard"><span class="nav-icon">📋</span>Journée<span class="nav-badge" id="badge-dashboard"></span></button>
     <button class="nav-btn" onclick="safeCharge=false;goTo('safe')" id="tab-safe"><span class="nav-icon">🛡️</span>Safe</button>
     <button class="nav-btn" onclick="goTo('trio')" id="tab-trio"><span class="nav-icon">🎯</span>Trio</button>
@@ -351,6 +372,20 @@ input[readonly]{opacity:.5;cursor:default}
     <div class="screen" id="screen-conseil">
       <div id="conseil-content">
         <div class="empty"><div class="empty-icon">📝</div>Chargez les notes PMU<br>pour voir le récapitulatif</div>
+      </div>
+    </div>
+
+    <!-- BEST SIMPLE -->
+    <div class="screen" id="screen-bestsimple">
+      <div id="bestsimple-content">
+        <div class="empty">
+          <div class="empty-icon">⭐</div>
+          Top5 du modèle, toutes les réunions du jour<br>
+          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
+            ATTELÉ, MONTE &amp; PLAT · Cliquez une réunion pour dérouler
+          </small>
+          <button class="btn full" onclick="chargerBestSimple()" style="margin-top:16px;font-size:11px">Charger →</button>
+        </div>
       </div>
     </div>
 
@@ -593,7 +628,7 @@ async function fetchAPI(path, options = {}) {
   return r;
 }
 const LS_SAISIE = 'martengo_v3', LS_HIST = 'martengo_hist';
-const SCREENS = ['saisie','selections','analyse','conseil','dashboard','safe','offensif','trio','trioall','pro','prosa','couple','couple2','couple2all','trioallplat','coupleallplat','trottest','plattest','gagnantplat','gagnanttrot','stats'];
+const SCREENS = ['saisie','selections','analyse','conseil','bestsimple','dashboard','safe','offensif','trio','trioall','pro','prosa','couple','couple2','couple2all','trioallplat','coupleallplat','trottest','plattest','gagnantplat','gagnanttrot','stats'];
 
 let chevaux = [], predictions = null, notesPMU = {}, notesPMUData = null;
 let currentDate = '', horseCounter = 0, apiPrete = false, currentScreen = 'saisie';
@@ -3486,6 +3521,198 @@ async function calculerGagnantTrot() {
     c => ['ATTELE','TROT_ATTELE','MONTE'].includes(c.disc), 'gagnanttrot-content', 'calculerGagnantTrot',
     '⚠️ ATTENTION : ce signal N\'A PAS montré de résultat concluant à l\'attelé (~27% de réussite, proche du hasard, ROI négatif sur le test). Affiché à titre exploratoire uniquement — ne pas s\'y fier pour l\'instant.'
   );
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// BEST SIMPLE — Top5 du modèle par course, toutes réunions du jour, avec
+// détails complets par cheval (avis entraîneur, jockey/driver + %, note/20,
+// cote, % victoire/top3 du cheval, value, signal de la course).
+// ══════════════════════════════════════════════════════════════════════════
+
+// Signal de course (identique à Gagnant Plat/Trot) : moyenne Top3 - moyenne du reste
+function _calculerSignalCourseBS(chevaux) {
+  const scored = chevaux.map(h => ({ numero: h.numero, algo: _scoreAlgoSeul(h) }));
+  const tries = [...scored].sort((a,b) => b.algo - a.algo);
+  const scores = tries.map(s => s.algo);
+  if (scores.length <= 3) return 0;
+  const moyTop3 = scores.slice(0,3).reduce((a,b)=>a+b,0) / 3;
+  const reste = scores.slice(3);
+  const moyReste = reste.reduce((a,b)=>a+b,0) / reste.length;
+  return moyTop3 - moyReste;
+}
+
+// Top5 du modèle : tri par note_pmu (la note officielle /20), départage par
+// proba_pmu (valeur exacte non arrondie) en cas d'égalité — comme demandé.
+function _calculerTop5BS(chevaux) {
+  const scored = chevaux.map(h => {
+    const note = h.note_pmu != null ? h.note_pmu : 0;
+    const proba = h.proba_pmu != null ? h.proba_pmu : note;
+    return { h, numero: h.numero, note, proba };
+  });
+  const tries = [...scored].sort((a,b) => (b.note - a.note) || (b.proba - a.proba));
+  return tries.slice(0, 5);
+}
+
+let _bestSimpleData = null;
+
+async function chargerBestSimple() {
+  const el = document.getElementById('bestsimple-content');
+  el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement des courses du jour…</span></div>';
+  await acquireWakeLock();
+
+  const today = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
+  const dateAffiche = pad(today.getDate()) + '/' + pad(today.getMonth()+1) + '/' + today.getFullYear();
+  const DISC_LABELS = {'TROT_ATTELE':'Attelé','ATTELE':'Attelé','MONTE':'Monté','PLAT':'Plat'};
+
+  try {
+    const resp = await fetch(`${API_URL_PRIMARY}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
+    if (!resp.ok) throw new Error('Programme indisponible (' + resp.status + ')');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    const courses = (data.courses || [])
+      .filter(c => ['ATTELE','TROT_ATTELE','MONTE','PLAT'].includes(c.disc))
+      .map(c => ({ r: c.r_num, c: c.c_num, disc: c.disc, lieu: c.lieu, heure: c.heureDepart || c.heure }));
+
+    if (!courses.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">⭐</div>Aucune course trouvée aujourd\'hui</div>';
+      await releaseWakeLock();
+      return;
+    }
+
+    const resultatsParCourse = {};
+    const total = courses.length;
+    let loaded = 0;
+    const updateProgress = () => {
+      const pct = Math.round(loaded/total*100);
+      el.innerHTML = `<div class="dash-progress">
+        Chargement… ${loaded}/${total} courses (${pct}%)
+        <div class="dash-progress-bar"><div class="dash-progress-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    };
+    updateProgress();
+
+    for (let i=0; i<courses.length; i+=5) {
+      await Promise.all(courses.slice(i,i+5).map(async co => {
+        try {
+          const r = await fetch(`${API_URL_PRIMARY}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
+          if (r.ok) {
+            const d = await r.json();
+            if (d?.chevaux?.length >= 4) {
+              resultatsParCourse[`${co.r}-${co.c}`] = {
+                top5: _calculerTop5BS(d.chevaux),
+                signal: _calculerSignalCourseBS(d.chevaux),
+                nbPartants: d.chevaux.length,
+              };
+            }
+          }
+        } catch(e) {}
+        loaded++;
+        updateProgress();
+      }));
+    }
+
+    await releaseWakeLock();
+
+    const coursesOk = courses.filter(co => resultatsParCourse[`${co.r}-${co.c}`]);
+
+    // Niveaux de signal par tertile, séparément ATTELÉ/MONTE vs PLAT
+    const estPlat = co => co.disc === 'PLAT';
+    for (const groupe of [coursesOk.filter(c => !estPlat(c)), coursesOk.filter(estPlat)]) {
+      const triees = [...groupe].sort((a,b) => resultatsParCourse[`${b.r}-${b.c}`].signal - resultatsParCourse[`${a.r}-${a.c}`].signal);
+      const n = triees.length, taille = Math.floor(n/3);
+      triees.forEach((co,i) => {
+        resultatsParCourse[`${co.r}-${co.c}`].niveau = n < 3 ? 2 : (i < taille ? 1 : (i < taille*2 ? 2 : 3));
+      });
+    }
+
+    // Regroupement par réunion
+    const parReunion = {};
+    for (const co of coursesOk) {
+      if (!parReunion[co.r]) parReunion[co.r] = { lieu: co.lieu, disc: co.disc, courses: [] };
+      parReunion[co.r].courses.push(co);
+    }
+
+    _bestSimpleData = { parReunion, resultatsParCourse, DISC_LABELS };
+
+    let html = `<div class="gc-refresh">
+      <span>⭐ ${coursesOk.length} courses · ${Object.keys(parReunion).length} réunions · ${dateAffiche}</span>
+      <button onclick="chargerBestSimple()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:6px;padding:4px 10px;font-family:'Space Mono',monospace;cursor:pointer">↺</button>
+    </div>`;
+
+    const rNums = Object.keys(parReunion).sort((a,b) => Number(a)-Number(b));
+    for (const rNum of rNums) {
+      const rd = parReunion[rNum];
+      html += `<div class="bs-reunion-header" onclick="_toggleReunionBS('${rNum}')" id="bs-header-${rNum}">
+        <span>R${rNum} ${rd.lieu} - ${DISC_LABELS[rd.disc]||rd.disc}</span>
+        <span class="bs-chevron" id="bs-chevron-${rNum}">▸</span>
+      </div>
+      <div class="bs-reunion-body" id="bs-body-${rNum}" style="display:none">`;
+      for (const co of rd.courses) {
+        html += _renderCourseBS(co, resultatsParCourse[`${co.r}-${co.c}`], DISC_LABELS);
+      }
+      html += `</div>`;
+    }
+
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Erreur : ${e.message}<br>
+    <button class="btn secondary" onclick="chargerBestSimple()" style="margin-top:12px;font-size:10px">↺ Réessayer</button>
+    </div>`;
+  }
+}
+
+function _toggleReunionBS(rNum) {
+  const body = document.getElementById(`bs-body-${rNum}`);
+  const chevron = document.getElementById(`bs-chevron-${rNum}`);
+  const ouvert = body.style.display !== 'none';
+  body.style.display = ouvert ? 'none' : 'block';
+  chevron.textContent = ouvert ? '▸' : '▾';
+}
+
+function _renderCourseBS(co, cdata, DISC_LABELS) {
+  const GREEN = '#3a9162', GOLD = '#c8942a', RED = '#e05c5c';
+  const COULEURS = { 1: GREEN, 2: GOLD, 3: RED };
+  const couleurSignal = COULEURS[cdata.niveau] || 'var(--text-dim)';
+
+  const ligneCheval = (s) => {
+    const avis = s.h.avis; // -1 négatif, 0 neutre, 1 positif
+    const avisCouleur = avis === 1 ? GREEN : (avis === -1 ? RED : 'var(--text-dim)');
+    const avisLabel = avis === 1 ? '👍' : (avis === -1 ? '👎' : '—');
+    const cote = s.h.cote;
+    const pctVictoire = s.h.proba_win;   // % victoire — champ direct de l'API (déjà utilisé dans Analyse)
+    const pctTop3 = s.h.proba_pmu;       // % top3 — champ direct de l'API (déjà utilisé dans Analyse)
+    const value = s.h.score_value;       // value — champ direct de l'API (déjà utilisé dans Analyse, badge 💎)
+    const valueColor = (value != null && value > 0) ? GREEN : 'var(--text-dim)';
+
+    return `<div class="bs-cheval-row">
+      <div class="bs-cheval-ligne1">
+        <span class="bs-num">#${s.numero}</span>
+        <span class="bs-nom">${s.h.nom||''}</span>
+        <span class="bs-avis" style="color:${avisCouleur}" title="Avis entraîneur">${avisLabel}</span>
+      </div>
+      <div class="bs-cheval-ligne2">
+        <span>🏇 ${s.h.driver||'—'}${s.h.driver_win_rate!=null ? ` (${s.h.driver_win_rate}%)` : ''}</span>
+        <span>Note: <b>${s.note}/20</b></span>
+        <span>Cote: ${cote!=null ? cote : '—'}</span>
+        <span>%V: ${pctVictoire!=null ? pctVictoire+'%' : '—'}</span>
+        <span>%T3: ${pctTop3!=null ? pctTop3+'%' : '—'}</span>
+        <span style="color:${valueColor};font-weight:${value>0?700:400}">Value: ${value!=null ? value : '—'}</span>
+      </div>
+    </div>`;
+  };
+
+  return `<div class="bs-course">
+    <div class="bs-course-header">
+      <span class="bs-course-num">R${co.r}C${co.c}</span>
+      <span class="bs-course-heure">${co.heure||''}</span>
+      <span class="bs-course-partants">${cdata.nbPartants}p</span>
+      <span class="bs-course-signal" style="color:${couleurSignal};border-color:${couleurSignal}">Signal N${cdata.niveau}</span>
+    </div>
+    ${cdata.top5.map(ligneCheval).join('')}
+  </div>`;
 }
 
 // ── PRO ──

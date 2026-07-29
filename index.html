@@ -3603,10 +3603,12 @@ async function chargerBestSimple() {
           if (r.ok) {
             const d = await r.json();
             if (d?.chevaux?.length >= 4) {
+              const cotesCompletes = d.chevaux.map(h => h.cote).filter(c => c != null);
               resultatsParCourse[`${co.r}-${co.c}`] = {
                 top5: _calculerTop5BS(d.chevaux),
                 signal: _calculerSignalCourseBS(d.chevaux),
                 nbPartants: d.chevaux.length,
+                coteMinCourse: cotesCompletes.length ? Math.min(...cotesCompletes) : null,
               };
             }
           }
@@ -3688,14 +3690,35 @@ function _renderCourseBS(co, cdata, DISC_LABELS) {
   const couleurSignal = COULEURS[cdata.niveau] || 'var(--text-dim)';
   const id = `${co.r}-${co.c}`;
 
+  // Contexte du Top5 : cote la plus basse DE TOUTE LA COURSE, et les 3 meilleurs % driver du lot affiché
+  const coteMin = cdata.coteMinCourse;
+  const driversTries = [...cdata.top5].map(s => s.h.driver_win_rate).filter(v => v != null).sort((a,b) => b-a);
+  const seuilTop3Driver = driversTries.length >= 3 ? driversTries[2] : (driversTries.length ? driversTries[driversTries.length-1] : null);
+
+  // Musique colorée : vert si 1er, orange si 2e/3e, normal sinon
+  const musiqueColoree = (musique) => {
+    if (!musique) return '—';
+    const tokens = musique.match(/\(\d+\)|[0-9DATRdatr][amphscAMPHSC]?/g) || [];
+    if (!tokens.length) return musique;
+    return tokens.map(t => {
+      if (t.startsWith('(')) return `<span style="color:var(--text-dim);font-size:10px">${t}</span>`;
+      const c = t[0].toUpperCase();
+      const couleur = c === '1' ? GREEN : (c === '2' || c === '3') ? GOLD : 'var(--text)';
+      return `<span style="color:${couleur}">${t}</span>`;
+    }).join('');
+  };
+
   const ligneCheval = (s) => {
     const avis = s.h.avis; // -1 négatif, 0 neutre, 1 positif
     const avisCouleur = avis === 1 ? GREEN : (avis === -1 ? RED : GOLD);
     const cote = s.h.cote;
-    const pctVictoire = s.h.proba_win;   // % victoire — champ direct de l'API
-    const pctTop3 = s.h.proba_pmu;       // % top3 — champ direct de l'API
-    const ev = s.h.ev_win;               // EV (%) — champ direct de l'API
+    const coteCouleur = (coteMin != null && cote === coteMin) ? GREEN : 'var(--text)';
+    const pctVictoire = s.h.proba_win;
+    const pctTop3 = s.h.proba_pmu;
+    const ev = s.h.ev_win;
     const evColor = ev > 10 ? GREEN : ev > 0 ? GOLD : ev > -20 ? 'var(--text-dim)' : RED;
+    const driverPct = s.h.driver_win_rate;
+    const driverCouleur = (seuilTop3Driver != null && driverPct != null && driverPct >= seuilTop3Driver) ? GREEN : 'var(--text)';
 
     return `<div class="bs-cheval-row">
       <div class="bs-cheval-ligne1">
@@ -3703,10 +3726,11 @@ function _renderCourseBS(co, cdata, DISC_LABELS) {
         <span class="bs-num">#${s.numero}</span>
         <span class="bs-nom">${s.h.nom||''}</span>
       </div>
-      <div class="bs-cheval-ligne2">🏇 ${s.h.driver||'—'}${s.h.driver_win_rate!=null ? ` — ${s.h.driver_win_rate}% de victoires` : ''}</div>
+      <div class="bs-cheval-ligne2">🏇 ${s.h.driver||'—'}${driverPct!=null ? ` <span style="color:${driverCouleur}">(${driverPct}%)</span>` : ''}</div>
       <div class="bs-cheval-ligne3">
-        <span>Note <b>${s.note}</b>/20</span>
-        <span>Cote <b>${cote!=null ? cote : '—'}</b></span>
+        <span><b>${s.note}</b>/20</span>
+        <span>Cote <b style="color:${coteCouleur}">${cote!=null ? cote : '—'}</b></span>
+        <span style="font-family:'Space Mono',monospace">${musiqueColoree(s.h.musique)}</span>
       </div>
       <div class="bs-cheval-ligne3">
         <span>% Victoire <b>${pctVictoire!=null ? pctVictoire+'%' : '—'}</b></span>

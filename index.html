@@ -3604,11 +3604,19 @@ async function chargerBestSimple() {
             const d = await r.json();
             if (d?.chevaux?.length >= 4) {
               const cotesCompletes = d.chevaux.map(h => h.cote).filter(c => c != null);
+              const top3Set = (vals) => {
+                const distinct = [...new Set(vals)].sort((a,b) => a-b); // plus bas = meilleur pour un RK
+                return new Set(distinct.slice(0, 3));
+              };
+              const moyVals = d.chevaux.map(h => h.rk_moyenne_3courses!=null ? Math.round(h.rk_moyenne_3courses) : null).filter(v => v!==null);
+              const meilleur3Vals = d.chevaux.map(h => h.rk_meilleur_3courses!=null ? Math.round(h.rk_meilleur_3courses) : null).filter(v => v!==null);
               resultatsParCourse[`${co.r}-${co.c}`] = {
                 top5: _calculerTop5BS(d.chevaux),
                 signal: _calculerSignalCourseBS(d.chevaux),
                 nbPartants: d.chevaux.length,
                 coteMinCourse: cotesCompletes.length ? Math.min(...cotesCompletes) : null,
+                rkMoyenneTop3: top3Set(moyVals),
+                rkMeilleur3Top3: top3Set(meilleur3Vals),
               };
             }
           }
@@ -3766,7 +3774,11 @@ function _renderCourseBS(co, cdata, DISC_LABELS) {
     } else {
       const moyVal = s.h.rk_moyenne_3courses ? Math.round(s.h.rk_moyenne_3courses) : null;
       const meilleur3Val = s.h.rk_meilleur_3courses ? Math.round(s.h.rk_meilleur_3courses) : null;
-      const moyTxt = moyVal!==null ? `${moyVal}${meilleur3Val!==null && meilleur3Val!==moyVal ? ' ('+meilleur3Val+')' : ''}` : '—';
+      const moyCouleur = (moyVal!==null && cdata.rkMoyenneTop3?.has(moyVal)) ? GREEN : 'var(--text)';
+      const meilleur3Couleur = (meilleur3Val!==null && cdata.rkMeilleur3Top3?.has(meilleur3Val)) ? GREEN : 'var(--text-dim)';
+      const moyTxt = moyVal!==null
+        ? `<span style="color:${moyCouleur}">${moyVal}</span>${meilleur3Val!==null && meilleur3Val!==moyVal ? ` (<span style="color:${meilleur3Couleur}">${meilleur3Val}</span>)` : ''}`
+        : '—';
       const ferrureTxt = s.h.deferre || '—';
       const ferrureCouleur = s.h.deferre==='DEFERRE_TOTAL' ? GREEN : 'var(--text)';
       let changtTxt = '—', changtCouleur = 'var(--text-dim)';

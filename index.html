@@ -68,24 +68,26 @@ html,body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;f
 .gc-badge.partants-risque{background:rgba(224,92,92,.16);color:#e05c5c;font-weight:700}
 
 /* ── BEST SIMPLE ── */
-.bs-reunion-header{display:flex;align-items:center;justify-content:space-between;padding:14px;margin:8px 10px 0;border-radius:10px;background:var(--bg2);border:1px solid var(--border);cursor:pointer;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:1px;color:var(--gold)}
+.bs-reunion-header{display:flex;align-items:center;justify-content:space-between;padding:16px;margin:10px 10px 0;border-radius:10px;background:var(--bg2);border:1px solid var(--border);cursor:pointer;font-family:'Bebas Neue',sans-serif;font-size:19px;letter-spacing:1px;color:var(--gold)}
 .bs-reunion-header:active{transform:scale(.99)}
-.bs-chevron{font-size:14px;color:var(--text-dim)}
+.bs-chevron{font-size:16px;color:var(--text-dim);flex-shrink:0}
 .bs-reunion-body{margin:0 10px}
-.bs-course{border:1px solid var(--border);border-top:none;background:var(--bg3);padding:10px 12px}
-.bs-reunion-body .bs-course:first-child{border-top:1px solid var(--border);border-radius:0}
-.bs-course-header{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-family:'Space Mono',monospace}
-.bs-course-num{font-family:'Bebas Neue',sans-serif;font-size:16px;color:var(--text);letter-spacing:1px}
-.bs-course-heure{font-size:10px;color:var(--text-dim)}
-.bs-course-partants{font-size:10px;color:var(--text-dim)}
-.bs-course-signal{margin-left:auto;font-size:9px;font-weight:700;padding:2px 8px;border-radius:10px;border:1px solid}
-.bs-cheval-row{padding:6px 0;border-top:1px solid var(--border)}
-.bs-cheval-row:first-of-type{border-top:1px dashed var(--border);margin-top:2px}
-.bs-cheval-ligne1{display:flex;align-items:center;gap:8px;margin-bottom:3px}
-.bs-num{font-family:'Bebas Neue',sans-serif;font-size:15px;color:var(--gold);flex-shrink:0}
-.bs-nom{font-size:12px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.bs-avis{font-size:13px;flex-shrink:0}
-.bs-cheval-ligne2{display:flex;flex-wrap:wrap;gap:10px;font-family:'Space Mono',monospace;font-size:9.5px;color:var(--text-dim);padding-left:2px}
+.bs-course{border:1px solid var(--border);border-top:none;background:var(--bg3)}
+.bs-reunion-body .bs-course:first-child{border-top:1px solid var(--border)}
+.bs-course-header{display:flex;align-items:center;gap:12px;padding:12px 14px;font-family:'Space Mono',monospace;cursor:pointer}
+.bs-course-header:active{background:var(--bg2)}
+.bs-course-num{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--text);letter-spacing:1px}
+.bs-course-heure{font-size:12px;color:var(--text-dim)}
+.bs-course-partants{font-size:12px;color:var(--text-dim)}
+.bs-course-signal{margin-left:auto;font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;border:1px solid}
+.bs-cheval-row{padding:12px 14px;border-top:1px solid var(--border)}
+.bs-cheval-ligne1{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.bs-avis-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
+.bs-num{font-family:'Bebas Neue',sans-serif;font-size:19px;color:var(--gold);flex-shrink:0}
+.bs-nom{font-size:15px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bs-cheval-ligne2{font-family:'Space Mono',monospace;font-size:12px;color:var(--text);margin-bottom:6px;padding-left:21px}
+.bs-cheval-ligne3{display:flex;gap:18px;font-family:'Space Mono',monospace;font-size:12px;color:var(--text-dim);padding-left:21px;margin-bottom:4px}
+.bs-cheval-ligne3 b{color:var(--text);font-size:13px}
 .gc-badge.partants-ok{background:rgba(58,145,98,.15);color:#3a9162;font-weight:700}
 .gc-badge.partants-off{background:var(--bg3);color:var(--text-dim)}
 .header{display:flex;align-items:flex-end;justify-content:space-between;padding:20px 20px 14px;border-bottom:1px solid var(--border);position:relative}
@@ -3672,46 +3674,59 @@ function _toggleReunionBS(rNum) {
   chevron.textContent = ouvert ? '▸' : '▾';
 }
 
+function _toggleCourseBS(id) {
+  const body = document.getElementById(`bs-cbody-${id}`);
+  const chevron = document.getElementById(`bs-cchevron-${id}`);
+  const ouvert = body.style.display !== 'none';
+  body.style.display = ouvert ? 'none' : 'block';
+  chevron.textContent = ouvert ? '▸' : '▾';
+}
+
 function _renderCourseBS(co, cdata, DISC_LABELS) {
   const GREEN = '#3a9162', GOLD = '#c8942a', RED = '#e05c5c';
   const COULEURS = { 1: GREEN, 2: GOLD, 3: RED };
   const couleurSignal = COULEURS[cdata.niveau] || 'var(--text-dim)';
+  const id = `${co.r}-${co.c}`;
 
   const ligneCheval = (s) => {
     const avis = s.h.avis; // -1 négatif, 0 neutre, 1 positif
-    const avisCouleur = avis === 1 ? GREEN : (avis === -1 ? RED : 'var(--text-dim)');
-    const avisLabel = avis === 1 ? '👍' : (avis === -1 ? '👎' : '—');
+    const avisCouleur = avis === 1 ? GREEN : (avis === -1 ? RED : GOLD);
     const cote = s.h.cote;
-    const pctVictoire = s.h.proba_win;   // % victoire — champ direct de l'API (déjà utilisé dans Analyse)
-    const pctTop3 = s.h.proba_pmu;       // % top3 — champ direct de l'API (déjà utilisé dans Analyse)
-    const value = s.h.score_value;       // value — champ direct de l'API (déjà utilisé dans Analyse, badge 💎)
-    const valueColor = (value != null && value > 0) ? GREEN : 'var(--text-dim)';
+    const pctVictoire = s.h.proba_win;   // % victoire — champ direct de l'API
+    const pctTop3 = s.h.proba_pmu;       // % top3 — champ direct de l'API
+    const ev = s.h.ev_win;               // EV (%) — champ direct de l'API
+    const evColor = ev > 10 ? GREEN : ev > 0 ? GOLD : ev > -20 ? 'var(--text-dim)' : RED;
 
     return `<div class="bs-cheval-row">
       <div class="bs-cheval-ligne1">
+        <span class="bs-avis-dot" style="background:${avisCouleur}" title="Avis entraîneur"></span>
         <span class="bs-num">#${s.numero}</span>
         <span class="bs-nom">${s.h.nom||''}</span>
-        <span class="bs-avis" style="color:${avisCouleur}" title="Avis entraîneur">${avisLabel}</span>
       </div>
-      <div class="bs-cheval-ligne2">
-        <span>🏇 ${s.h.driver||'—'}${s.h.driver_win_rate!=null ? ` (${s.h.driver_win_rate}%)` : ''}</span>
-        <span>Note: <b>${s.note}/20</b></span>
-        <span>Cote: ${cote!=null ? cote : '—'}</span>
-        <span>%V: ${pctVictoire!=null ? pctVictoire+'%' : '—'}</span>
-        <span>%T3: ${pctTop3!=null ? pctTop3+'%' : '—'}</span>
-        <span style="color:${valueColor};font-weight:${value>0?700:400}">Value: ${value!=null ? value : '—'}</span>
+      <div class="bs-cheval-ligne2">🏇 ${s.h.driver||'—'}${s.h.driver_win_rate!=null ? ` — ${s.h.driver_win_rate}% de victoires` : ''}</div>
+      <div class="bs-cheval-ligne3">
+        <span>Note <b>${s.note}</b>/20</span>
+        <span>Cote <b>${cote!=null ? cote : '—'}</b></span>
+      </div>
+      <div class="bs-cheval-ligne3">
+        <span>% Victoire <b>${pctVictoire!=null ? pctVictoire+'%' : '—'}</b></span>
+        <span>% Top3 <b>${pctTop3!=null ? pctTop3+'%' : '—'}</b></span>
+        <span style="color:${evColor}">EV <b>${ev!=null ? (ev>0?'+':'')+ev+'%' : '—'}</b></span>
       </div>
     </div>`;
   };
 
   return `<div class="bs-course">
-    <div class="bs-course-header">
+    <div class="bs-course-header" onclick="_toggleCourseBS('${id}')">
       <span class="bs-course-num">R${co.r}C${co.c}</span>
       <span class="bs-course-heure">${co.heure||''}</span>
       <span class="bs-course-partants">${cdata.nbPartants}p</span>
       <span class="bs-course-signal" style="color:${couleurSignal};border-color:${couleurSignal}">Signal N${cdata.niveau}</span>
+      <span class="bs-chevron" id="bs-cchevron-${id}">▸</span>
     </div>
+    <div id="bs-cbody-${id}" style="display:none">
     ${cdata.top5.map(ligneCheval).join('')}
+    </div>
   </div>`;
 }
 

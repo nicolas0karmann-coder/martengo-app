@@ -3720,6 +3720,80 @@ function _renderCourseBS(co, cdata, DISC_LABELS) {
     const driverPct = s.h.driver_win_rate;
     const driverCouleur = (seuilTop3Driver != null && driverPct != null && driverPct >= seuilTop3Driver) ? GREEN : 'var(--text)';
 
+    const dateDerniereTxt = formatDateConseil(s.h.date_derniere_course);
+
+    // Engagement (identique à Conseil) : ratio gains_carriere / plafond_gains
+    const plafond = s.h.plafond_gains || 0;
+    const gainsEng = (s.h.gains_carriere || 0) / 100;
+    const nbC = s.h.nb_courses_base || null;
+    let engagementTxt = '—', engagementCouleur = 'var(--text-dim)';
+    if (plafond > 0) {
+      const ratio = gainsEng / plafond;
+      const pct = Math.round(ratio * 100);
+      engagementTxt = `${pct}%${nbC ? ' ('+nbC+'c)' : ''}`;
+      engagementCouleur = ratio >= 0.9 ? GREEN : ratio >= 0.7 ? GOLD : RED;
+    }
+
+    let ligneDiscipline = '';
+    if (co.disc === 'PLAT') {
+      const poidsKg = (s.h.handicap_poids!=null && s.h.handicap_poids>0) ? (s.h.handicap_poids/10).toFixed(1)+' kg' : '—';
+      const corde = s.h.place_corde!=null ? s.h.place_corde : '—';
+      const equipementTxt = s.h.oeilleres_brut || '—';
+      const descenteTxt = s.h.descente_lot===true ? '⬇️ Oui' : s.h.descente_lot===false ? 'Non' : '—';
+      const descenteCouleur = s.h.descente_lot===true ? GREEN : 'var(--text-dim)';
+      const ratioNiveauTxt = s.h.ratio_niveau_lot!=null ? s.h.ratio_niveau_lot : '—';
+      const terrainTxt = s.h.apt_terrain_actuel!=null ? s.h.apt_terrain_actuel+'%' : '—';
+      const distTxt = s.h.apt_dist_recente!=null ? s.h.apt_dist_recente+'%' : '—';
+      const hippoTxt = s.h.aptitude_hippodrome!=null ? s.h.aptitude_hippodrome+'%' : '—';
+      ligneDiscipline = `
+      <div class="bs-cheval-ligne3">
+        <span>Dernière course <b>${dateDerniereTxt}</b></span>
+        <span>Équipement <b>${equipementTxt}</b></span>
+      </div>
+      <div class="bs-cheval-ligne3">
+        <span style="color:${descenteCouleur}">Descente lot <b>${descenteTxt}</b></span>
+        <span>Ratio niveau lot <b>${ratioNiveauTxt}</b></span>
+      </div>
+      <div class="bs-cheval-ligne3">
+        <span>Apt.terrain <b>${terrainTxt}</b></span>
+        <span>Apt.distance <b>${distTxt}</b></span>
+        <span>Apt.hippo <b>${hippoTxt}</b></span>
+      </div>
+      <div class="bs-cheval-ligne3">
+        <span>Corde <b>${corde}</b></span>
+        <span>Poids porté <b>${poidsKg}</b></span>
+      </div>`;
+    } else {
+      const moyVal = s.h.rk_moyenne_3courses ? Math.round(s.h.rk_moyenne_3courses) : null;
+      const meilleur3Val = s.h.rk_meilleur_3courses ? Math.round(s.h.rk_meilleur_3courses) : null;
+      const moyTxt = moyVal!==null ? `${moyVal}${meilleur3Val!==null && meilleur3Val!==moyVal ? ' ('+meilleur3Val+')' : ''}` : '—';
+      const ferrureTxt = s.h.deferre || '—';
+      const ferrureCouleur = s.h.deferre==='DEFERRE_TOTAL' ? GREEN : 'var(--text)';
+      let changtTxt = '—', changtCouleur = 'var(--text-dim)';
+      if (s.h.changement_ferrure === true) {
+        const ordre = {'FERRE':0,'DEFERRE_PARTIEL':1,'DEFERRE_TOTAL':2};
+        const avant = ordre[s.h.ferrure_precedente] ?? -1;
+        const apres = ordre[s.h.deferre] ?? -1;
+        if (avant === -1 || apres === -1) { changtTxt = '⚠️ Oui'; changtCouleur = GOLD; }
+        else if (apres > avant) { changtTxt = '⚠️ Oui +'; changtCouleur = GREEN; }
+        else { changtTxt = '⚠️ Oui -'; changtCouleur = RED; }
+      } else if (s.h.changement_ferrure === false) {
+        changtTxt = 'Non';
+      }
+      ligneDiscipline = `
+      <div class="bs-cheval-ligne3">
+        <span>Dernière course <b>${dateDerniereTxt}</b></span>
+        <span style="color:${engagementCouleur}">Engagement <b>${engagementTxt}</b></span>
+      </div>
+      <div class="bs-cheval-ligne3">
+        <span style="color:${ferrureCouleur}">Ferrure <b>${ferrureTxt}</b></span>
+        <span style="color:${changtCouleur}">Changt <b>${changtTxt}</b></span>
+      </div>
+      <div class="bs-cheval-ligne3">
+        <span>Médiane 3 dern. <b>${moyTxt}</b></span>
+      </div>`;
+    }
+
     return `<div class="bs-cheval-row">
       <div class="bs-cheval-ligne1">
         <span class="bs-avis-dot" style="background:${avisCouleur}" title="Avis entraîneur"></span>
@@ -3737,6 +3811,7 @@ function _renderCourseBS(co, cdata, DISC_LABELS) {
         <span>% Top3 <b>${pctTop3!=null ? pctTop3+'%' : '—'}</b></span>
         <span style="color:${evColor}">EV <b>${ev!=null ? (ev>0?'+':'')+ev+'%' : '—'}</b></span>
       </div>
+      ${ligneDiscipline}
     </div>`;
   };
 

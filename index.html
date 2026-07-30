@@ -80,7 +80,9 @@ html,body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;f
 .bs-course-heure{font-size:12px;color:var(--text-dim)}
 .bs-course-partants{font-size:12px;color:var(--text-dim)}
 .bs-course-signal{margin-left:auto;font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;border:1px solid}
-.bs-cheval-row{padding:12px 14px;border-top:1px solid var(--border)}
+.bs-cheval-row{padding:12px 14px;border-top:1px solid var(--border);position:relative}
+.bs-cheval-row.bs-highlight{border:2px solid #3a9162;border-top:2px solid #3a9162;border-radius:8px;margin:8px;padding:10px 12px;background:rgba(58,145,98,.07)}
+.bs-sgsp-badge{position:absolute;top:-1px;right:-1px;background:#3a9162;color:#fff;font-family:'Space Mono',monospace;font-size:10px;font-weight:700;padding:3px 8px;border-radius:0 7px 0 7px;letter-spacing:.5px}
 .bs-cheval-ligne1{display:flex;align-items:center;gap:10px;margin-bottom:6px}
 .bs-avis-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
 .bs-num{font-family:'Bebas Neue',sans-serif;font-size:19px;color:var(--gold);flex-shrink:0}
@@ -3692,6 +3694,29 @@ function _toggleCourseBS(id) {
   chevron.textContent = ouvert ? '▸' : '▾';
 }
 
+function _selectionnerSGSP(cdata) {
+  const niveau = cdata.niveau;
+  const top3 = cdata.top5.slice(0, 3);
+  const top5 = cdata.top5;
+
+  // Simple Gagnant : Signal N1 uniquement, regard sur le Top3, %Victoire>20 ET EV>0
+  let sgNumero = null;
+  if (niveau === 1) {
+    const candidats = top3.filter(s => s.h.proba_win > 20 && s.h.ev_win > 0);
+    if (candidats.length) sgNumero = candidats[0].numero; // déjà trié, le 1er qualifié = le mieux classé
+  }
+
+  // Simple Placé : Signal N1 → Top3, Signal N2 → Top5, Signal N3 → aucun candidat
+  let spNumero = null;
+  let pool = niveau === 1 ? top3 : (niveau === 2 ? top5 : null);
+  if (pool) {
+    const candidats = pool.filter(s => s.h.proba_pmu > 50 && s.h.ev_win > 50);
+    if (candidats.length) spNumero = candidats[0].numero;
+  }
+
+  return { sgNumero, spNumero };
+}
+
 function _renderCourseBS(co, cdata, DISC_LABELS) {
   const GREEN = '#3a9162', GOLD = '#c8942a', RED = '#e05c5c';
   const COULEURS = { 1: GREEN, 2: GOLD, 3: RED };
@@ -3700,6 +3725,7 @@ function _renderCourseBS(co, cdata, DISC_LABELS) {
 
   // Contexte du Top5 : cote la plus basse DE TOUTE LA COURSE, et les 3 meilleurs % driver du lot affiché
   const coteMin = cdata.coteMinCourse;
+  const { sgNumero, spNumero } = _selectionnerSGSP(cdata);
   const driversTries = [...cdata.top5].map(s => s.h.driver_win_rate).filter(v => v != null).sort((a,b) => b-a);
   const seuilTop3Driver = driversTries.length >= 3 ? driversTries[2] : (driversTries.length ? driversTries[driversTries.length-1] : null);
 
@@ -3806,7 +3832,12 @@ function _renderCourseBS(co, cdata, DISC_LABELS) {
       </div>`;
     }
 
-    return `<div class="bs-cheval-row">
+    const estSG = s.numero === sgNumero;
+    const estSP = s.numero === spNumero;
+    const badgeTxt = [estSG?'SG':null, estSP?'SP':null].filter(Boolean).join(' · ');
+
+    return `<div class="bs-cheval-row${(estSG||estSP) ? ' bs-highlight' : ''}">
+      ${badgeTxt ? `<span class="bs-sgsp-badge">${badgeTxt}</span>` : ''}
       <div class="bs-cheval-ligne1">
         <span class="bs-avis-dot" style="background:${avisCouleur}" title="Avis entraîneur"></span>
         <span class="bs-num">#${s.numero}</span>

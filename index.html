@@ -282,19 +282,12 @@ input[readonly]{opacity:.5;cursor:default}
     <button class="nav-btn" onclick="goTo('analyse')" id="tab-analyse"><span class="nav-icon">🔬</span>Analyse</button>
     <button class="nav-btn" onclick="goTo('conseil')" id="tab-conseil"><span class="nav-icon">📝</span>Conseil</button>
     <button class="nav-btn" onclick="goTo('bestsimple')" id="tab-bestsimple"><span class="nav-icon">⭐</span>Best Simple</button>
-    <button class="nav-btn" onclick="goTo('dashboard')" id="tab-dashboard"><span class="nav-icon">📋</span>Journée<span class="nav-badge" id="badge-dashboard"></span></button>
     <button class="nav-btn" onclick="safeCharge=false;goTo('safe')" id="tab-safe"><span class="nav-icon">🛡️</span>Safe</button>
     <button class="nav-btn" onclick="goTo('trio')" id="tab-trio"><span class="nav-icon">🎯</span>Trio</button>
     <button class="nav-btn" onclick="goTo('trioall')" id="tab-trioall"><span class="nav-icon">🟢</span>Trio All</button>
     <button class="nav-btn" onclick="goTo('pro')" id="tab-pro"><span class="nav-icon">💎</span>Pro</button>
     <button class="nav-btn" onclick="goTo('prosa')" id="tab-prosa"><span class="nav-icon">🌎</span>Pro SA</button>
     <button class="nav-btn" onclick="goTo('couple')" id="tab-couple"><span class="nav-icon">🔗</span>Couplé</button>
-    <button class="nav-btn" onclick="goTo('couple2')" id="tab-couple2"><span class="nav-icon">👥</span>Couple</button>
-    <button class="nav-btn" onclick="goTo('couple2all')" id="tab-couple2all"><span class="nav-icon">👥</span>Couple All</button>
-    <button class="nav-btn" onclick="goTo('trioallplat')" id="tab-trioallplat"><span class="nav-icon">🐎</span>Trio All Plat</button>
-    <button class="nav-btn" onclick="goTo('coupleallplat')" id="tab-coupleallplat"><span class="nav-icon">🐎</span>Couple All Plat</button>
-    <button class="nav-btn" onclick="goTo('trottest')" id="tab-trottest"><span class="nav-icon">🧪</span>Trot Test</button>
-    <button class="nav-btn" onclick="goTo('plattest')" id="tab-plattest"><span class="nav-icon">🧪</span>Plat Test</button>
     <button class="nav-btn" onclick="goTo('gagnantplat')" id="tab-gagnantplat"><span class="nav-icon">🥇</span>Gagnant Plat</button>
     <button class="nav-btn" onclick="goTo('gagnanttrot')" id="tab-gagnanttrot"><span class="nav-icon">🥇</span>Gagnant Trot</button>
     <button class="nav-btn" onclick="goTo('stats')" id="tab-stats">
@@ -391,18 +384,6 @@ input[readonly]{opacity:.5;cursor:default}
       </div>
     </div>
 
-    <!-- STATS + RÉSULTATS -->
-    <!-- DASHBOARD -->
-    <div class="screen" id="screen-dashboard">
-      <div id="dashboard-content">
-        <div class="empty">
-          <div class="empty-icon">📋</div>
-          Vue de toutes les courses du jour<br>
-          <button class="btn full" onclick="chargerDashboard()" style="margin-top:16px;font-size:11px">Charger la journée →</button>
-        </div>
-      </div>
-    </div>
-
     <!-- OFFENSIF -->
     <div class="screen" id="screen-offensif" style="display:none">
       <div id="offensif-content"></div>
@@ -493,90 +474,6 @@ input[readonly]{opacity:.5;cursor:default}
       </div>
     </div>
 
-    <!-- COUPLE (nouveau — même logique modèle/critères que TRIO) -->
-    <div class="screen" id="screen-couple2">
-      <div id="couple2-content">
-        <div class="empty">
-          <div class="empty-icon">👥</div>
-          Couplé Placé — accord modèle/critères<br>
-          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
-            ATTELÉ &amp; MONTE · Top3 modèle vs Top3 critères
-          </small>
-          <button class="btn full" onclick="calculerCouple()" style="margin-top:16px;font-size:11px">Calculer →</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- COUPLE ALL -->
-    <div class="screen" id="screen-couple2all">
-      <div id="couple2all-content">
-        <div class="empty">
-          <div class="empty-icon">👥</div>
-          Toutes les courses jouables du jour (double accord total)<br>
-          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
-            ATTELÉ &amp; MONTE uniquement
-          </small>
-          <button class="btn full" onclick="calculerCoupleAll()" style="margin-top:16px;font-size:11px">Calculer →</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- TRIO ALL PLAT -->
-    <div class="screen" id="screen-trioallplat">
-      <div id="trioallplat-content">
-        <div class="empty">
-          <div class="empty-icon">🐎</div>
-          Toutes les courses PLAT du jour en feu vert<br>
-          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
-            PLAT uniquement · Pondération critères non backtestée — indicatif
-          </small>
-          <button class="btn full" onclick="calculerTrioAllPlat()" style="margin-top:16px;font-size:11px">Calculer →</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- COUPLE ALL PLAT -->
-    <div class="screen" id="screen-coupleallplat">
-      <div id="coupleallplat-content">
-        <div class="empty">
-          <div class="empty-icon">🐎</div>
-          Toutes les courses PLAT jouables du jour<br>
-          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
-            PLAT uniquement · Pondération critères non backtestée — indicatif
-          </small>
-          <button class="btn full" onclick="calculerCoupleAllPlat()" style="margin-top:16px;font-size:11px">Calculer →</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- TROT TEST — signal expérimental : écart 3e/4e normalisé par nb partants -->
-    <div class="screen" id="screen-trottest">
-      <div id="trottest-content">
-        <div class="empty">
-          <div class="empty-icon">🧪</div>
-          Signal expérimental — pas encore validé sur un grand échantillon<br>
-          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
-            ATTELÉ &amp; MONTE · Moyenne Top4 − moyenne du reste du peloton
-          </small>
-          <button class="btn full" onclick="calculerTrotTest()" style="margin-top:16px;font-size:11px">Calculer →</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- PLAT TEST — signal expérimental : dispersion du peloton (coefficient de variation) -->
-    <div class="screen" id="screen-plattest">
-      <div id="plattest-content">
-        <div class="empty">
-          <div class="empty-icon">🧪</div>
-          Signal expérimental — pas encore validé sur un grand échantillon<br>
-          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
-            PLAT · Moyenne Top4 − moyenne du reste du peloton
-          </small>
-          <button class="btn full" onclick="calculerPlatTest()" style="margin-top:16px;font-size:11px">Calculer →</button>
-        </div>
-      </div>
-    </div>
-
     <!-- GAGNANT PLAT — signal prometteur : ROI réel +125.6% sur 9 courses (26-27/07) -->
     <div class="screen" id="screen-gagnantplat">
       <div id="gagnantplat-content">
@@ -630,7 +527,7 @@ async function fetchAPI(path, options = {}) {
   return r;
 }
 const LS_SAISIE = 'martengo_v3', LS_HIST = 'martengo_hist';
-const SCREENS = ['saisie','selections','analyse','conseil','bestsimple','dashboard','safe','offensif','trio','trioall','pro','prosa','couple','couple2','couple2all','trioallplat','coupleallplat','trottest','plattest','gagnantplat','gagnanttrot','stats'];
+const SCREENS = ['saisie','selections','analyse','conseil','bestsimple','safe','offensif','trio','trioall','pro','prosa','couple','gagnantplat','gagnanttrot','stats'];
 
 let chevaux = [], predictions = null, notesPMU = {}, notesPMUData = null;
 let currentDate = '', horseCounter = 0, apiPrete = false, currentScreen = 'saisie';

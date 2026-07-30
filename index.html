@@ -3682,6 +3682,7 @@ async function chargerBestSimple() {
       const chevalSP = spNumero ? cdata.top5.find(s => s.numero === spNumero) : null;
       picks.push({ co, sgNumero, spNumero, chevalSG, chevalSP, disc: co.disc });
     }
+    picks.sort((a, b) => (a.co.heure||'').localeCompare(b.co.heure||''));
 
     html += `<div class="bs-reunion-header" onclick="_toggleReunionBS('resume')" id="bs-header-resume">
         <span>⭐ RÉSUMÉ — ${picks.length} sélection${picks.length>1?'s':''} du jour</span>

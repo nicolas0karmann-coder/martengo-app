@@ -44,6 +44,17 @@ html,body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;f
 .dash-progress-bar{height:3px;background:var(--border);border-radius:2px;margin-top:6px;overflow:hidden}
 .dash-progress-fill{height:100%;background:var(--gold);border-radius:2px;transition:width .3s}
 
+/* ── SAFE ── */
+.safe-row{display:block;padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer}
+.safe-row:hover{background:var(--bg2)}
+.safe-row.flag{background:rgba(224,92,92,.06);border-left:3px solid #e05c5c}
+.safe-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.safe-course{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:1px;color:var(--text)}
+.safe-heure{font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);margin-top:1px}
+.safe-flag{background:rgba(224,92,92,.15);border:1px solid #e05c5c;border-radius:4px;padding:2px 7px;color:#e05c5c;font-size:11px;font-weight:700;white-space:nowrap;flex-shrink:0}
+.safe-chevaux{font-size:13px;font-weight:600;margin-top:8px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.safe-suivant{font-size:10px;color:var(--text-dim);margin-top:3px}
+
 /* ── GC (Grand Confort) — style dédié, plus lisible, pour TRIO ALL / COUPLE ALL ── */
 .gc-refresh{display:flex;align-items:center;justify-content:space-between;padding:12px 14px;font-family:'Space Mono',monospace;font-size:12px;font-weight:600;color:var(--text);border-bottom:2px solid var(--border);background:var(--bg2)}
 .gc-refresh button{font-size:13px!important;padding:6px 12px!important}
@@ -1929,13 +1940,13 @@ async function chargerSafe() {
     const SEUIL_DISQ = 40; // backtest 31/07/2026 (144 courses) : +53.5% → +70.5% ROI
 
     const renderSafeRow = (co, d) => {
-      const disc    = co.disc === 'TROT_ATTELE' ? 'ATTELE' : co.disc;
       const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
       const chevaux = d?.chevaux || [];
       if (chevaux.length < 2) {
-        return `<div class="dash-row" onclick="${onclick}" style="flex-wrap:wrap">
-          <div><div class="dash-course" style="font-size:15px">R${co.r}C${co.c}</div><div style="font-size:10px;color:var(--text-dim)">${co.heure}</div></div>
-          <div><div class="dash-cheval" style="font-size:12px;color:var(--text-dim)">Non disponible</div><div class="dash-disc" style="font-size:10px">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m</div></div>
+        return `<div class="safe-row" onclick="${onclick}">
+          <div class="safe-course">R${co.r}C${co.c}</div>
+          <div class="safe-heure">${co.heure}</div>
+          <div class="safe-chevaux" style="color:var(--text-dim)">Non disponible</div>
         </div>`;
       }
       const sorted = [...chevaux].sort((a,b) => {
@@ -1943,38 +1954,32 @@ async function chargerSafe() {
         return (b.proba_pmu||0) - (a.proba_pmu||0);
       });
       const h1 = sorted[0], h2 = sorted[1];
-      const note1 = h1.note_pmu ?? 0;
-      const note2 = h2.note_pmu ?? 0;
-      const ecart = note1 - note2;
       const nom1 = h1.nom ? h1.nom.split(' ')[0] : '';
       const nom2 = h2.nom ? h2.nom.split(' ')[0] : '';
 
-      const confiances = d?.confiance || '';
-      const confPicto = confiances === 'fort' ? '🔥' : confiances === 'moyen' ? '〜' : '❄️';
-
-      // Chevaux flaggés (taux_disq > seuil) parmi h1/h2, et suggestion du suivant
-      // non flaggé selon l'algo (à titre indicatif, pas de substitution automatique)
+      // Cheval(aux) flaggé(s) (taux_disq > seuil) parmi h1/h2, et suggestion du
+      // suivant non flaggé selon l'algo pour le remplacer (indicatif uniquement)
       const flagges = [h1, h2].filter(h => (h.taux_disq ?? 0) > SEUIL_DISQ);
       const suivant = sorted.find(h => h !== h1 && h !== h2 && (h.taux_disq ?? 0) <= SEUIL_DISQ);
 
-      const borderCol = flagges.length ? '#e05c5c' : (confiances === 'fort' ? '#3a9162' : confiances === 'moyen' ? '#c8942a' : '#555');
-
       const flagHtml = flagges.length
-        ? `<span style="background:rgba(224,92,92,.15);border:1px solid #e05c5c;border-radius:4px;padding:2px 7px;color:#e05c5c;font-size:11px;font-weight:700;white-space:nowrap">🚩 #${flagges.map(h=>h.numero).join(' #')}</span>`
-        : `<span style="font-size:16px">${confPicto}</span>`;
-
-      const ligneSuggestion = flagges.length
-        ? `<div style="font-size:10px;color:var(--text-dim);margin-top:3px">Suivant algo : ${suivant ? `#${suivant.numero} ${(suivant.nom||'').split(' ')[0]}` : '—'}</div>`
+        ? `<span class="safe-flag">#${flagges.map(h=>h.numero).join(' #')} 🚩</span>`
         : '';
 
-      return `<div class="dash-row" onclick="${onclick}" style="flex-direction:column;align-items:stretch;gap:4px;border-left:3px solid ${borderCol};${flagges.length?'background:rgba(224,92,92,.05)':''};padding:10px 12px">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-          <div style="font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:1px;color:var(--text);white-space:nowrap">R${co.r}C${co.c} <span style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);font-weight:400">${co.heure}</span></div>
+      const ligneSuivant = flagges.length
+        ? `<div class="safe-suivant">→ remplacer par : ${suivant ? `#${suivant.numero} ${(suivant.nom||'').split(' ')[0]}` : '—'}</div>`
+        : '';
+
+      return `<div class="safe-row${flagges.length?' flag':''}" onclick="${onclick}">
+        <div class="safe-top">
+          <div>
+            <div class="safe-course">R${co.r}C${co.c}</div>
+            <div class="safe-heure">${co.heure}</div>
+          </div>
           ${flagHtml}
         </div>
-        <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">#${h1.numero} ${nom1} <span style="color:var(--text-dim);font-weight:400">+</span> #${h2.numero} ${nom2}</div>
-        <div style="font-size:10px;color:var(--text-dim)">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · écart ${ecart}</div>
-        ${ligneSuggestion}
+        <div class="safe-chevaux">#${h1.numero} ${nom1} · #${h2.numero} ${nom2}</div>
+        ${ligneSuivant}
       </div>`;
     };
 

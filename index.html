@@ -1934,61 +1934,47 @@ async function chargerSafe() {
       const chevaux = d?.chevaux || [];
       if (chevaux.length < 2) {
         return `<div class="dash-row" onclick="${onclick}" style="flex-wrap:wrap">
-          <div><div class="dash-course" style="font-size:16px">R${co.r}C${co.c}</div><div style="font-size:11px;color:var(--text-dim)">${co.heure}</div></div>
-          <div><div class="dash-cheval" style="font-size:13px;color:var(--text-dim)">Non disponible</div><div class="dash-disc" style="font-size:11px">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m</div></div>
+          <div><div class="dash-course" style="font-size:15px">R${co.r}C${co.c}</div><div style="font-size:10px;color:var(--text-dim)">${co.heure}</div></div>
+          <div><div class="dash-cheval" style="font-size:12px;color:var(--text-dim)">Non disponible</div><div class="dash-disc" style="font-size:10px">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m</div></div>
         </div>`;
       }
       const sorted = [...chevaux].sort((a,b) => {
         if (b.note_pmu !== a.note_pmu) return b.note_pmu - a.note_pmu;
         return (b.proba_pmu||0) - (a.proba_pmu||0);
       });
-
-      // Sélection avec substitution automatique : si un cheval a taux_disq>SEUIL,
-      // on prend le suivant du classement modèle (le premier non flaggé, non déjà pris)
-      const estFlagge = h => (h.taux_disq ?? 0) > SEUIL_DISQ;
-      const selection = [];
-      const substitutions = [];
-      for (const h of sorted) {
-        if (selection.length >= 2) break;
-        if (estFlagge(h)) {
-          if (!substitutions.includes(h)) substitutions.push(h);
-          continue;
-        }
-        selection.push(h);
-      }
-      // Si pas assez de chevaux non flaggés (cas rare), on complète quand même avec les flaggés restants
-      for (const h of sorted) {
-        if (selection.length >= 2) break;
-        if (!selection.includes(h)) selection.push(h);
-      }
-      const h1 = selection[0], h2 = selection[1];
+      const h1 = sorted[0], h2 = sorted[1];
       const note1 = h1.note_pmu ?? 0;
       const note2 = h2.note_pmu ?? 0;
       const ecart = note1 - note2;
+      const nom1 = h1.nom ? h1.nom.split(' ')[0] : '';
+      const nom2 = h2.nom ? h2.nom.split(' ')[0] : '';
 
       const confiances = d?.confiance || '';
-      const nom1 = h1.nom ? h1.nom.split(' ')[0] : `#${h1.numero}`;
-      const nom2 = h2.nom ? h2.nom.split(' ')[0] : `#${h2.numero}`;
       const confPicto = confiances === 'fort' ? '🔥' : confiances === 'moyen' ? '〜' : '❄️';
-      const confColor = confiances === 'fort' ? '#3a9162' : confiances === 'moyen' ? '#c8942a' : '#888';
 
-      const aSubstitution = substitutions.length > 0;
-      const borderCol = aSubstitution ? '#e05c5c' : (confiances === 'fort' ? '#3a9162' : confiances === 'moyen' ? '#c8942a' : '#555');
+      // Chevaux flaggés (taux_disq > seuil) parmi h1/h2, et suggestion du suivant
+      // non flaggé selon l'algo (à titre indicatif, pas de substitution automatique)
+      const flagges = [h1, h2].filter(h => (h.taux_disq ?? 0) > SEUIL_DISQ);
+      const suivant = sorted.find(h => h !== h1 && h !== h2 && (h.taux_disq ?? 0) <= SEUIL_DISQ);
 
-      const ligneSubstitution = aSubstitution
-        ? `<div style="font-size:11px;color:#e05c5c;margin-top:4px;line-height:1.5">
-             🚩 Écarté${substitutions.length>1?'s':''} : ${substitutions.map(h => `#${h.numero} ${(h.nom||'').split(' ')[0]} (${(h.taux_disq??0).toFixed(0)}% disq.)`).join(', ')} → remplacé${substitutions.length>1?'s':''} par le suivant du classement
-           </div>`
+      const borderCol = flagges.length ? '#e05c5c' : (confiances === 'fort' ? '#3a9162' : confiances === 'moyen' ? '#c8942a' : '#555');
+
+      const flagHtml = flagges.length
+        ? `<span style="background:rgba(224,92,92,.15);border:1px solid #e05c5c;border-radius:4px;padding:2px 7px;color:#e05c5c;font-size:11px;font-weight:700;white-space:nowrap">🚩 #${flagges.map(h=>h.numero).join(' #')}</span>`
+        : `<span style="font-size:16px">${confPicto}</span>`;
+
+      const ligneSuggestion = flagges.length
+        ? `<div style="font-size:10px;color:var(--text-dim);margin-top:3px">Suivant algo : ${suivant ? `#${suivant.numero} ${(suivant.nom||'').split(' ')[0]}` : '—'}</div>`
         : '';
 
-      return `<div class="dash-row" onclick="${onclick}" style="flex-direction:column;align-items:stretch;gap:6px;border-left:3px solid ${borderCol};${aSubstitution?'background:rgba(224,92,92,.06)':''};padding:12px 14px">
-        <div style="display:flex;align-items:center;justify-content:space-between">
-          <div style="font-family:'Bebas Neue',sans-serif;font-size:19px;letter-spacing:1px;color:var(--text)">R${co.r}C${co.c} <span style="font-family:'Space Mono',monospace;font-size:11px;color:var(--text-dim);font-weight:400">${co.heure}</span></div>
-          <span style="font-size:20px" title="Confiance ${confiances}">${confPicto}</span>
+      return `<div class="dash-row" onclick="${onclick}" style="flex-direction:column;align-items:stretch;gap:4px;border-left:3px solid ${borderCol};${flagges.length?'background:rgba(224,92,92,.05)':''};padding:10px 12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:1px;color:var(--text);white-space:nowrap">R${co.r}C${co.c} <span style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);font-weight:400">${co.heure}</span></div>
+          ${flagHtml}
         </div>
-        <div style="font-size:17px;font-weight:700">#${h1.numero} ${nom1} <span style="color:var(--text-dim);font-weight:400">+</span> #${h2.numero} ${nom2}</div>
-        <div style="font-size:12px;color:var(--text-dim)">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · écart note ${ecart}</div>
-        ${ligneSubstitution}
+        <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">#${h1.numero} ${nom1} <span style="color:var(--text-dim);font-weight:400">+</span> #${h2.numero} ${nom2}</div>
+        <div style="font-size:10px;color:var(--text-dim)">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · écart ${ecart}</div>
+        ${ligneSuggestion}
       </div>`;
     };
 

@@ -3670,6 +3670,43 @@ async function chargerBestSimple() {
       html += `</div>`;
     }
 
+    // ── RESUME — tous les SG/SP identifiés dans la journée, en un coup d'œil ──
+    const picks = [];
+    for (const co of coursesOk) {
+      const cdata = resultatsParCourse[`${co.r}-${co.c}`];
+      const { sgNumero, spNumero } = _selectionnerSGSP(cdata);
+      if (!sgNumero && !spNumero) continue;
+      const cheval = cdata.top5.find(s => s.numero === (sgNumero || spNumero)) ||
+                     cdata.top5.find(s => s.numero === spNumero);
+      const chevalSG = sgNumero ? cdata.top5.find(s => s.numero === sgNumero) : null;
+      const chevalSP = spNumero ? cdata.top5.find(s => s.numero === spNumero) : null;
+      picks.push({ co, sgNumero, spNumero, chevalSG, chevalSP, disc: co.disc });
+    }
+
+    html += `<div class="bs-reunion-header" onclick="_toggleReunionBS('resume')" id="bs-header-resume">
+        <span>⭐ RÉSUMÉ — ${picks.length} sélection${picks.length>1?'s':''} du jour</span>
+        <span class="bs-chevron" id="bs-chevron-resume">▸</span>
+      </div>
+      <div class="bs-reunion-body" id="bs-body-resume" style="display:none">`;
+
+    if (!picks.length) {
+      html += `<div style="padding:16px;text-align:center;font-family:'Space Mono',monospace;font-size:11px;color:var(--text-dim);border:1px solid var(--border);border-top:none">Aucun SG ou SP identifié aujourd'hui</div>`;
+    } else {
+      html += `<div style="border:1px solid var(--border);border-top:none;background:var(--bg3)">`;
+      for (const p of picks) {
+        const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${p.co.r}';document.getElementById('inp-course').value='${p.co.c}';chargerEtAnalyser();},100)`;
+        const lignes = [];
+        if (p.chevalSG) lignes.push(`<span class="bs-sgsp-badge" style="position:static;display:inline-block;margin-right:8px">SG</span>#${p.chevalSG.numero} ${p.chevalSG.h.nom||''}`);
+        if (p.chevalSP) lignes.push(`<span class="bs-sgsp-badge" style="position:static;display:inline-block;margin-right:8px">SP</span>#${p.chevalSP.numero} ${p.chevalSP.h.nom||''}`);
+        html += `<div style="padding:12px 14px;border-top:1px solid var(--border);cursor:pointer" onclick="${onclick}">
+          <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);margin-bottom:6px">R${p.co.r}C${p.co.c} · ${p.co.lieu} · ${DISC_LABELS[p.disc]||p.disc}</div>
+          ${lignes.map(l => `<div style="font-size:14px;font-weight:700;margin-bottom:4px;display:flex;align-items:center">${l}</div>`).join('')}
+        </div>`;
+      }
+      html += `</div>`;
+    }
+    html += `</div>`;
+
     el.innerHTML = html;
   } catch(e) {
     el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Erreur : ${e.message}<br>

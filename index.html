@@ -1979,23 +1979,12 @@ async function chargerSafe() {
       </div>`;
     };
 
-    // Compter les paris
-    let n_fort = 0, n_moyen = 0, n_faible = 0;
-    for (const co of courses) {
-      const d = allResults[`${co.r}-${co.c}`];
-      if (!d?.chevaux?.length) continue;
-      const conf = d.confiance || '';
-      if (conf === 'fort') n_fort++;
-      else if (conf === 'moyen') n_moyen++;
-      else n_faible++;
-    }
-
     let html = `<div class="dash-refresh">
       <span>🛡️ Safe ATTELÉ+MONTÉ · ${courses.length} courses</span>
       <button onclick="safeCharge=false;chargerSafe()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
     </div>
     <div style="padding:10px 14px;font-family:'Space Mono',monospace;font-size:11px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
-      Couplé Placé, 2 chevaux par course · <span style="color:#3a9162">🔥 FORT</span> · <span style="color:#c8942a">〜 MOY</span> · <span style="color:#888">❄️ FAIBLE</span> · <span style="color:#e05c5c">🚩 = substitution (risque de disqualification écarté)</span>
+      Couplé Placé, 2 chevaux par course · <span style="color:#e05c5c">🚩 = risque de disqualification élevé</span>
     </div>`;
 
     for (const [rNum, rd] of Object.entries(byR)) {

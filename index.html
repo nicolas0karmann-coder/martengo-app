@@ -81,8 +81,6 @@ html,body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;f
 .bs-course-partants{font-size:12px;color:var(--text-dim)}
 .bs-course-signal{margin-left:auto;font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;border:1px solid}
 .bs-cheval-row{padding:12px 14px;border-top:1px solid var(--border);position:relative}
-.bs-cheval-row.bs-highlight{border:2px solid #3a9162;border-top:2px solid #3a9162;border-radius:8px;margin:8px;padding:10px 12px;background:rgba(58,145,98,.07)}
-.bs-sgsp-badge{position:absolute;top:-1px;right:-1px;background:#3a9162;color:#fff;font-family:'Space Mono',monospace;font-size:10px;font-weight:700;padding:3px 8px;border-radius:0 7px 0 7px;letter-spacing:.5px}
 .bs-cheval-ligne1{display:flex;align-items:center;gap:10px;margin-bottom:6px}
 .bs-avis-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
 .bs-num{font-family:'Bebas Neue',sans-serif;font-size:19px;color:var(--gold);flex-shrink:0}
@@ -2069,20 +2067,35 @@ async function chargerSafe() {
 
       const confColor = confiances === 'fort' ? '#3a9162' : confiances === 'moyen' ? '#c8942a' : '#888';
       const confBg    = confiances === 'fort' ? 'rgba(58,145,98,.15)' : confiances === 'moyen' ? 'rgba(200,148,42,.15)' : 'rgba(128,128,128,.1)';
+
+      // Red flag disqualification — backtest 31/07/2026 (144 courses) : exclure si
+      // taux_disq>40% sur l'un des deux chevaux améliore le ROI (+53.5% → +70.5%)
+      const SEUIL_DISQ = 40;
+      const taux1 = h1.taux_disq ?? 0;
+      const taux2 = h2.taux_disq ?? 0;
+      const risqueDisq = taux1 > SEUIL_DISQ || taux2 > SEUIL_DISQ;
+      const chevalRisque = taux1 > SEUIL_DISQ ? `#${h1.numero} ${nom1}` : `#${h2.numero} ${nom2}`;
+      const tauxRisque = Math.max(taux1, taux2);
+
       const badges = [];
-      badges.push(`<span style="background:${confBg};border:1px solid ${confColor};border-radius:4px;padding:2px 6px;color:${confColor};font-size:8px;font-weight:700">💰 CP #${h1.numero}+#${h2.numero} · 1€</span>`);
+      if (risqueDisq) {
+        badges.push(`<span style="background:rgba(224,92,92,.15);border:1px solid #e05c5c;border-radius:4px;padding:2px 6px;color:#e05c5c;font-size:8px;font-weight:700">🚩 DISQ ${tauxRisque.toFixed(0)}%</span>`);
+      } else {
+        badges.push(`<span style="background:${confBg};border:1px solid ${confColor};border-radius:4px;padding:2px 6px;color:${confColor};font-size:8px;font-weight:700">💰 CP #${h1.numero}+#${h2.numero} · 1€</span>`);
+      }
       const mise = 1;
 
-      const borderCol = confiances === 'fort' ? '#3a9162' : confiances === 'moyen' ? '#c8942a' : '#555';
-      return `<div class="dash-row" onclick="${onclick}" style="border-left:2px solid ${borderCol}">
+      const borderCol = risqueDisq ? '#e05c5c' : (confiances === 'fort' ? '#3a9162' : confiances === 'moyen' ? '#c8942a' : '#555');
+      const picto = risqueDisq ? `<span style="font-size:14px" title="Risque de disqualification élevé">🚩</span>` : confPictoS;
+      return `<div class="dash-row" onclick="${onclick}" style="border-left:2px solid ${borderCol};${risqueDisq?'background:rgba(224,92,92,.05)':''}">
         <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
         <div>
           <div class="dash-cheval" style="font-size:10px">#${h1.numero} ${nom1} · #${h2.numero} ${nom2}</div>
-          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e12:${ecart} · ${mise}€</div>
+          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e12:${ecart} · ${mise}€${risqueDisq ? ` · ⚠️ ${chevalRisque} : ${tauxRisque.toFixed(0)}% disq. historique` : ''}</div>
         </div>
         <div style="text-align:right;min-width:85px">
           <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">
-            ${confPictoS}
+            ${picto}
             ${badges.join('')}
           </div>
         </div>
@@ -2105,7 +2118,7 @@ async function chargerSafe() {
       <button onclick="safeCharge=false;chargerSafe()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
     </div>
     <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
-      💰 CP #1+#2 · 1€/course · <span style="color:#3a9162">🔥 FORT</span> · <span style="color:#c8942a">〜 MOY</span> · <span style="color:#888">❄️ FAIBLE</span> · ATTELÉ + MONTÉ
+      💰 CP #1+#2 · 1€/course · <span style="color:#3a9162">🔥 FORT</span> · <span style="color:#c8942a">〜 MOY</span> · <span style="color:#888">❄️ FAIBLE</span> · <span style="color:#e05c5c">🚩 RISQUE DISQ.</span> · ATTELÉ + MONTÉ
     </div>`;
 
     for (const [rNum, rd] of Object.entries(byR)) {
@@ -3670,44 +3683,6 @@ async function chargerBestSimple() {
       html += `</div>`;
     }
 
-    // ── RESUME — tous les SG/SP identifiés dans la journée, en un coup d'œil ──
-    const picks = [];
-    for (const co of coursesOk) {
-      const cdata = resultatsParCourse[`${co.r}-${co.c}`];
-      const { sgNumero, spNumero } = _selectionnerSGSP(cdata);
-      if (!sgNumero && !spNumero) continue;
-      const cheval = cdata.top5.find(s => s.numero === (sgNumero || spNumero)) ||
-                     cdata.top5.find(s => s.numero === spNumero);
-      const chevalSG = sgNumero ? cdata.top5.find(s => s.numero === sgNumero) : null;
-      const chevalSP = spNumero ? cdata.top5.find(s => s.numero === spNumero) : null;
-      picks.push({ co, sgNumero, spNumero, chevalSG, chevalSP, disc: co.disc });
-    }
-    picks.sort((a, b) => (a.co.heure||'').localeCompare(b.co.heure||''));
-
-    html += `<div class="bs-reunion-header" onclick="_toggleReunionBS('resume')" id="bs-header-resume">
-        <span>⭐ RÉSUMÉ — ${picks.length} sélection${picks.length>1?'s':''} du jour</span>
-        <span class="bs-chevron" id="bs-chevron-resume">▸</span>
-      </div>
-      <div class="bs-reunion-body" id="bs-body-resume" style="display:none">`;
-
-    if (!picks.length) {
-      html += `<div style="padding:16px;text-align:center;font-family:'Space Mono',monospace;font-size:11px;color:var(--text-dim);border:1px solid var(--border);border-top:none">Aucun SG ou SP identifié aujourd'hui</div>`;
-    } else {
-      html += `<div style="border:1px solid var(--border);border-top:none;background:var(--bg3)">`;
-      for (const p of picks) {
-        const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${p.co.r}';document.getElementById('inp-course').value='${p.co.c}';chargerEtAnalyser();},100)`;
-        const lignes = [];
-        if (p.chevalSG) lignes.push(`<span class="bs-sgsp-badge" style="position:static;display:inline-block;margin-right:8px">SG</span>#${p.chevalSG.numero} ${p.chevalSG.h.nom||''}`);
-        if (p.chevalSP) lignes.push(`<span class="bs-sgsp-badge" style="position:static;display:inline-block;margin-right:8px">SP</span>#${p.chevalSP.numero} ${p.chevalSP.h.nom||''}`);
-        html += `<div style="padding:12px 14px;border-top:1px solid var(--border);cursor:pointer" onclick="${onclick}">
-          <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);margin-bottom:6px">R${p.co.r}C${p.co.c} · ${p.co.heure||''} · ${p.co.lieu} · ${DISC_LABELS[p.disc]||p.disc}</div>
-          ${lignes.map(l => `<div style="font-size:14px;font-weight:700;margin-bottom:4px;display:flex;align-items:center">${l}</div>`).join('')}
-        </div>`;
-      }
-      html += `</div>`;
-    }
-    html += `</div>`;
-
     el.innerHTML = html;
   } catch(e) {
     el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Erreur : ${e.message}<br>
@@ -3732,29 +3707,6 @@ function _toggleCourseBS(id) {
   chevron.textContent = ouvert ? '▸' : '▾';
 }
 
-function _selectionnerSGSP(cdata) {
-  const niveau = cdata.niveau;
-  const top3 = cdata.top5.slice(0, 3);
-  const top5 = cdata.top5;
-
-  // Simple Gagnant : Signal N1 uniquement, regard sur le Top3, %Victoire>20 ET EV>0
-  let sgNumero = null;
-  if (niveau === 1) {
-    const candidats = top3.filter(s => s.h.proba_win > 20 && s.h.ev_win > 0);
-    if (candidats.length) sgNumero = candidats[0].numero; // déjà trié, le 1er qualifié = le mieux classé
-  }
-
-  // Simple Placé : Signal N1 → Top3, Signal N2 → Top5, Signal N3 → aucun candidat
-  let spNumero = null;
-  let pool = niveau === 1 ? top3 : (niveau === 2 ? top5 : null);
-  if (pool) {
-    const candidats = pool.filter(s => s.h.proba_pmu > 50 && s.h.ev_win > 50);
-    if (candidats.length) spNumero = candidats[0].numero;
-  }
-
-  return { sgNumero, spNumero };
-}
-
 function _renderCourseBS(co, cdata, DISC_LABELS) {
   const GREEN = '#3a9162', GOLD = '#c8942a', RED = '#e05c5c';
   const COULEURS = { 1: GREEN, 2: GOLD, 3: RED };
@@ -3763,7 +3715,6 @@ function _renderCourseBS(co, cdata, DISC_LABELS) {
 
   // Contexte du Top5 : cote la plus basse DE TOUTE LA COURSE, et les 3 meilleurs % driver du lot affiché
   const coteMin = cdata.coteMinCourse;
-  const { sgNumero, spNumero } = _selectionnerSGSP(cdata);
   const driversTries = [...cdata.top5].map(s => s.h.driver_win_rate).filter(v => v != null).sort((a,b) => b-a);
   const seuilTop3Driver = driversTries.length >= 3 ? driversTries[2] : (driversTries.length ? driversTries[driversTries.length-1] : null);
 
@@ -3870,12 +3821,7 @@ function _renderCourseBS(co, cdata, DISC_LABELS) {
       </div>`;
     }
 
-    const estSG = s.numero === sgNumero;
-    const estSP = s.numero === spNumero;
-    const badgeTxt = [estSG?'SG':null, estSP?'SP':null].filter(Boolean).join(' · ');
-
-    return `<div class="bs-cheval-row${(estSG||estSP) ? ' bs-highlight' : ''}">
-      ${badgeTxt ? `<span class="bs-sgsp-badge">${badgeTxt}</span>` : ''}
+    return `<div class="bs-cheval-row">
       <div class="bs-cheval-ligne1">
         <span class="bs-avis-dot" style="background:${avisCouleur}" title="Avis entraîneur"></span>
         <span class="bs-num">#${s.numero}</span>

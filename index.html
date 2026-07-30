@@ -3699,7 +3699,7 @@ async function chargerBestSimple() {
         if (p.chevalSG) lignes.push(`<span class="bs-sgsp-badge" style="position:static;display:inline-block;margin-right:8px">SG</span>#${p.chevalSG.numero} ${p.chevalSG.h.nom||''}`);
         if (p.chevalSP) lignes.push(`<span class="bs-sgsp-badge" style="position:static;display:inline-block;margin-right:8px">SP</span>#${p.chevalSP.numero} ${p.chevalSP.h.nom||''}`);
         html += `<div style="padding:12px 14px;border-top:1px solid var(--border);cursor:pointer" onclick="${onclick}">
-          <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);margin-bottom:6px">R${p.co.r}C${p.co.c} · ${p.co.lieu} · ${DISC_LABELS[p.disc]||p.disc}</div>
+          <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);margin-bottom:6px">R${p.co.r}C${p.co.c} · ${p.co.heure||''} · ${p.co.lieu} · ${DISC_LABELS[p.disc]||p.disc}</div>
           ${lignes.map(l => `<div style="font-size:14px;font-weight:700;margin-bottom:4px;display:flex;align-items:center">${l}</div>`).join('')}
         </div>`;
       }

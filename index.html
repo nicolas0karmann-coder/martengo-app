@@ -2029,76 +2029,69 @@ async function chargerSafe() {
       byR[co.r].courses.push(co);
     }
 
+    const SEUIL_DISQ = 40; // backtest 31/07/2026 (144 courses) : +53.5% → +70.5% ROI
+
     const renderSafeRow = (co, d) => {
       const disc    = co.disc === 'TROT_ATTELE' ? 'ATTELE' : co.disc;
       const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
       const chevaux = d?.chevaux || [];
       if (chevaux.length < 2) {
-        return `<div class="dash-row" onclick="${onclick}">
-          <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
-          <div><div class="dash-cheval" style="color:var(--text-dim)">Non disponible</div><div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m</div></div>
-          <div><div class="dash-signal skip">⛔ SKIP</div></div>
+        return `<div class="dash-row" onclick="${onclick}" style="flex-wrap:wrap">
+          <div><div class="dash-course" style="font-size:16px">R${co.r}C${co.c}</div><div style="font-size:11px;color:var(--text-dim)">${co.heure}</div></div>
+          <div><div class="dash-cheval" style="font-size:13px;color:var(--text-dim)">Non disponible</div><div class="dash-disc" style="font-size:11px">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m</div></div>
         </div>`;
       }
       const sorted = [...chevaux].sort((a,b) => {
         if (b.note_pmu !== a.note_pmu) return b.note_pmu - a.note_pmu;
         return (b.proba_pmu||0) - (a.proba_pmu||0);
       });
-      const h1 = sorted[0], h2 = sorted[1], h4s = sorted[3];
+
+      // Sélection avec substitution automatique : si un cheval a taux_disq>SEUIL,
+      // on prend le suivant du classement modèle (le premier non flaggé, non déjà pris)
+      const estFlagge = h => (h.taux_disq ?? 0) > SEUIL_DISQ;
+      const selection = [];
+      const substitutions = [];
+      for (const h of sorted) {
+        if (selection.length >= 2) break;
+        if (estFlagge(h)) {
+          if (!substitutions.includes(h)) substitutions.push(h);
+          continue;
+        }
+        selection.push(h);
+      }
+      // Si pas assez de chevaux non flaggés (cas rare), on complète quand même avec les flaggés restants
+      for (const h of sorted) {
+        if (selection.length >= 2) break;
+        if (!selection.includes(h)) selection.push(h);
+      }
+      const h1 = selection[0], h2 = selection[1];
       const note1 = h1.note_pmu ?? 0;
       const note2 = h2.note_pmu ?? 0;
-      const note4s = h4s?.note_pmu ?? 0;
-      const ecart  = note1 - note2;
-      const ecart14s = note1 - note4s;
+      const ecart = note1 - note2;
 
-      // Nouvelle stratégie V26 — ATTELÉ + MONTÉ toutes confiances affichées
       const confiances = d?.confiance || '';
-      const playSG = false;  // SG désactivé
-      const playSP = false;  // SP désactivé
       const nom1 = h1.nom ? h1.nom.split(' ')[0] : `#${h1.numero}`;
       const nom2 = h2.nom ? h2.nom.split(' ')[0] : `#${h2.numero}`;
-      const confPictoS = confiances === 'fort'
-        ? `<span style="font-size:14px" title="Confiance forte">🔥</span>`
-        : confiances === 'moyen'
-        ? `<span style="font-size:14px" title="Confiance moyenne">〜</span>`
-        : `<span style="font-size:14px;opacity:.5" title="Confiance faible">❄️</span>`;
-
-
-
+      const confPicto = confiances === 'fort' ? '🔥' : confiances === 'moyen' ? '〜' : '❄️';
       const confColor = confiances === 'fort' ? '#3a9162' : confiances === 'moyen' ? '#c8942a' : '#888';
-      const confBg    = confiances === 'fort' ? 'rgba(58,145,98,.15)' : confiances === 'moyen' ? 'rgba(200,148,42,.15)' : 'rgba(128,128,128,.1)';
 
-      // Red flag disqualification — backtest 31/07/2026 (144 courses) : exclure si
-      // taux_disq>40% sur l'un des deux chevaux améliore le ROI (+53.5% → +70.5%)
-      const SEUIL_DISQ = 40;
-      const taux1 = h1.taux_disq ?? 0;
-      const taux2 = h2.taux_disq ?? 0;
-      const risqueDisq = taux1 > SEUIL_DISQ || taux2 > SEUIL_DISQ;
-      const chevalRisque = taux1 > SEUIL_DISQ ? `#${h1.numero} ${nom1}` : `#${h2.numero} ${nom2}`;
-      const tauxRisque = Math.max(taux1, taux2);
+      const aSubstitution = substitutions.length > 0;
+      const borderCol = aSubstitution ? '#e05c5c' : (confiances === 'fort' ? '#3a9162' : confiances === 'moyen' ? '#c8942a' : '#555');
 
-      const badges = [];
-      if (risqueDisq) {
-        badges.push(`<span style="background:rgba(224,92,92,.15);border:1px solid #e05c5c;border-radius:4px;padding:2px 6px;color:#e05c5c;font-size:8px;font-weight:700">🚩 DISQ ${tauxRisque.toFixed(0)}%</span>`);
-      } else {
-        badges.push(`<span style="background:${confBg};border:1px solid ${confColor};border-radius:4px;padding:2px 6px;color:${confColor};font-size:8px;font-weight:700">💰 CP #${h1.numero}+#${h2.numero} · 1€</span>`);
-      }
-      const mise = 1;
+      const ligneSubstitution = aSubstitution
+        ? `<div style="font-size:11px;color:#e05c5c;margin-top:4px;line-height:1.5">
+             🚩 Écarté${substitutions.length>1?'s':''} : ${substitutions.map(h => `#${h.numero} ${(h.nom||'').split(' ')[0]} (${(h.taux_disq??0).toFixed(0)}% disq.)`).join(', ')} → remplacé${substitutions.length>1?'s':''} par le suivant du classement
+           </div>`
+        : '';
 
-      const borderCol = risqueDisq ? '#e05c5c' : (confiances === 'fort' ? '#3a9162' : confiances === 'moyen' ? '#c8942a' : '#555');
-      const picto = risqueDisq ? `<span style="font-size:14px" title="Risque de disqualification élevé">🚩</span>` : confPictoS;
-      return `<div class="dash-row" onclick="${onclick}" style="border-left:2px solid ${borderCol};${risqueDisq?'background:rgba(224,92,92,.05)':''}">
-        <div><div class="dash-course">R${co.r}C${co.c}</div><div style="font-size:9px;color:var(--text-dim)">${co.heure}</div></div>
-        <div>
-          <div class="dash-cheval" style="font-size:10px">#${h1.numero} ${nom1} · #${h2.numero} ${nom2}</div>
-          <div class="dash-disc">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · e12:${ecart} · ${mise}€${risqueDisq ? ` · ⚠️ ${chevalRisque} : ${tauxRisque.toFixed(0)}% disq. historique` : ''}</div>
+      return `<div class="dash-row" onclick="${onclick}" style="flex-direction:column;align-items:stretch;gap:6px;border-left:3px solid ${borderCol};${aSubstitution?'background:rgba(224,92,92,.06)':''};padding:12px 14px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div style="font-family:'Bebas Neue',sans-serif;font-size:19px;letter-spacing:1px;color:var(--text)">R${co.r}C${co.c} <span style="font-family:'Space Mono',monospace;font-size:11px;color:var(--text-dim);font-weight:400">${co.heure}</span></div>
+          <span style="font-size:20px" title="Confiance ${confiances}">${confPicto}</span>
         </div>
-        <div style="text-align:right;min-width:85px">
-          <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">
-            ${picto}
-            ${badges.join('')}
-          </div>
-        </div>
+        <div style="font-size:17px;font-weight:700">#${h1.numero} ${nom1} <span style="color:var(--text-dim);font-weight:400">+</span> #${h2.numero} ${nom2}</div>
+        <div style="font-size:12px;color:var(--text-dim)">${DISC_LABELS[co.disc]||co.disc} · ${co.dist}m · écart note ${ecart}</div>
+        ${ligneSubstitution}
       </div>`;
     };
 
@@ -2117,12 +2110,12 @@ async function chargerSafe() {
       <span>🛡️ Safe ATTELÉ+MONTÉ · ${courses.length} courses</span>
       <button onclick="safeCharge=false;chargerSafe()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
     </div>
-    <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
-      💰 CP #1+#2 · 1€/course · <span style="color:#3a9162">🔥 FORT</span> · <span style="color:#c8942a">〜 MOY</span> · <span style="color:#888">❄️ FAIBLE</span> · <span style="color:#e05c5c">🚩 RISQUE DISQ.</span> · ATTELÉ + MONTÉ
+    <div style="padding:10px 14px;font-family:'Space Mono',monospace;font-size:11px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
+      Couplé Placé, 2 chevaux par course · <span style="color:#3a9162">🔥 FORT</span> · <span style="color:#c8942a">〜 MOY</span> · <span style="color:#888">❄️ FAIBLE</span> · <span style="color:#e05c5c">🚩 = substitution (risque de disqualification écarté)</span>
     </div>`;
 
     for (const [rNum, rd] of Object.entries(byR)) {
-      html += `<div class="dash-reunion">R${rNum} · ${rd.lieu}</div>`;
+      html += `<div class="dash-reunion" style="font-size:16px;padding:10px 14px 6px">R${rNum} · ${rd.lieu}</div>`;
       for (const co of rd.courses) {
         html += renderSafeRow(co, allResults[`${co.r}-${co.c}`]);
       }

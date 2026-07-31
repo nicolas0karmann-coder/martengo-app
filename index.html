@@ -91,6 +91,7 @@ html,body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;f
 .bs-course-heure{font-size:12px;color:var(--text-dim)}
 .bs-course-partants{font-size:12px;color:var(--text-dim)}
 .bs-course-signal{margin-left:auto;font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;border:1px solid}
+.bs-flag-badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;border:1px solid;background:rgba(224,92,92,.1);white-space:nowrap}
 .bs-cheval-row{padding:12px 14px;border-top:1px solid var(--border);position:relative}
 .bs-cheval-ligne1{display:flex;align-items:center;gap:10px;margin-bottom:6px}
 .bs-avis-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
@@ -1956,20 +1957,26 @@ async function chargerSafe() {
       const nom1 = h1.nom ? h1.nom.split(' ')[0] : '';
       const nom2 = h2.nom ? h2.nom.split(' ')[0] : '';
 
-      // Cheval(aux) flaggé(s) (taux_disq > seuil) parmi h1/h2, et suggestion du
-      // suivant non flaggé selon l'algo pour le remplacer (indicatif uniquement)
-      const flagges = [h1, h2].filter(h => (h.taux_disq ?? 0) > SEUIL_DISQ);
-      const suivant = sorted.find(h => h !== h1 && h !== h2 && (h.taux_disq ?? 0) <= SEUIL_DISQ);
+      // Cheval(aux) flaggé(s) parmi h1/h2 — D = taux_disq > seuil, M = dernière
+      // sortie 5e ou pire (musique) — et suggestion du suivant sans aucun des
+      // deux problèmes selon l'algo pour remplacer (indicatif uniquement)
+      const estFlagD = h => (h.taux_disq ?? 0) > SEUIL_DISQ;
+      const estFlagM = h => { const dp = _dernierePlaceMusique(h.musique); return dp !== null && dp >= 5; };
+      const flagsD = [h1, h2].filter(estFlagD);
+      const flagsM = [h1, h2].filter(estFlagM);
+      const suivant = sorted.find(h => h !== h1 && h !== h2 && !estFlagD(h) && !estFlagM(h));
 
-      const flagHtml = flagges.length
-        ? `<span class="safe-flag">#${flagges.map(h=>h.numero).join(' #')} 🚩</span>`
-        : '';
+      const badges = [];
+      if (flagsD.length) badges.push(`<span class="safe-flag">D#${flagsD.map(h=>h.numero).join(' #')} 🚩</span>`);
+      if (flagsM.length) badges.push(`<span class="safe-flag">M#${flagsM.map(h=>h.numero).join(' #')} 🚩</span>`);
+      const flagHtml = badges.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${badges.join('')}</div>` : '';
 
-      const ligneSuivant = flagges.length
+      const aFlag = flagsD.length || flagsM.length;
+      const ligneSuivant = aFlag
         ? `<div class="safe-suivant">→ remplacer par : ${suivant ? `#${suivant.numero} ${(suivant.nom||'').split(' ')[0]}` : '—'}</div>`
         : '';
 
-      return `<div class="safe-row${flagges.length?' flag':''}" onclick="${onclick}">
+      return `<div class="safe-row${aFlag?' flag':''}" onclick="${onclick}">
         <div class="safe-top">
           <div class="safe-course">R${co.r}C${co.c} <span class="safe-heure">${co.heure}</span></div>
           ${flagHtml}
@@ -3095,6 +3102,20 @@ async function calculerCoupleAllPlat() {
 // absolus calibrés — on n'a pas assez de données pour ça pour l'instant.
 // ══════════════════════════════════════════════════════════════════════════
 
+// Place à la toute dernière sortie, extraite de la musique — backtest 31/07/2026
+// (134 courses, ATTELÉ) : dernière sortie Top4 = 49.1% dans le vrai Top3,
+// dernière sortie 5e+ = 34.8% seulement. Effet présent sur tout le Top5.
+function _dernierePlaceMusique(musique) {
+  if (!musique) return null;
+  const clean = musique.replace(/\(\d+\)/g, '');
+  const tokens = clean.match(/[0-9DATRdatr][amphscAMPHSC]?/g) || [];
+  if (!tokens.length) return null;
+  const c = tokens[0][0].toUpperCase();
+  if (/[0-9]/.test(c)) return c === '0' ? 10 : parseInt(c);
+  if (['D','A','T','R'].includes(c)) return 15;
+  return null;
+}
+
 function _scoreAlgoSeul(h) {
   const p = h.proba_pmu;
   return (p != null && p !== 0) ? p : (h.note_pmu || 0);
@@ -3708,12 +3729,22 @@ function _renderCourseBS(co, cdata, DISC_LABELS) {
     </div>`;
   };
 
+  // Flags D (disqualification) et M (dernière sortie 5e+) sur le Top5 affiché
+  const SEUIL_DISQ_BS = 40;
+  const flagsD = cdata.top5.filter(s => (s.h.taux_disq ?? 0) > SEUIL_DISQ_BS);
+  const flagsM = cdata.top5.filter(s => { const dp = _dernierePlaceMusique(s.h.musique); return dp !== null && dp >= 5; });
+  const flagBadgesHtml = [
+    flagsD.length ? `<span class="bs-flag-badge" style="border-color:#e05c5c;color:#e05c5c">D#${flagsD.map(s=>s.numero).join(' #')} 🚩</span>` : '',
+    flagsM.length ? `<span class="bs-flag-badge" style="border-color:#e05c5c;color:#e05c5c">M#${flagsM.map(s=>s.numero).join(' #')} 🚩</span>` : '',
+  ].join('');
+
   return `<div class="bs-course">
-    <div class="bs-course-header" onclick="_toggleCourseBS('${id}')">
+    <div class="bs-course-header" onclick="_toggleCourseBS('${id}')" style="flex-wrap:wrap">
       <span class="bs-course-num">R${co.r}C${co.c}</span>
       <span class="bs-course-heure">${co.heure||''}</span>
       <span class="bs-course-partants">${cdata.nbPartants}p</span>
       <span class="bs-course-signal" style="color:${couleurSignal};border-color:${couleurSignal}">Signal N${cdata.niveau}</span>
+      ${flagBadgesHtml}
       <span class="bs-chevron" id="bs-cchevron-${id}">▸</span>
     </div>
     <div id="bs-cbody-${id}" style="display:none">

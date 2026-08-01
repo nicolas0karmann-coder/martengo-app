@@ -3106,6 +3106,24 @@ async function calculerCoupleAllPlat() {
 // Place à la toute dernière sortie, extraite de la musique — backtest 31/07/2026
 // (134 courses, ATTELÉ) : dernière sortie Top4 = 49.1% dans le vrai Top3,
 // dernière sortie 5e+ = 34.8% seulement. Effet présent sur tout le Top5.
+// % des 5 dernières courses terminées dans le Top5 — backtest 31/07/2026 (134
+// courses attelé, 88 plat) : ≥60% = 40-51% dans le vrai Top3 selon la discipline,
+// <60% nettement moins bon. Contrairement à M, ce signal marche sur les deux
+// disciplines (validé sur le rang #1 en particulier : 67.6% attelé, 69.4% plat
+// pour ≥80%, contre 25-40% en dessous).
+function _regulariteMusique(musique, n = 5) {
+  if (!musique) return null;
+  const clean = musique.replace(/\(\d+\)/g, '');
+  const tokens = (clean.match(/[0-9DATRdatr][amphscAMPHSC]?/g) || []).slice(0, n);
+  if (!tokens.length) return null;
+  let top5 = 0;
+  for (const t of tokens) {
+    const c = t[0].toUpperCase();
+    if (/[0-9]/.test(c) && c !== '0' && parseInt(c) <= 5) top5++;
+  }
+  return top5 / tokens.length * 100;
+}
+
 function _dernierePlaceMusique(musique) {
   if (!musique) return null;
   const clean = musique.replace(/\(\d+\)/g, '');
@@ -3709,15 +3727,17 @@ function _renderCourseBS(co, cdata, DISC_LABELS) {
       </div>`;
     }
 
-    const flagD = estFlagD(s), flagM = estFlagM(s);
-    const flagsChevalHtml = (flagD || flagM)
+    const flagD = estFlagD(s), flagM = estFlagM(s), flagR = estFlagR(s);
+    const nbFlags = [flagD, flagM, flagR].filter(Boolean).length;
+    const flagsChevalHtml = nbFlags
       ? `<div style="position:absolute;top:8px;right:10px;display:flex;gap:4px">
           ${flagD ? `<span class="bs-flag-badge-petit">D 🚩</span>` : ''}
           ${flagM ? `<span class="bs-flag-badge-petit">M 🚩</span>` : ''}
+          ${flagR ? `<span class="bs-flag-badge-petit">R 🚩</span>` : ''}
         </div>`
       : '';
 
-    return `<div class="bs-cheval-row" style="${(flagD||flagM) ? 'padding-right:80px' : ''}">
+    return `<div class="bs-cheval-row" style="${nbFlags >= 2 ? 'padding-right:120px' : nbFlags === 1 ? 'padding-right:80px' : ''}">
       ${flagsChevalHtml}
       <div class="bs-cheval-ligne1">
         <span class="bs-avis-dot" style="background:${avisCouleur}" title="Avis entraîneur"></span>
@@ -3747,8 +3767,8 @@ function _renderCourseBS(co, cdata, DISC_LABELS) {
     ? `<span class="bs-flag-badge" style="border-color:#e05c5c;color:#e05c5c">P 🚩</span>`
     : '';
 
-  // Seuils pour les flags par cheval (D = disqualification, M = dernière sortie 5e+),
-  // affichés maintenant sur la ligne de chaque cheval plutôt qu'au niveau course
+  // Seuils pour les flags par cheval (D = disqualification, M = dernière sortie 5e+,
+  // R = régularité récente faible), affichés sur la ligne de chaque cheval
   const SEUIL_DISQ_BS = 40;
   const estFlagD = s => (s.h.taux_disq ?? 0) > SEUIL_DISQ_BS;
   // Flag M non validé pour le PLAT (backtest 31/07/2026 : écart de seulement 2pt,
@@ -3757,6 +3777,11 @@ function _renderCourseBS(co, cdata, DISC_LABELS) {
     if (co.disc === 'PLAT') return false;
     const dp = _dernierePlaceMusique(s.h.musique);
     return dp !== null && dp >= 5;
+  };
+  // Flag R validé sur les deux disciplines (backtest 31/07/2026)
+  const estFlagR = s => {
+    const reg = _regulariteMusique(s.h.musique, 5);
+    return reg !== null && reg < 60;
   };
 
   return `<div class="bs-course">

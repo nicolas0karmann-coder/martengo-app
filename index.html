@@ -3751,7 +3751,13 @@ function _renderCourseBS(co, cdata, DISC_LABELS) {
   // affichés maintenant sur la ligne de chaque cheval plutôt qu'au niveau course
   const SEUIL_DISQ_BS = 40;
   const estFlagD = s => (s.h.taux_disq ?? 0) > SEUIL_DISQ_BS;
-  const estFlagM = s => { const dp = _dernierePlaceMusique(s.h.musique); return dp !== null && dp >= 5; };
+  // Flag M non validé pour le PLAT (backtest 31/07/2026 : écart de seulement 2pt,
+  // incohérent selon les rangs) — limité à l'attelé/monté où le signal est net (+14.3pt)
+  const estFlagM = s => {
+    if (co.disc === 'PLAT') return false;
+    const dp = _dernierePlaceMusique(s.h.musique);
+    return dp !== null && dp >= 5;
+  };
 
   return `<div class="bs-course">
     <div class="bs-course-header" onclick="_toggleCourseBS('${id}')" style="flex-wrap:wrap">

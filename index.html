@@ -52,6 +52,7 @@ html,body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;f
 .safe-course{font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:1px;color:var(--text)}
 .safe-heure{font-family:'Space Mono',monospace;font-size:12px;color:var(--text-dim)}
 .safe-flag{background:rgba(224,92,92,.15);border:1px solid #e05c5c;border-radius:4px;padding:3px 8px;color:#e05c5c;font-size:13px;font-weight:700;white-space:nowrap;flex-shrink:0}
+.safe-flag-vert{background:rgba(58,145,98,.15);border:1px solid #3a9162;border-radius:4px;padding:3px 8px;color:#3a9162;font-size:13px;font-weight:700;white-space:nowrap;flex-shrink:0}
 .safe-chevaux{font-size:15px;font-weight:600;margin-top:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .safe-suivant{font-size:12px;color:var(--text-dim);margin-top:4px}
 
@@ -93,6 +94,7 @@ html,body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;f
 .bs-course-signal{margin-left:auto;font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;border:1px solid}
 .bs-flag-badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;border:1px solid;background:rgba(224,92,92,.1);white-space:nowrap}
 .bs-flag-badge-petit{font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;border:1px solid #e05c5c;color:#e05c5c;background:rgba(224,92,92,.12);white-space:nowrap}
+.bs-flag-badge-petit-vert{font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;border:1px solid #3a9162;color:#3a9162;background:rgba(58,145,98,.12);white-space:nowrap}
 .bs-cheval-row{padding:12px 14px;border-top:1px solid var(--border);position:relative}
 .bs-cheval-ligne1{display:flex;align-items:center;gap:10px;margin-bottom:6px}
 .bs-avis-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
@@ -1959,20 +1961,27 @@ async function chargerSafe() {
       const nom2 = h2.nom ? h2.nom.split(' ')[0] : '';
 
       // Cheval(aux) flaggé(s) parmi h1/h2 — D = taux_disq > seuil, M = dernière
-      // sortie 5e ou pire (musique) — et suggestion du suivant sans aucun des
-      // deux problèmes selon l'algo pour remplacer (indicatif uniquement)
+      // sortie 5e ou pire, R = régularité <60% sur 5 dernières (rouges, déclenchent
+      // la suggestion de remplacement) — 2P = ≥2 podiums sur 3 dernières (vert,
+      // informatif seulement, ne déclenche pas de remplacement)
       const estFlagD = h => (h.taux_disq ?? 0) > SEUIL_DISQ;
       const estFlagM = h => { const dp = _dernierePlaceMusique(h.musique); return dp !== null && dp >= 5; };
+      const estFlagR = h => { const reg = _regulariteMusique(h.musique, 5); return reg !== null && reg < 60; };
+      const estFlag2P = h => { const nb = _nbPodiums3(h.musique); return nb !== null && nb >= 2; };
       const flagsD = [h1, h2].filter(estFlagD);
       const flagsM = [h1, h2].filter(estFlagM);
-      const suivant = sorted.find(h => h !== h1 && h !== h2 && !estFlagD(h) && !estFlagM(h));
+      const flagsR = [h1, h2].filter(estFlagR);
+      const flags2P = [h1, h2].filter(estFlag2P);
+      const suivant = sorted.find(h => h !== h1 && h !== h2 && !estFlagD(h) && !estFlagM(h) && !estFlagR(h));
 
       const badges = [];
       if (flagsD.length) badges.push(`<span class="safe-flag">D#${flagsD.map(h=>h.numero).join(' #')} 🚩</span>`);
       if (flagsM.length) badges.push(`<span class="safe-flag">M#${flagsM.map(h=>h.numero).join(' #')} 🚩</span>`);
+      if (flagsR.length) badges.push(`<span class="safe-flag">R#${flagsR.map(h=>h.numero).join(' #')} 🚩</span>`);
+      if (flags2P.length) badges.push(`<span class="safe-flag-vert">2P#${flags2P.map(h=>h.numero).join(' #')} 🟢</span>`);
       const flagHtml = badges.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${badges.join('')}</div>` : '';
 
-      const aFlag = flagsD.length || flagsM.length;
+      const aFlag = flagsD.length || flagsM.length || flagsR.length;
       const ligneSuivant = aFlag
         ? `<div class="safe-suivant">→ remplacer par : ${suivant ? `#${suivant.numero} ${(suivant.nom||'').split(' ')[0]}` : '—'}</div>`
         : '';
@@ -1992,7 +2001,7 @@ async function chargerSafe() {
       <button onclick="safeCharge=false;chargerSafe()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
     </div>
     <div style="padding:10px 14px;font-family:'Space Mono',monospace;font-size:11px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
-      Couplé Placé, 2 chevaux par course · <span style="color:#e05c5c">🚩 = risque de disqualification élevé</span>
+      Couplé Placé, 2 chevaux par course · <span style="color:#e05c5c">🚩 D/M/R = alertes</span> · <span style="color:#3a9162">🟢 2P = 2+ podiums récents</span>
     </div>`;
 
     for (const [rNum, rd] of Object.entries(byR)) {
@@ -3111,6 +3120,22 @@ async function calculerCoupleAllPlat() {
 // <60% nettement moins bon. Contrairement à M, ce signal marche sur les deux
 // disciplines (validé sur le rang #1 en particulier : 67.6% attelé, 69.4% plat
 // pour ≥80%, contre 25-40% en dessous).
+// Nombre de podiums (1er/2e/3e) sur les 3 dernières courses — backtest 31/07/2026 :
+// validé UNIQUEMENT à l'attelé (progression monotone 33.6%→41.4%→46.0%→57.8%,
+// pas de tendance cohérente au plat). Flag VERT (signal positif).
+function _nbPodiums3(musique) {
+  if (!musique) return null;
+  const clean = musique.replace(/\(\d+\)/g, '');
+  const tokens = (clean.match(/[0-9DATRdatr][amphscAMPHSC]?/g) || []).slice(0, 3);
+  if (!tokens.length) return null;
+  let podiums = 0;
+  for (const t of tokens) {
+    const c = t[0].toUpperCase();
+    if (['1','2','3'].includes(c)) podiums++;
+  }
+  return podiums;
+}
+
 function _regulariteMusique(musique, n = 5) {
   if (!musique) return null;
   const clean = musique.replace(/\(\d+\)/g, '');
@@ -3727,13 +3752,14 @@ function _renderCourseBS(co, cdata, DISC_LABELS) {
       </div>`;
     }
 
-    const flagD = estFlagD(s), flagM = estFlagM(s), flagR = estFlagR(s);
-    const nbFlags = [flagD, flagM, flagR].filter(Boolean).length;
+    const flagD = estFlagD(s), flagM = estFlagM(s), flagR = estFlagR(s), flag2P = estFlag2P(s);
+    const nbFlags = [flagD, flagM, flagR, flag2P].filter(Boolean).length;
     const flagsChevalHtml = nbFlags
-      ? `<div style="position:absolute;top:8px;right:10px;display:flex;gap:4px">
+      ? `<div style="position:absolute;top:8px;right:10px;display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:140px">
           ${flagD ? `<span class="bs-flag-badge-petit">D 🚩</span>` : ''}
           ${flagM ? `<span class="bs-flag-badge-petit">M 🚩</span>` : ''}
           ${flagR ? `<span class="bs-flag-badge-petit">R 🚩</span>` : ''}
+          ${flag2P ? `<span class="bs-flag-badge-petit-vert">2P 🟢</span>` : ''}
         </div>`
       : '';
 
@@ -3782,6 +3808,13 @@ function _renderCourseBS(co, cdata, DISC_LABELS) {
   const estFlagR = s => {
     const reg = _regulariteMusique(s.h.musique, 5);
     return reg !== null && reg < 60;
+  };
+  // Flag VERT 2P : ≥2 podiums sur les 3 dernières courses — validé UNIQUEMENT
+  // à l'attelé (backtest 31/07/2026)
+  const estFlag2P = s => {
+    if (co.disc === 'PLAT') return false;
+    const nb = _nbPodiums3(s.h.musique);
+    return nb !== null && nb >= 2;
   };
 
   return `<div class="bs-course">

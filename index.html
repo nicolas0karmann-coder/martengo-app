@@ -299,6 +299,7 @@ input[readonly]{opacity:.5;cursor:default}
     <button class="nav-btn" onclick="goTo('bestsimple')" id="tab-bestsimple"><span class="nav-icon">⭐</span>Best Simple</button>
     <button class="nav-btn" onclick="safeCharge=false;goTo('safe')" id="tab-safe"><span class="nav-icon">🛡️</span>Safe</button>
     <button class="nav-btn" onclick="safePlatCharge=false;goTo('safeplat')" id="tab-safeplat"><span class="nav-icon">🛡️</span>Safe Plat</button>
+    <button class="nav-btn" onclick="safePlusCharge=false;goTo('safeplus')" id="tab-safeplus"><span class="nav-icon">🛡️</span>Safe Plus</button>
     <button class="nav-btn" onclick="goTo('trio')" id="tab-trio"><span class="nav-icon">🎯</span>Trio</button>
     <button class="nav-btn" onclick="goTo('trioall')" id="tab-trioall"><span class="nav-icon">🟢</span>Trio All</button>
     <button class="nav-btn" onclick="goTo('pro')" id="tab-pro"><span class="nav-icon">💎</span>Pro</button>
@@ -433,6 +434,20 @@ input[readonly]{opacity:.5;cursor:default}
       </div>
     </div>
 
+    <!-- SAFE PLUS -->
+    <div class="screen" id="screen-safeplus">
+      <div id="safeplus-content">
+        <div class="empty">
+          <div class="empty-icon">🛡️</div>
+          🛡️ ATTELÉ uniquement · #1 + meilleur score composite (#2-#4)<br>
+          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
+            Backtest 31/07/2026 (147 courses) : ROI -3.5% vs -17.9% pour Safe classique — non prouvé rentable, à confirmer
+          </small>
+          <button class="btn full" onclick="safePlusCharge=false;chargerSafePlus()" style="margin-top:16px;font-size:11px">Charger Safe Plus →</button>
+        </div>
+      </div>
+    </div>
+
     <!-- TRIO -->
     <div class="screen" id="screen-trio">
       <div id="trio-content">
@@ -557,7 +572,7 @@ async function fetchAPI(path, options = {}) {
   return r;
 }
 const LS_SAISIE = 'martengo_v3', LS_HIST = 'martengo_hist';
-const SCREENS = ['saisie','selections','analyse','conseil','bestsimple','safe','safeplat','offensif','trio','trioall','pro','prosa','couple','gagnantplat','gagnanttrot','stats'];
+const SCREENS = ['saisie','selections','analyse','conseil','bestsimple','safe','safeplat','safeplus','offensif','trio','trioall','pro','prosa','couple','gagnantplat','gagnanttrot','stats'];
 
 let chevaux = [], predictions = null, notesPMU = {}, notesPMUData = null;
 let currentDate = '', horseCounter = 0, apiPrete = false, currentScreen = 'saisie';
@@ -2139,6 +2154,154 @@ async function chargerSafePlat() {
   } catch(e) {
     el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>${e.message}<br>
     <button class="btn secondary" onclick="safePlatCharge=false;chargerSafePlat()" style="margin-top:12px;font-size:10px">↺ Réessayer</button></div>`;
+  }
+}
+
+// Score composite pour choisir le meilleur 2e cheval parmi #2/#3/#4 — backtest
+// 31/07/2026 (147 courses) : Safe classique (toujours #2) = -17.9% ROI, ce score
+// composite = -3.5% ROI. Combine : absence de flags D/M/R, podiums récents,
+// avis entraîneur, meilleur driver et meilleure cote relatifs aux candidats.
+function _scoreComposite(h, candidats) {
+  let pts = 0;
+  const estD = (h.taux_disq ?? 0) > 40;
+  const dp = _dernierePlaceMusique(h.musique);
+  const estM = dp !== null && dp >= 5;
+  const reg = _regulariteMusique(h.musique, 5);
+  const estR = reg !== null && reg < 60;
+  if (!estD && !estM && !estR) pts += 2;
+  else {
+    if (!estD) pts += 1;
+    if (!estM) pts += 1;
+    if (!estR) pts += 1;
+  }
+  const nbPod = _nbPodiums3(h.musique);
+  if (nbPod !== null && nbPod >= 2) pts += 1;
+  if (h.avis === 1) pts += 1;
+  else if (h.avis === -1) pts -= 1;
+  const drivers = candidats.map(c => c.driver_win_rate ?? 0);
+  if ((h.driver_win_rate ?? 0) === Math.max(...drivers)) pts += 1;
+  const cotes = candidats.map(c => c.cote).filter(c => c != null);
+  if (cotes.length && h.cote === Math.min(...cotes)) pts += 1;
+  return pts;
+}
+
+let safePlusCharge = false;
+async function chargerSafePlus() {
+  if (safePlusCharge) return;
+  const el = document.getElementById('safeplus-content');
+  el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement Safe Plus…</span></div>';
+  const today = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
+  const DISC_OK = ['ATTELE','TROT_ATTELE','MONTE','TROT_MONTE'];
+
+  try {
+    const resp = await fetch(`${API_URL_PRIMARY}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
+    if (!resp.ok) throw new Error('Programme indisponible');
+    const data = await resp.json();
+    const courses = (data.courses || []).filter(c => {
+      const d = c.disc === 'TROT_ATTELE' ? 'ATTELE' : c.disc;
+      return DISC_OK.includes(d);
+    }).map(c => ({r: c.r_num, c: c.c_num, disc: c.disc, dist: c.dist, lieu: c.lieu, heure: c.heure}));
+
+    if (!courses.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">--</div>Aucune course eligible aujourd\'hui</div>';
+      return;
+    }
+
+    const allResults = {};
+    const total = courses.length; let loaded = 0;
+    const updateProgress = () => {
+      const pct = Math.round(loaded/total*100);
+      el.innerHTML = `<div class="dash-progress">Chargement Safe Plus… ${loaded}/${total} (${pct}%)<div class="dash-progress-bar"><div class="dash-progress-fill" style="width:${pct}%"></div></div></div>`;
+    };
+    updateProgress();
+    for (let i=0; i<courses.length; i+=5) {
+      await Promise.all(courses.slice(i,i+5).map(async co => {
+        try {
+          const r = await fetch(`${API_URL_PRIMARY}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
+          if (r.ok) allResults[`${co.r}-${co.c}`] = await r.json();
+        } catch(e) {}
+        loaded++; updateProgress();
+      }));
+    }
+    safePlusCharge = true;
+
+    const byR = {};
+    for (const co of courses) {
+      if (!byR[co.r]) byR[co.r] = {lieu: co.lieu, courses:[]};
+      byR[co.r].courses.push(co);
+    }
+
+    const SEUIL_DISQ = 40;
+
+    const renderSafePlusRow = (co, d) => {
+      const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
+      const chevaux = d?.chevaux || [];
+      if (chevaux.length < 4) {
+        return `<div class="safe-row" onclick="${onclick}">
+          <div class="safe-course">R${co.r}C${co.c} <span class="safe-heure">${co.heure}</span></div>
+          <div class="safe-chevaux" style="color:var(--text-dim)">Non disponible (${chevaux.length}p)</div>
+        </div>`;
+      }
+      const sorted = [...chevaux].sort((a,b) => {
+        if (b.note_pmu !== a.note_pmu) return b.note_pmu - a.note_pmu;
+        return (b.proba_pmu||0) - (a.proba_pmu||0);
+      });
+      const h1 = sorted[0];
+      const candidats = sorted.slice(1, 4);
+      const scored = candidats.map(h => ({h, pts: _scoreComposite(h, candidats)}));
+      scored.sort((a,b) => b.pts - a.pts);
+      const h2 = scored[0].h;
+      const nom1 = h1.nom ? h1.nom.split(' ')[0] : '';
+      const nom2 = h2.nom ? h2.nom.split(' ')[0] : '';
+      const nbPartants = chevaux.length;
+
+      const estFlagD = h => (h.taux_disq ?? 0) > SEUIL_DISQ;
+      const estFlagM = h => { const dp = _dernierePlaceMusique(h.musique); return dp !== null && dp >= 5; };
+      const estFlagR = h => { const reg = _regulariteMusique(h.musique, 5); return reg !== null && reg < 60; };
+      const estFlag2P = h => { const nb = _nbPodiums3(h.musique); return nb !== null && nb >= 2; };
+      const flagsD = [h1, h2].filter(estFlagD);
+      const flagsM = [h1, h2].filter(estFlagM);
+      const flagsR = [h1, h2].filter(estFlagR);
+      const flags2P = [h1, h2].filter(estFlag2P);
+
+      const badges = [];
+      if (flagsD.length) badges.push(`<span class="safe-flag">D#${flagsD.map(h=>h.numero).join(' #')} 🚩</span>`);
+      if (flagsM.length) badges.push(`<span class="safe-flag">M#${flagsM.map(h=>h.numero).join(' #')} 🚩</span>`);
+      if (flagsR.length) badges.push(`<span class="safe-flag">R#${flagsR.map(h=>h.numero).join(' #')} 🚩</span>`);
+      if (flags2P.length) badges.push(`<span class="safe-flag-vert">2P#${flags2P.map(h=>h.numero).join(' #')} 🟢</span>`);
+      const flagHtml = badges.length ? `<div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${badges.join('')}</div>` : '';
+      const aFlag = flagsD.length || flagsM.length || flagsR.length;
+
+      return `<div class="safe-row${aFlag?' flag':''}" onclick="${onclick}">
+        <div class="safe-top">
+          <div class="safe-course">R${co.r}C${co.c} <span class="safe-heure">${co.heure}</span></div>
+          ${flagHtml}
+        </div>
+        <div class="safe-chevaux">#${h1.numero} ${nom1} · #${h2.numero} ${nom2} <span class="safe-heure">(${nbPartants}p)</span></div>
+      </div>`;
+    };
+
+    let html = `<div class="dash-refresh">
+      <span>🛡️ Safe Plus ATTELÉ+MONTÉ · ${courses.length} courses</span>
+      <button onclick="safePlusCharge=false;chargerSafePlus()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
+    </div>
+    <div style="padding:10px 14px;font-family:'Space Mono',monospace;font-size:11px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
+      #1 + meilleur score composite parmi #2-#4 · <span style="color:#e05c5c">🚩 D/M/R = alertes</span> · <span style="color:#3a9162">🟢 2P = 2+ podiums récents</span>
+    </div>`;
+
+    for (const [rNum, rd] of Object.entries(byR)) {
+      html += `<div class="dash-reunion" style="font-size:16px;padding:10px 14px 6px">R${rNum} · ${rd.lieu}</div>`;
+      for (const co of rd.courses) {
+        html += renderSafePlusRow(co, allResults[`${co.r}-${co.c}`]);
+      }
+    }
+    el.innerHTML = html;
+
+  } catch(e) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>${e.message}<br>
+    <button class="btn secondary" onclick="safePlusCharge=false;chargerSafePlus()" style="margin-top:12px;font-size:10px">↺ Réessayer</button></div>`;
   }
 }
 

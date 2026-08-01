@@ -92,6 +92,7 @@ html,body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;f
 .bs-course-partants{font-size:12px;color:var(--text-dim)}
 .bs-course-signal{margin-left:auto;font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;border:1px solid}
 .bs-flag-badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:10px;border:1px solid;background:rgba(224,92,92,.1);white-space:nowrap}
+.bs-flag-badge-petit{font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;border:1px solid #e05c5c;color:#e05c5c;background:rgba(224,92,92,.12);white-space:nowrap}
 .bs-cheval-row{padding:12px 14px;border-top:1px solid var(--border);position:relative}
 .bs-cheval-ligne1{display:flex;align-items:center;gap:10px;margin-bottom:6px}
 .bs-avis-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
@@ -3708,7 +3709,16 @@ function _renderCourseBS(co, cdata, DISC_LABELS) {
       </div>`;
     }
 
-    return `<div class="bs-cheval-row">
+    const flagD = estFlagD(s), flagM = estFlagM(s);
+    const flagsChevalHtml = (flagD || flagM)
+      ? `<div style="position:absolute;top:8px;right:10px;display:flex;gap:4px">
+          ${flagD ? `<span class="bs-flag-badge-petit">D 🚩</span>` : ''}
+          ${flagM ? `<span class="bs-flag-badge-petit">M 🚩</span>` : ''}
+        </div>`
+      : '';
+
+    return `<div class="bs-cheval-row" style="${(flagD||flagM) ? 'padding-right:80px' : ''}">
+      ${flagsChevalHtml}
       <div class="bs-cheval-ligne1">
         <span class="bs-avis-dot" style="background:${avisCouleur}" title="Avis entraîneur"></span>
         <span class="bs-num">#${s.numero}</span>
@@ -3729,14 +3739,19 @@ function _renderCourseBS(co, cdata, DISC_LABELS) {
     </div>`;
   };
 
-  // Flags D (disqualification) et M (dernière sortie 5e+) sur le Top5 affiché
+  // Flag P (partants élevés) au niveau de la course — backtest 31/07/2026 :
+  // le taux d'échec grimpe nettement à partir de 14 partants (deux disciplines)
+  const SEUIL_PARTANTS_BS = 14;
+  const flagP = cdata.nbPartants >= SEUIL_PARTANTS_BS;
+  const flagPBadgeHtml = flagP
+    ? `<span class="bs-flag-badge" style="border-color:#e05c5c;color:#e05c5c">P 🚩</span>`
+    : '';
+
+  // Seuils pour les flags par cheval (D = disqualification, M = dernière sortie 5e+),
+  // affichés maintenant sur la ligne de chaque cheval plutôt qu'au niveau course
   const SEUIL_DISQ_BS = 40;
-  const flagsD = cdata.top5.filter(s => (s.h.taux_disq ?? 0) > SEUIL_DISQ_BS);
-  const flagsM = cdata.top5.filter(s => { const dp = _dernierePlaceMusique(s.h.musique); return dp !== null && dp >= 5; });
-  const flagBadgesHtml = [
-    flagsD.length ? `<span class="bs-flag-badge" style="border-color:#e05c5c;color:#e05c5c">D#${flagsD.map(s=>s.numero).join(' #')} 🚩</span>` : '',
-    flagsM.length ? `<span class="bs-flag-badge" style="border-color:#e05c5c;color:#e05c5c">M#${flagsM.map(s=>s.numero).join(' #')} 🚩</span>` : '',
-  ].join('');
+  const estFlagD = s => (s.h.taux_disq ?? 0) > SEUIL_DISQ_BS;
+  const estFlagM = s => { const dp = _dernierePlaceMusique(s.h.musique); return dp !== null && dp >= 5; };
 
   return `<div class="bs-course">
     <div class="bs-course-header" onclick="_toggleCourseBS('${id}')" style="flex-wrap:wrap">
@@ -3744,7 +3759,7 @@ function _renderCourseBS(co, cdata, DISC_LABELS) {
       <span class="bs-course-heure">${co.heure||''}</span>
       <span class="bs-course-partants">${cdata.nbPartants}p</span>
       <span class="bs-course-signal" style="color:${couleurSignal};border-color:${couleurSignal}">Signal N${cdata.niveau}</span>
-      ${flagBadgesHtml}
+      ${flagPBadgeHtml}
       <span class="bs-chevron" id="bs-cchevron-${id}">▸</span>
     </div>
     <div id="bs-cbody-${id}" style="display:none">

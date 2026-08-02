@@ -441,9 +441,9 @@ input[readonly]{opacity:.5;cursor:default}
       <div id="safeplus-content">
         <div class="empty">
           <div class="empty-icon">🛡️</div>
-          🛡️ ATTELÉ uniquement · #1 + meilleur score composite (#2-#4)<br>
+          🛡️ ATTELÉ uniquement · #1 + meilleur score composite (#2-#5)<br>
           <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
-            Backtest 31/07/2026 (147 courses) : ROI -3.5% vs -17.9% pour Safe classique — non prouvé rentable, à confirmer
+            Backtest 31/07/2026 (147 courses) : ROI -1.6% vs -17.2% pour Safe classique — non prouvé rentable, à confirmer
           </small>
           <button class="btn full" onclick="safePlusCharge=false;chargerSafePlus()" style="margin-top:16px;font-size:11px">Charger Safe Plus →</button>
         </div>
@@ -2159,10 +2159,11 @@ async function chargerSafePlat() {
   }
 }
 
-// Score composite pour choisir le meilleur 2e cheval parmi #2/#3/#4 — backtest
-// 31/07/2026 (147 courses) : Safe classique (toujours #2) = -17.9% ROI, ce score
-// composite = -3.5% ROI. Combine : absence de flags D/M/R, podiums récents,
-// avis entraîneur, meilleur driver et meilleure cote relatifs aux candidats.
+// Score composite pour choisir le meilleur 2e cheval parmi #2-#5 — backtest
+// 31/07/2026 (147 courses) : Safe classique (toujours #2) = -17.2% ROI, ce score
+// composite sur #2-#5 = -1.6% ROI (meilleur que #2-#4 seul à -3.5%). Combine :
+// absence de flags D/M/R, podiums récents, avis entraîneur, meilleur driver et
+// meilleure cote relatifs aux candidats.
 function _scoreComposite(h, candidats) {
   let pts = 0;
   const estD = (h.taux_disq ?? 0) > 40;
@@ -2240,7 +2241,7 @@ async function chargerSafePlus() {
     const renderSafePlusRow = (co, d) => {
       const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
       const chevaux = d?.chevaux || [];
-      if (chevaux.length < 4) {
+      if (chevaux.length < 5) {
         return `<div class="safe-row" onclick="${onclick}">
           <div class="safe-course">R${co.r}C${co.c} <span class="safe-heure">${co.heure}</span></div>
           <div class="safe-chevaux" style="color:var(--text-dim)">Non disponible (${chevaux.length}p)</div>
@@ -2251,7 +2252,7 @@ async function chargerSafePlus() {
         return (b.proba_pmu||0) - (a.proba_pmu||0);
       });
       const h1 = sorted[0];
-      const candidats = sorted.slice(1, 4);
+      const candidats = sorted.slice(1, 5);
       const scored = candidats.map(h => ({h, pts: _scoreComposite(h, candidats)}));
       scored.sort((a,b) => b.pts - a.pts);
       const h2 = scored[0].h;

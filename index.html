@@ -3937,6 +3937,15 @@ function _renderCourseBS(co, cdata, DISC_LABELS) {
   const driversTries = [...cdata.top5].map(s => s.h.driver_win_rate).filter(v => v != null).sort((a,b) => b-a);
   const seuilTop3Driver = driversTries.length >= 3 ? driversTries[2] : (driversTries.length ? driversTries[driversTries.length-1] : null);
 
+  // ⭐ Meilleur score composite parmi #2-#5 (même logique que Safe Plus)
+  let meilleurComposite = null;
+  if (cdata.top5.length >= 5) {
+    const candidatsH = cdata.top5.slice(1, 5).map(s => s.h);
+    const scoresComposite = candidatsH.map(h => ({ numero: h.numero, pts: _scoreComposite(h, candidatsH) }));
+    scoresComposite.sort((a,b) => b.pts - a.pts);
+    meilleurComposite = scoresComposite[0].numero;
+  }
+
   // Musique colorée : vert si 1er, orange si 2e/3e, normal sinon
   const musiqueColoree = (musique) => {
     if (!musique) return '—';
@@ -4057,6 +4066,7 @@ function _renderCourseBS(co, cdata, DISC_LABELS) {
         <span class="bs-avis-dot" style="background:${avisCouleur}" title="Avis entraîneur"></span>
         <span class="bs-num">#${s.numero}</span>
         <span class="bs-nom">${s.h.nom||''}</span>
+        ${s.numero === meilleurComposite ? `<span title="Meilleur score composite parmi #2-#5">⭐</span>` : ''}
       </div>
       <div class="bs-cheval-ligne2">🏇 ${s.h.driver||'—'}${driverPct!=null ? ` <span style="color:${driverCouleur}">(${driverPct}%)</span>` : ''}</div>
       <div class="bs-cheval-ligne3">

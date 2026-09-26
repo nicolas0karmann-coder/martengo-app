@@ -315,6 +315,7 @@ input[readonly]{opacity:.5;cursor:default}
     </button>
     <button class="nav-btn" onclick="goTo('placetrot')" id="tab-placetrot"><span class="nav-icon">🎗️</span>Placé Trot</button>
     <button class="nav-btn" onclick="goTo('platconfiance')" id="tab-platconfiance"><span class="nav-icon">🎯</span>Plat Confiance</button>
+    <button class="nav-btn" onclick="goTo('trotconfiance')" id="tab-trotconfiance"><span class="nav-icon">🎯</span>Trot Confiance</button>
   </nav>
 
   <div id="screens-wrapper">
@@ -590,6 +591,21 @@ input[readonly]{opacity:.5;cursor:default}
       </div>
     </div>
 
+    <!-- TROT CONFIANCE — top3 du modèle par course ATTELÉ + MONTÉ, avec
+         confiance de course ET confiance individuelle par cheval (rangs 1-3) -->
+    <div class="screen" id="screen-trotconfiance">
+      <div id="trotconfiance-content">
+        <div class="empty">
+          <div class="empty-icon">🎯</div>
+          Top3 du modèle, toutes réunions TROT du jour<br>
+          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
+            TROT ATTELÉ &amp; MONTÉ · confiance de la course + confiance individuelle par cheval
+          </small>
+          <button class="btn full" onclick="calculerTrotConfiance()" style="margin-top:16px;font-size:11px">Calculer →</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 <div id="toast"></div>
@@ -605,7 +621,7 @@ async function fetchAPI(path, options = {}) {
   return r;
 }
 const LS_SAISIE = 'martengo_v3', LS_HIST = 'martengo_hist';
-const SCREENS = ['saisie','selections','analyse','conseil','bestsimple','safe','safeplat','safeplus','offensif','trio','trioall','pro','prosa','couple','gagnantplat','gagnanttrot','stats','placetrot','platconfiance'];
+const SCREENS = ['saisie','selections','analyse','conseil','bestsimple','safe','safeplat','safeplus','offensif','trio','trioall','pro','prosa','couple','gagnantplat','gagnanttrot','stats','placetrot','platconfiance','trotconfiance'];
 
 let chevaux = [], predictions = null, notesPMU = {}, notesPMUData = null;
 let currentDate = '', horseCounter = 0, apiPrete = false, currentScreen = 'saisie';
@@ -4040,14 +4056,156 @@ async function calculerPlatConfiance() {
       if (!byR[co.r]) byR[co.r] = { lieu: co.lieu, courses: [] };
       byR[co.r].courses.push(co);
     }
+
+    html += `<div style="display:flex;gap:6px;overflow-x:auto;padding:4px 0 12px;-webkit-overflow-scrolling:touch">
+      ${Object.entries(byR).map(([rNum]) => `
+        <button onclick="document.getElementById('platconf-R${rNum}').scrollIntoView({behavior:'smooth',block:'start'})"
+          style="flex-shrink:0;background:none;border:1px solid var(--border);color:#c8942a;border-radius:20px;padding:6px 14px;font-family:'Space Mono',monospace;font-size:11px;font-weight:bold;cursor:pointer;white-space:nowrap">R${rNum}</button>`).join('')}
+    </div>`;
+
     for (const [rNum, rd] of Object.entries(byR)) {
-      html += `<div class="gc-reunion">R${rNum} · ${rd.lieu}</div>`;
+      html += `<div class="gc-reunion" id="platconf-R${rNum}">R${rNum} · ${rd.lieu}</div>`;
       for (const co of rd.courses) html += renderRow(co, resultatsParCourse[`${co.r}-${co.c}`]);
     }
     el.innerHTML = html;
   } catch(e) {
     el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Erreur : ${e.message}<br>
     <button class="btn secondary" onclick="calculerPlatConfiance()" style="margin-top:12px;font-size:10px">↺ Réessayer</button>
+    </div>`;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// TROT CONFIANCE — top3 du modèle (rangs 1/2/3) par course ATTELÉ + MONTÉ,
+// avec la confiance de course à côté de R{r}C{c} et la confiance
+// individuelle par cheval. Même structure que Plat Confiance, sans le
+// badge handicap (concept qui n'existe pas en trot).
+// ══════════════════════════════════════════════════════════════════════════
+
+async function calculerTrotConfiance() {
+  const el = document.getElementById('trotconfiance-content');
+  el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement des courses TROT du jour…</span></div>';
+  await acquireWakeLock();
+
+  const today = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
+  const dateAffiche = pad(today.getDate()) + '/' + pad(today.getMonth()+1) + '/' + today.getFullYear();
+
+  try {
+    const resp = await fetch(`${API_URL_PRIMARY}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
+    if (!resp.ok) throw new Error('Programme indisponible (' + resp.status + ')');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    const courses = (data.courses || [])
+      .filter(c => ['ATTELE','TROT_ATTELE','MONTE'].includes(c.disc))
+      .map(c => ({ r: c.r_num, c: c.c_num, lieu: c.lieu, heure: c.heure }));
+
+    if (!courses.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">🎯</div>Aucune course de trot trouvée aujourd\'hui</div>';
+      await releaseWakeLock();
+      return;
+    }
+
+    const resultatsParCourse = {};
+    const total = courses.length;
+    let loaded = 0;
+    const updateProgress = () => {
+      const pct = Math.round(loaded/total*100);
+      el.innerHTML = `<div class="dash-progress">
+        Chargement… ${loaded}/${total} courses (${pct}%)
+        <div class="dash-progress-bar"><div class="dash-progress-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    };
+    updateProgress();
+
+    for (let i=0; i<courses.length; i+=5) {
+      await Promise.all(courses.slice(i,i+5).map(async co => {
+        try {
+          const r = await fetch(`${API_URL_PRIMARY}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
+          if (r.ok) {
+            const d = await r.json();
+            if (d?.chevaux?.length >= 2) {
+              resultatsParCourse[`${co.r}-${co.c}`] = {
+                top3: d.chevaux.slice(0, 3),
+                confianceProba: d.confiance_proba,
+              };
+            }
+          }
+        } catch(e) {}
+        loaded++;
+        updateProgress();
+      }));
+    }
+
+    await releaseWakeLock();
+
+    const coursesAvecTop3 = courses.filter(co => resultatsParCourse[`${co.r}-${co.c}`]);
+    if (!coursesAvecTop3.length) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Aucune donnée exploitable aujourd'hui
+        <button class="btn secondary" onclick="calculerTrotConfiance()" style="margin-top:16px;font-size:10px">↺ Réessayer</button></div>`;
+      return;
+    }
+
+    const fmtPct = v => (v===undefined || v===null || isNaN(v)) ? '—' : Math.round(v*100) + '%';
+    const couleurConf = v => {
+      if (v===undefined || v===null || isNaN(v)) return 'var(--text-dim)';
+      if (v >= 0.65) return '#2ecc71';
+      if (v >= 0.52) return '#c8942a';
+      return '#e74c3c';
+    };
+
+    const renderRow = (co, tdata) => {
+      const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
+      const { top3, confianceProba } = tdata;
+      const lignesChevaux = top3.map((h, i) => {
+        const label = ['1er','2e','3e'][i];
+        const confIndiv = h.confiance_individuelle;
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-top:${i>0?'1px solid var(--border)':'none'}">
+          <span style="font-size:12px"><b style="color:#c8942a">${label}</b> · #${h.numero} <span style="font-size:14px">${h.nom||''}</span></span>
+          <span style="font-family:'Space Mono',monospace;font-size:11px;font-weight:bold;color:${couleurConf(confIndiv)}">${fmtPct(confIndiv)}</span>
+        </div>`;
+      }).join('');
+      return `<div class="gc-card forte" onclick="${onclick}">
+        <div class="gc-left">
+          <div class="gc-course-num" style="color:#c8942a">R${co.r}C${co.c}</div>
+          <div class="gc-heure">${co.heure}</div>
+          <div style="margin-top:4px;font-family:'Space Mono',monospace;font-size:10px;font-weight:bold;color:${couleurConf(confianceProba)}">
+            ${fmtPct(confianceProba)}
+          </div>
+        </div>
+        <div class="gc-body">
+          ${lignesChevaux}
+        </div>
+      </div>`;
+    };
+
+    let html = `<div class="gc-refresh">
+      <span>🎯 Trot Confiance · ${coursesAvecTop3.length} courses · ${dateAffiche}</span>
+      <button onclick="calculerTrotConfiance()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:6px;padding:4px 10px;font-family:'Space Mono',monospace;cursor:pointer">↺</button>
+    </div>`;
+
+    const byR = {};
+    for (const co of coursesAvecTop3) {
+      if (!byR[co.r]) byR[co.r] = { lieu: co.lieu, courses: [] };
+      byR[co.r].courses.push(co);
+    }
+
+    html += `<div style="display:flex;gap:6px;overflow-x:auto;padding:4px 0 12px;-webkit-overflow-scrolling:touch">
+      ${Object.entries(byR).map(([rNum]) => `
+        <button onclick="document.getElementById('trotconf-R${rNum}').scrollIntoView({behavior:'smooth',block:'start'})"
+          style="flex-shrink:0;background:none;border:1px solid var(--border);color:#c8942a;border-radius:20px;padding:6px 14px;font-family:'Space Mono',monospace;font-size:11px;font-weight:bold;cursor:pointer;white-space:nowrap">R${rNum}</button>`).join('')}
+    </div>`;
+
+    for (const [rNum, rd] of Object.entries(byR)) {
+      html += `<div class="gc-reunion" id="trotconf-R${rNum}">R${rNum} · ${rd.lieu}</div>`;
+      for (const co of rd.courses) html += renderRow(co, resultatsParCourse[`${co.r}-${co.c}`]);
+    }
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Erreur : ${e.message}<br>
+    <button class="btn secondary" onclick="calculerTrotConfiance()" style="margin-top:12px;font-size:10px">↺ Réessayer</button>
     </div>`;
   }
 }

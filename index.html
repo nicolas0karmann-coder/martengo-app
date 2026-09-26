@@ -3988,6 +3988,7 @@ async function calculerPlatConfiance() {
             if (d?.chevaux?.length >= 2) {
               resultatsParCourse[`${co.r}-${co.c}`] = {
                 top3: d.chevaux.slice(0, 3),
+                nbPartants: d.chevaux.length,
                 confiance: d.confiance,
                 confianceProba: d.confiance_proba,
                 estHandicap: d.est_handicap,
@@ -4019,7 +4020,7 @@ async function calculerPlatConfiance() {
 
     const renderRow = (co, tdata) => {
       const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
-      const { top3, confianceProba, estHandicap } = tdata;
+      const { top3, confianceProba, estHandicap, nbPartants } = tdata;
       const badgeHandicap = (estHandicap !== undefined && estHandicap !== null)
         ? (estHandicap ? '<span class="gc-badge" style="color:#8a6cbf">⚖️ Handicap</span>' : '<span class="gc-badge" style="color:var(--text-dim)">Sans handicap</span>')
         : '';
@@ -4038,6 +4039,7 @@ async function calculerPlatConfiance() {
           <div style="margin-top:4px;font-family:'Space Mono',monospace;font-size:10px;font-weight:bold;color:${couleurConf(confianceProba)}">
             ${fmtPct(confianceProba)}
           </div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">${nbPartants||'—'}p</div>
         </div>
         <div class="gc-body">
           ${lignesChevaux}
@@ -4129,6 +4131,7 @@ async function calculerTrotConfiance() {
             if (d?.chevaux?.length >= 2) {
               resultatsParCourse[`${co.r}-${co.c}`] = {
                 top3: d.chevaux.slice(0, 3),
+                nbPartants: d.chevaux.length,
                 confianceProba: d.confiance_proba,
               };
             }
@@ -4158,7 +4161,7 @@ async function calculerTrotConfiance() {
 
     const renderRow = (co, tdata) => {
       const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
-      const { top3, confianceProba } = tdata;
+      const { top3, confianceProba, nbPartants } = tdata;
       const lignesChevaux = top3.map((h, i) => {
         const label = ['1er','2e','3e'][i];
         const confIndiv = h.confiance_individuelle;
@@ -4174,6 +4177,7 @@ async function calculerTrotConfiance() {
           <div style="margin-top:4px;font-family:'Space Mono',monospace;font-size:10px;font-weight:bold;color:${couleurConf(confianceProba)}">
             ${fmtPct(confianceProba)}
           </div>
+          <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">${nbPartants||'—'}p</div>
         </div>
         <div class="gc-body">
           ${lignesChevaux}

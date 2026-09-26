@@ -4033,7 +4033,7 @@ async function calculerPlatConfiance() {
       }).join('');
       return `<div class="gc-card forte" onclick="${onclick}">
         <div class="gc-left">
-          <div class="gc-course-num" style="color:#c8942a">R${co.r}C${co.c}</div>
+          <div class="gc-course-num" style="color:${couleurConf(confianceProba)}">R${co.r}C${co.c}</div>
           <div class="gc-heure">${co.heure}</div>
           <div style="margin-top:4px;font-family:'Space Mono',monospace;font-size:10px;font-weight:bold;color:${couleurConf(confianceProba)}">
             ${fmtPct(confianceProba)}
@@ -4169,7 +4169,7 @@ async function calculerTrotConfiance() {
       }).join('');
       return `<div class="gc-card forte" onclick="${onclick}">
         <div class="gc-left">
-          <div class="gc-course-num" style="color:#c8942a">R${co.r}C${co.c}</div>
+          <div class="gc-course-num" style="color:${couleurConf(confianceProba)}">R${co.r}C${co.c}</div>
           <div class="gc-heure">${co.heure}</div>
           <div style="margin-top:4px;font-family:'Space Mono',monospace;font-size:10px;font-weight:bold;color:${couleurConf(confianceProba)}">
             ${fmtPct(confianceProba)}

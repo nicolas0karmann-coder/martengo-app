@@ -313,6 +313,7 @@ input[readonly]{opacity:.5;cursor:default}
       <span class="nav-icon">📊</span>Stats
       <span class="nav-badge" id="badge-stats"></span>
     </button>
+    <button class="nav-btn" onclick="goTo('placetrot')" id="tab-placetrot"><span class="nav-icon">🎗️</span>Placé Trot</button>
   </nav>
 
   <div id="screens-wrapper">
@@ -559,6 +560,20 @@ input[readonly]{opacity:.5;cursor:default}
       </div>
     </div>
 
+    <!-- PLACÉ TROT — 1er choix du modèle par course, ATTELÉ + MONTÉ -->
+    <div class="screen" id="screen-placetrot">
+      <div id="placetrot-content">
+        <div class="empty">
+          <div class="empty-icon">🎗️</div>
+          1er choix du modèle, toutes réunions du jour<br>
+          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
+            TROT ATTELÉ &amp; MONTÉ · cote gagnant + cote placée (estimée) par course
+          </small>
+          <button class="btn full" onclick="calculerPlaceTrot()" style="margin-top:16px;font-size:11px">Calculer →</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 <div id="toast"></div>
@@ -574,7 +589,7 @@ async function fetchAPI(path, options = {}) {
   return r;
 }
 const LS_SAISIE = 'martengo_v3', LS_HIST = 'martengo_hist';
-const SCREENS = ['saisie','selections','analyse','conseil','bestsimple','safe','safeplat','safeplus','offensif','trio','trioall','pro','prosa','couple','gagnantplat','gagnanttrot','stats'];
+const SCREENS = ['saisie','selections','analyse','conseil','bestsimple','safe','safeplat','safeplus','offensif','trio','trioall','pro','prosa','couple','gagnantplat','gagnanttrot','stats','placetrot'];
 
 let chevaux = [], predictions = null, notesPMU = {}, notesPMUData = null;
 let currentDate = '', horseCounter = 0, apiPrete = false, currentScreen = 'saisie';
@@ -3763,6 +3778,129 @@ async function calculerGagnantTrot() {
     c => ['ATTELE','TROT_ATTELE','MONTE'].includes(c.disc), 'gagnanttrot-content', 'calculerGagnantTrot',
     '⚠️ ATTENTION : ce signal N\'A PAS montré de résultat concluant à l\'attelé (~27% de réussite, proche du hasard, ROI négatif sur le test). Affiché à titre exploratoire uniquement — ne pas s\'y fier pour l\'instant.'
   );
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// PLACÉ TROT — 1er choix du modèle (rang 1, même sélection que Gagnant Trot),
+// affiché avec sa cote gagnant et sa cote placée, pour toutes les réunions
+// du jour en trot attelé ou monté.
+//
+// NOTE cote placée : PMU ne fournit pas de cote placée en direct dans le
+// flux "participants" (seule la cote Simple Gagnant y est) — la cote
+// placée réelle n'existe qu'après la course. L'estimation pré-course vient
+// du flux "rapports probables" côté PMU, distinct de "participants".
+// Cette fonction lit un champ `cote_placee_min`/`cote_placee_max` que
+// l'API doit fournir une fois ce flux branché côté backend — en attendant,
+// elle affiche "—" proprement plutôt qu'une valeur inventée.
+// ══════════════════════════════════════════════════════════════════════════
+
+async function calculerPlaceTrot() {
+  const el = document.getElementById('placetrot-content');
+  el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement des courses du jour…</span></div>';
+  await acquireWakeLock();
+
+  const today = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
+  const dateAffiche = pad(today.getDate()) + '/' + pad(today.getMonth()+1) + '/' + today.getFullYear();
+
+  try {
+    const resp = await fetch(`${API_URL_PRIMARY}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
+    if (!resp.ok) throw new Error('Programme indisponible (' + resp.status + ')');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    const courses = (data.courses || [])
+      .filter(c => ['ATTELE','TROT_ATTELE','MONTE'].includes(c.disc))
+      .map(c => ({ r: c.r_num, c: c.c_num, lieu: c.lieu, heure: c.heure }));
+
+    if (!courses.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">🎗️</div>Aucune course de trot trouvée aujourd\'hui</div>';
+      await releaseWakeLock();
+      return;
+    }
+
+    const resultatsParCourse = {};
+    const total = courses.length;
+    let loaded = 0;
+    const updateProgress = () => {
+      const pct = Math.round(loaded/total*100);
+      el.innerHTML = `<div class="dash-progress">
+        Chargement… ${loaded}/${total} courses (${pct}%)
+        <div class="dash-progress-bar"><div class="dash-progress-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    };
+    updateProgress();
+
+    for (let i=0; i<courses.length; i+=5) {
+      await Promise.all(courses.slice(i,i+5).map(async co => {
+        try {
+          const r = await fetch(`${API_URL_PRIMARY}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
+          if (r.ok) {
+            const d = await r.json();
+            if (d?.chevaux?.length >= 2) {
+              const tries = [...d.chevaux].sort((a,b) => _scoreAlgoSeul(b) - _scoreAlgoSeul(a));
+              resultatsParCourse[`${co.r}-${co.c}`] = { top1: tries[0], nbPartants: d.chevaux.length };
+            }
+          }
+        } catch(e) {}
+        loaded++;
+        updateProgress();
+      }));
+    }
+
+    await releaseWakeLock();
+
+    const coursesAvecTop1 = courses.filter(co => resultatsParCourse[`${co.r}-${co.c}`]);
+    if (!coursesAvecTop1.length) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Aucune donnée exploitable aujourd'hui
+        <button class="btn secondary" onclick="calculerPlaceTrot()" style="margin-top:16px;font-size:10px">↺ Réessayer</button></div>`;
+      return;
+    }
+
+    const fmtCote = v => (v===undefined || v===null || isNaN(v)) ? '—' : Number(v).toFixed(1);
+
+    const renderRow = (co, tdata) => {
+      const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${co.r}';document.getElementById('inp-course').value='${co.c}';chargerEtAnalyser();},100)`;
+      const { top1 } = tdata;
+      const coteGagnant = fmtCote(top1.rapport_direct ?? top1.rapport_ref ?? top1.cote);
+      const coteMin = top1.cote_placee_min, coteMax = top1.cote_placee_max;
+      const cotePlacee = (coteMin!=null && coteMax!=null) ? `${fmtCote(coteMin)} - ${fmtCote(coteMax)}` : '—';
+      return `<div class="gc-card forte" onclick="${onclick}">
+        <div class="gc-left">
+          <div class="gc-course-num" style="color:#c8942a">R${co.r}C${co.c}</div>
+          <div class="gc-heure">${co.heure}</div>
+        </div>
+        <div class="gc-body">
+          <div class="gc-selection" style="color:#c8942a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">#${top1.numero} <span style="font-size:16px">${top1.nom||''}</span></div>
+          <div class="gc-meta">
+            <span class="gc-badge">Gagnant : ${coteGagnant}</span>
+            <span class="gc-badge">Placé : ${cotePlacee}</span>
+          </div>
+        </div>
+      </div>`;
+    };
+
+    let html = `<div class="gc-refresh">
+      <span>🎗️ Placé Trot · ${coursesAvecTop1.length} courses · ${dateAffiche}</span>
+      <button onclick="calculerPlaceTrot()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:6px;padding:4px 10px;font-family:'Space Mono',monospace;cursor:pointer">↺</button>
+    </div>`;
+
+    const byR = {};
+    for (const co of coursesAvecTop1) {
+      if (!byR[co.r]) byR[co.r] = { lieu: co.lieu, courses: [] };
+      byR[co.r].courses.push(co);
+    }
+    for (const [rNum, rd] of Object.entries(byR)) {
+      html += `<div class="gc-reunion">R${rNum} · ${rd.lieu}</div>`;
+      for (const co of rd.courses) html += renderRow(co, resultatsParCourse[`${co.r}-${co.c}`]);
+    }
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Erreur : ${e.message}<br>
+    <button class="btn secondary" onclick="calculerPlaceTrot()" style="margin-top:12px;font-size:10px">↺ Réessayer</button>
+    </div>`;
+  }
 }
 
 // ══════════════════════════════════════════════════════════════════════════

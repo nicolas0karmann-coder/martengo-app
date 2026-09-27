@@ -4256,6 +4256,14 @@ function _disciplineAffichage(disc) {
   return 'ATTELÉ';
 }
 
+let _ajouerCache = null;
+let _ajouerTriParHeure = false;
+
+function toggleAjouerTri() {
+  _ajouerTriParHeure = !_ajouerTriParHeure;
+  if (_ajouerCache) _renderAjouer();
+}
+
 async function calculerAJouer() {
   const el = document.getElementById('ajouer-content');
   el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Recherche des paris valides du jour…</span></div>';
@@ -4323,97 +4331,115 @@ async function calculerAJouer() {
 
     await releaseWakeLock();
 
+    _ajouerCache = { paris, dateAffiche };
+
     if (!paris.length) {
       el.innerHTML = `<div class="empty"><div class="empty-icon">💰</div>Aucun pari ne remplit les conditions de la stratégie aujourd'hui
         <button class="btn secondary" onclick="calculerAJouer()" style="margin-top:16px;font-size:10px">↺ Réessayer</button></div>`;
       return;
     }
 
-    const fmtPct = v => (v===undefined || v===null || isNaN(v)) ? '—' : Math.round(v*100) + '%';
-    const couleurConf = v => {
-      if (v===undefined || v===null || isNaN(v)) return 'var(--text-dim)';
-      if (v >= 0.65) return '#2ecc71';
-      if (v >= 0.52) return '#c8942a';
-      return '#e74c3c';
-    };
-
-    const renderPari = (p) => {
-      const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${p.r}';document.getElementById('inp-course').value='${p.c}';chargerEtAnalyser();},100)`;
-      let lignes = `<div style="margin-top:6px">
-        <span style="font-size:10px;color:var(--text-dim)">Simple Placé</span><br>
-        <b style="font-size:15px">#${p.h1.numero} ${p.h1.nom||''}</b>
-        <span style="float:right;font-family:'Space Mono',monospace;font-weight:bold;color:${couleurConf(p.h1.confiance_individuelle)}">${fmtPct(p.h1.confiance_individuelle)}</span>
-      </div>`;
-      if (p.joueCP) {
-        lignes += `<div style="margin-top:8px">
-          <span style="font-size:10px;color:var(--text-dim)">+ Couplé Placé</span><br>
-          <b style="font-size:15px">#${p.h1.numero} + #${p.h2.numero} ${p.h2.nom||''}</b>
-          <span style="float:right;font-family:'Space Mono',monospace;font-weight:bold;color:${couleurConf(p.h2.confiance_individuelle)}">${fmtPct(p.h2.confiance_individuelle)}</span>
-        </div>`;
-      }
-      if (p.joueTrio) {
-        lignes += `<div style="margin-top:8px">
-          <span style="font-size:10px;color:var(--text-dim)">+ Trio</span><br>
-          <b style="font-size:15px">#${p.h1.numero} + #${p.h2.numero} + #${p.h3.numero} ${p.h3.nom||''}</b>
-          <span style="float:right;font-family:'Space Mono',monospace;font-weight:bold;color:${couleurConf(p.h3.confiance_individuelle)}">${fmtPct(p.h3.confiance_individuelle)}</span>
-        </div>`;
-      }
-      return `<div class="gc-card forte" onclick="${onclick}">
-        <div class="gc-left">
-          <div class="gc-course-num" style="color:${couleurConf(p.confCourse)}">R${p.r}C${p.c}</div>
-          <div class="gc-heure">${p.heure}</div>
-          <div style="margin-top:4px;font-family:'Space Mono',monospace;font-size:10px;font-weight:bold;color:${couleurConf(p.confCourse)}">${fmtPct(p.confCourse)}</div>
-        </div>
-        <div class="gc-body">
-          <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px">${_disciplineAffichage(p.disc)} · ${p.lieu}</div>
-          ${lignes}
-        </div>
-      </div>`;
-    };
-
-    let html = `<div class="gc-refresh">
-      <span>💰 À jouer · ${paris.length} course${paris.length>1?'s':''} · ${dateAffiche}</span>
-      <button onclick="calculerAJouer()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:6px;padding:4px 10px;font-family:'Space Mono',monospace;cursor:pointer">↺</button>
+    _renderAjouer();
+  } catch(e) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Erreur : ${e.message}<br>
+    <button class="btn secondary" onclick="calculerAJouer()" style="margin-top:12px;font-size:10px">↺ Réessayer</button>
     </div>`;
+  }
+}
 
-    const heureToMin = (h) => {
-      if (!h) return 9999;
-      const m = String(h).match(/(\d{1,2})[h:](\d{2})/);
-      if (!m) return 9999;
-      return parseInt(m[1],10)*60 + parseInt(m[2],10);
-    };
+function _renderAjouer() {
+  const el = document.getElementById('ajouer-content');
+  if (!_ajouerCache) return;
+  const { paris, dateAffiche } = _ajouerCache;
 
+  const fmtPct = v => (v===undefined || v===null || isNaN(v)) ? '—' : Math.round(v*100) + '%';
+  const couleurConf = v => {
+    if (v===undefined || v===null || isNaN(v)) return 'var(--text-dim)';
+    if (v >= 0.65) return '#2ecc71';
+    if (v >= 0.52) return '#c8942a';
+    return '#e74c3c';
+  };
+
+  const renderPari = (p) => {
+    const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${p.r}';document.getElementById('inp-course').value='${p.c}';chargerEtAnalyser();},100)`;
+    let lignes = `<div style="margin-top:6px">
+      <span style="font-size:10px;color:var(--text-dim)">Simple Placé</span><br>
+      <b style="font-size:15px">#${p.h1.numero} ${p.h1.nom||''}</b>
+      <span style="float:right;font-family:'Space Mono',monospace;font-weight:bold;color:${couleurConf(p.h1.confiance_individuelle)}">${fmtPct(p.h1.confiance_individuelle)}</span>
+    </div>`;
+    if (p.joueCP) {
+      lignes += `<div style="margin-top:8px">
+        <span style="font-size:10px;color:var(--text-dim)">+ Couplé Placé</span><br>
+        <b style="font-size:15px">#${p.h1.numero} + #${p.h2.numero} ${p.h2.nom||''}</b>
+        <span style="float:right;font-family:'Space Mono',monospace;font-weight:bold;color:${couleurConf(p.h2.confiance_individuelle)}">${fmtPct(p.h2.confiance_individuelle)}</span>
+      </div>`;
+    }
+    if (p.joueTrio) {
+      lignes += `<div style="margin-top:8px">
+        <span style="font-size:10px;color:var(--text-dim)">+ Trio</span><br>
+        <b style="font-size:15px">#${p.h1.numero} + #${p.h2.numero} + #${p.h3.numero} ${p.h3.nom||''}</b>
+        <span style="float:right;font-family:'Space Mono',monospace;font-weight:bold;color:${couleurConf(p.h3.confiance_individuelle)}">${fmtPct(p.h3.confiance_individuelle)}</span>
+      </div>`;
+    }
+    return `<div class="gc-card forte" onclick="${onclick}">
+      <div class="gc-left">
+        <div class="gc-course-num" style="color:${couleurConf(p.confCourse)}">R${p.r}C${p.c}</div>
+        <div class="gc-heure">${p.heure}</div>
+        <div style="margin-top:4px;font-family:'Space Mono',monospace;font-size:10px;font-weight:bold;color:${couleurConf(p.confCourse)}">${fmtPct(p.confCourse)}</div>
+      </div>
+      <div class="gc-body">
+        <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px">${_disciplineAffichage(p.disc)} · ${p.lieu}</div>
+        ${lignes}
+      </div>
+    </div>`;
+  };
+
+  let html = `<div class="gc-refresh">
+    <span>💰 À jouer · ${paris.length} course${paris.length>1?'s':''} · ${dateAffiche}</span>
+    <button onclick="calculerAJouer()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:6px;padding:4px 10px;font-family:'Space Mono',monospace;cursor:pointer">↺</button>
+  </div>`;
+
+  html += `<div style="display:flex;justify-content:flex-end;padding:0 0 10px">
+    <button onclick="toggleAjouerTri()" style="background:none;border:1px solid var(--border);color:#c8942a;border-radius:20px;padding:6px 14px;font-family:'Space Mono',monospace;font-size:10px;font-weight:bold;cursor:pointer;white-space:nowrap">
+      ${_ajouerTriParHeure ? '↕ Trier par réunion' : '🕒 Trier par heure de départ'}
+    </button>
+  </div>`;
+
+  const heureToMin = (h) => {
+    if (!h) return 9999;
+    const m = String(h).match(/(\d{1,2})[h:](\d{2})/);
+    if (!m) return 9999;
+    return parseInt(m[1],10)*60 + parseInt(m[2],10);
+  };
+
+  if (_ajouerTriParHeure) {
+    // Vue à plat : toutes les courses de toutes les réunions, triées par
+    // heure de départ réelle, sans regroupement par réunion.
+    const parisTries = [...paris].sort((a, b) => heureToMin(a.heure) - heureToMin(b.heure));
+    for (const p of parisTries) html += renderPari(p);
+  } else {
+    // Vue par défaut : groupée par réunion (ordre du programme), courses
+    // triées par numéro de course à l'intérieur de chaque réunion.
     const byR = {};
     for (const p of paris) {
       if (!byR[p.r]) byR[p.r] = { lieu: p.lieu, paris: [] };
       byR[p.r].paris.push(p);
     }
 
-    // Trie les courses par heure de départ à l'intérieur de chaque réunion,
-    // puis trie les réunions elles-mêmes selon l'heure de leur première
-    // course, pour que tout l'onglet suive un vrai fil chronologique.
-    for (const rd of Object.values(byR)) {
-      rd.paris.sort((a, b) => heureToMin(a.heure) - heureToMin(b.heure));
-    }
-    const reunionsTriees = Object.entries(byR).sort(([, a], [, b]) =>
-      heureToMin(a.paris[0].heure) - heureToMin(b.paris[0].heure));
-
     html += `<div style="display:flex;gap:6px;overflow-x:auto;padding:4px 0 12px;-webkit-overflow-scrolling:touch">
-      ${reunionsTriees.map(([rNum]) => `
+      ${Object.entries(byR).map(([rNum]) => `
         <button onclick="document.getElementById('ajouer-R${rNum}').scrollIntoView({behavior:'smooth',block:'start'})"
           style="flex-shrink:0;background:none;border:1px solid var(--border);color:#c8942a;border-radius:20px;padding:6px 14px;font-family:'Space Mono',monospace;font-size:11px;font-weight:bold;cursor:pointer;white-space:nowrap">R${rNum}</button>`).join('')}
     </div>`;
 
-    for (const [rNum, rd] of reunionsTriees) {
+    for (const [rNum, rd] of Object.entries(byR)) {
       html += `<div class="gc-reunion" id="ajouer-R${rNum}">R${rNum} · ${rd.lieu}</div>`;
-      for (const p of rd.paris) html += renderPari(p);
+      const parisTries = [...rd.paris].sort((a, b) => a.c - b.c);
+      for (const p of parisTries) html += renderPari(p);
     }
-    el.innerHTML = html;
-  } catch(e) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Erreur : ${e.message}<br>
-    <button class="btn secondary" onclick="calculerAJouer()" style="margin-top:12px;font-size:10px">↺ Réessayer</button>
-    </div>`;
   }
+
+  el.innerHTML = html;
 }
 
 // ══════════════════════════════════════════════════════════════════════════

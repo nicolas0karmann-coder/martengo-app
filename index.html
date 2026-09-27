@@ -4376,22 +4376,37 @@ async function calculerAJouer() {
       <button onclick="calculerAJouer()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:6px;padding:4px 10px;font-family:'Space Mono',monospace;cursor:pointer">↺</button>
     </div>`;
 
+    const heureToMin = (h) => {
+      if (!h) return 9999;
+      const m = String(h).match(/(\d{1,2})[h:](\d{2})/);
+      if (!m) return 9999;
+      return parseInt(m[1],10)*60 + parseInt(m[2],10);
+    };
+
     const byR = {};
     for (const p of paris) {
       if (!byR[p.r]) byR[p.r] = { lieu: p.lieu, paris: [] };
       byR[p.r].paris.push(p);
     }
 
+    // Trie les courses par heure de départ à l'intérieur de chaque réunion,
+    // puis trie les réunions elles-mêmes selon l'heure de leur première
+    // course, pour que tout l'onglet suive un vrai fil chronologique.
+    for (const rd of Object.values(byR)) {
+      rd.paris.sort((a, b) => heureToMin(a.heure) - heureToMin(b.heure));
+    }
+    const reunionsTriees = Object.entries(byR).sort(([, a], [, b]) =>
+      heureToMin(a.paris[0].heure) - heureToMin(b.paris[0].heure));
+
     html += `<div style="display:flex;gap:6px;overflow-x:auto;padding:4px 0 12px;-webkit-overflow-scrolling:touch">
-      ${Object.entries(byR).map(([rNum]) => `
+      ${reunionsTriees.map(([rNum]) => `
         <button onclick="document.getElementById('ajouer-R${rNum}').scrollIntoView({behavior:'smooth',block:'start'})"
           style="flex-shrink:0;background:none;border:1px solid var(--border);color:#c8942a;border-radius:20px;padding:6px 14px;font-family:'Space Mono',monospace;font-size:11px;font-weight:bold;cursor:pointer;white-space:nowrap">R${rNum}</button>`).join('')}
     </div>`;
 
-    for (const [rNum, rd] of Object.entries(byR)) {
+    for (const [rNum, rd] of reunionsTriees) {
       html += `<div class="gc-reunion" id="ajouer-R${rNum}">R${rNum} · ${rd.lieu}</div>`;
-      const parisTries = [...rd.paris].sort((a, b) => a.c - b.c);
-      for (const p of parisTries) html += renderPari(p);
+      for (const p of rd.paris) html += renderPari(p);
     }
     el.innerHTML = html;
   } catch(e) {

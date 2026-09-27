@@ -316,6 +316,7 @@ input[readonly]{opacity:.5;cursor:default}
     <button class="nav-btn" onclick="goTo('placetrot')" id="tab-placetrot"><span class="nav-icon">🎗️</span>Placé Trot</button>
     <button class="nav-btn" onclick="goTo('platconfiance')" id="tab-platconfiance"><span class="nav-icon">🎯</span>Plat Confiance</button>
     <button class="nav-btn" onclick="goTo('trotconfiance')" id="tab-trotconfiance"><span class="nav-icon">🎯</span>Trot Confiance</button>
+    <button class="nav-btn" onclick="goTo('ajouer')" id="tab-ajouer"><span class="nav-icon">💰</span>À jouer</button>
   </nav>
 
   <div id="screens-wrapper">
@@ -606,6 +607,23 @@ input[readonly]{opacity:.5;cursor:default}
       </div>
     </div>
 
+    <!-- À JOUER — ne montre que les courses où la stratégie de paris
+         validée se déclenche (Simple Placé, + Couplé Placé, + Trio si
+         les seuils individuels sont franchis), toutes disciplines. -->
+    <div class="screen" id="screen-ajouer">
+      <div id="ajouer-content">
+        <div class="empty">
+          <div class="empty-icon">💰</div>
+          Uniquement les courses où la stratégie validée se déclenche<br>
+          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
+            PLAT (65%) · ATTELÉ (70%) · MONTÉ (70%, seuil non backtesté séparément)<br>
+            Simple Placé toujours ; + Couplé Placé et + Trio si les choix suivants passent aussi le seuil
+          </small>
+          <button class="btn full" onclick="calculerAJouer()" style="margin-top:16px;font-size:11px">Calculer →</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 <div id="toast"></div>
@@ -621,7 +639,7 @@ async function fetchAPI(path, options = {}) {
   return r;
 }
 const LS_SAISIE = 'martengo_v3', LS_HIST = 'martengo_hist';
-const SCREENS = ['saisie','selections','analyse','conseil','bestsimple','safe','safeplat','safeplus','offensif','trio','trioall','pro','prosa','couple','gagnantplat','gagnanttrot','stats','placetrot','platconfiance','trotconfiance'];
+const SCREENS = ['saisie','selections','analyse','conseil','bestsimple','safe','safeplat','safeplus','offensif','trio','trioall','pro','prosa','couple','gagnantplat','gagnanttrot','stats','placetrot','platconfiance','trotconfiance','ajouer'];
 
 let chevaux = [], predictions = null, notesPMU = {}, notesPMUData = null;
 let currentDate = '', horseCounter = 0, apiPrete = false, currentScreen = 'saisie';
@@ -4210,6 +4228,168 @@ async function calculerTrotConfiance() {
   } catch(e) {
     el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Erreur : ${e.message}<br>
     <button class="btn secondary" onclick="calculerTrotConfiance()" style="margin-top:12px;font-size:10px">↺ Réessayer</button>
+    </div>`;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// À JOUER — n'affiche que les courses où la stratégie de paris validée se
+// déclenche (Simple Placé, + Couplé Placé, + Trio en cascade), toutes
+// disciplines (PLAT, ATTELÉ, MONTÉ). Seuils validés en backtest multi-
+// semaines pour PLAT (65%) et ATTELÉ (70%) — le seuil MONTÉ (70%) est
+// réutilisé par analogie avec ATTELÉ (même structure sans handicap),
+// PAS backtesté séparément à ce stade.
+// ══════════════════════════════════════════════════════════════════════════
+
+const SEUILS_STRATEGIE = {
+  PLAT:   { indiv: 0.65, course: 0.60 },
+  ATTELE: { indiv: 0.70, course: 0.60 },
+  MONTE:  { indiv: 0.70, course: 0.60 },  // seuil non backtesté séparément
+};
+
+function _disciplineAffichage(disc) {
+  if (disc === 'PLAT') return 'PLAT';
+  if (disc === 'MONTE') return 'MONTÉ';
+  return 'ATTELÉ';
+}
+
+async function calculerAJouer() {
+  const el = document.getElementById('ajouer-content');
+  el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Recherche des paris valides du jour…</span></div>';
+  await acquireWakeLock();
+
+  const today = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
+  const dateAffiche = pad(today.getDate()) + '/' + pad(today.getMonth()+1) + '/' + today.getFullYear();
+
+  try {
+    const resp = await fetch(`${API_URL_PRIMARY}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
+    if (!resp.ok) throw new Error('Programme indisponible (' + resp.status + ')');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    const courses = (data.courses || [])
+      .filter(c => ['PLAT','ATTELE','TROT_ATTELE','MONTE'].includes(c.disc))
+      .map(c => ({ r: c.r_num, c: c.c_num, lieu: c.lieu, heure: c.heure,
+                   disc: c.disc === 'TROT_ATTELE' ? 'ATTELE' : c.disc }));
+
+    if (!courses.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">💰</div>Aucune course trouvée aujourd\'hui</div>';
+      await releaseWakeLock();
+      return;
+    }
+
+    const paris = [];
+    const total = courses.length;
+    let loaded = 0;
+    const updateProgress = () => {
+      const pct = Math.round(loaded/total*100);
+      el.innerHTML = `<div class="dash-progress">
+        Analyse… ${loaded}/${total} courses (${pct}%)
+        <div class="dash-progress-bar"><div class="dash-progress-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    };
+    updateProgress();
+
+    for (let i=0; i<courses.length; i+=5) {
+      await Promise.all(courses.slice(i,i+5).map(async co => {
+        try {
+          const r = await fetch(`${API_URL_PRIMARY}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
+          if (r.ok) {
+            const d = await r.json();
+            const top3 = (d?.chevaux || []).slice(0, 3);
+            const seuils = SEUILS_STRATEGIE[co.disc] || SEUILS_STRATEGIE.ATTELE;
+            const confCourse = d.confiance_proba;
+            const porteOuverte = confCourse !== undefined && confCourse !== null && confCourse >= seuils.course;
+            const h1 = top3[0], h2 = top3[1], h3 = top3[2];
+
+            const joueSP   = porteOuverte && h1?.confiance_individuelle != null && h1.confiance_individuelle >= seuils.indiv;
+            const joueCP   = joueSP && h2?.confiance_individuelle != null && h2.confiance_individuelle >= seuils.indiv;
+            const joueTrio = joueCP && h3?.confiance_individuelle != null && h3.confiance_individuelle >= seuils.indiv;
+
+            if (joueSP) {
+              paris.push({ ...co, confCourse, h1, h2, h3, joueSP, joueCP, joueTrio });
+            }
+          }
+        } catch(e) {}
+        loaded++;
+        updateProgress();
+      }));
+    }
+
+    await releaseWakeLock();
+
+    if (!paris.length) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">💰</div>Aucun pari ne remplit les conditions de la stratégie aujourd'hui
+        <button class="btn secondary" onclick="calculerAJouer()" style="margin-top:16px;font-size:10px">↺ Réessayer</button></div>`;
+      return;
+    }
+
+    const fmtPct = v => (v===undefined || v===null || isNaN(v)) ? '—' : Math.round(v*100) + '%';
+    const couleurConf = v => {
+      if (v===undefined || v===null || isNaN(v)) return 'var(--text-dim)';
+      if (v >= 0.65) return '#2ecc71';
+      if (v >= 0.52) return '#c8942a';
+      return '#e74c3c';
+    };
+
+    const renderPari = (p) => {
+      const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${p.r}';document.getElementById('inp-course').value='${p.c}';chargerEtAnalyser();},100)`;
+      let lignes = `<div style="font-size:13px;margin-top:6px">
+        <b>Simple Placé</b> : #${p.h1.numero} ${p.h1.nom||''}
+        <span style="float:right;font-family:'Space Mono',monospace;font-weight:bold;color:${couleurConf(p.h1.confiance_individuelle)}">${fmtPct(p.h1.confiance_individuelle)}</span>
+      </div>`;
+      if (p.joueCP) {
+        lignes += `<div style="font-size:13px;margin-top:4px">
+          <b>+ Couplé Placé</b> : #${p.h1.numero} + #${p.h2.numero} ${p.h2.nom||''}
+          <span style="float:right;font-family:'Space Mono',monospace;font-weight:bold;color:${couleurConf(p.h2.confiance_individuelle)}">${fmtPct(p.h2.confiance_individuelle)}</span>
+        </div>`;
+      }
+      if (p.joueTrio) {
+        lignes += `<div style="font-size:13px;margin-top:4px">
+          <b>+ Trio</b> : #${p.h1.numero} + #${p.h2.numero} + #${p.h3.numero} ${p.h3.nom||''}
+          <span style="float:right;font-family:'Space Mono',monospace;font-weight:bold;color:${couleurConf(p.h3.confiance_individuelle)}">${fmtPct(p.h3.confiance_individuelle)}</span>
+        </div>`;
+      }
+      return `<div class="gc-card forte" onclick="${onclick}">
+        <div class="gc-left">
+          <div class="gc-course-num" style="color:${couleurConf(p.confCourse)}">R${p.r}C${p.c}</div>
+          <div class="gc-heure">${p.heure}</div>
+          <div style="margin-top:4px;font-family:'Space Mono',monospace;font-size:10px;font-weight:bold;color:${couleurConf(p.confCourse)}">${fmtPct(p.confCourse)}</div>
+        </div>
+        <div class="gc-body">
+          <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px">${_disciplineAffichage(p.disc)} · ${p.lieu}</div>
+          ${lignes}
+        </div>
+      </div>`;
+    };
+
+    let html = `<div class="gc-refresh">
+      <span>💰 À jouer · ${paris.length} course${paris.length>1?'s':''} · ${dateAffiche}</span>
+      <button onclick="calculerAJouer()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:6px;padding:4px 10px;font-family:'Space Mono',monospace;cursor:pointer">↺</button>
+    </div>`;
+
+    const byR = {};
+    for (const p of paris) {
+      if (!byR[p.r]) byR[p.r] = { lieu: p.lieu, paris: [] };
+      byR[p.r].paris.push(p);
+    }
+
+    html += `<div style="display:flex;gap:6px;overflow-x:auto;padding:4px 0 12px;-webkit-overflow-scrolling:touch">
+      ${Object.entries(byR).map(([rNum]) => `
+        <button onclick="document.getElementById('ajouer-R${rNum}').scrollIntoView({behavior:'smooth',block:'start'})"
+          style="flex-shrink:0;background:none;border:1px solid var(--border);color:#c8942a;border-radius:20px;padding:6px 14px;font-family:'Space Mono',monospace;font-size:11px;font-weight:bold;cursor:pointer;white-space:nowrap">R${rNum}</button>`).join('')}
+    </div>`;
+
+    for (const [rNum, rd] of Object.entries(byR)) {
+      html += `<div class="gc-reunion" id="ajouer-R${rNum}">R${rNum} · ${rd.lieu}</div>`;
+      for (const p of rd.paris) html += renderPari(p);
+    }
+    el.innerHTML = html;
+  } catch(e) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Erreur : ${e.message}<br>
+    <button class="btn secondary" onclick="calculerAJouer()" style="margin-top:12px;font-size:10px">↺ Réessayer</button>
     </div>`;
   }
 }

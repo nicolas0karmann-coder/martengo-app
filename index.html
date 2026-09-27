@@ -317,6 +317,7 @@ input[readonly]{opacity:.5;cursor:default}
     <button class="nav-btn" onclick="goTo('platconfiance')" id="tab-platconfiance"><span class="nav-icon">🎯</span>Plat Confiance</button>
     <button class="nav-btn" onclick="goTo('trotconfiance')" id="tab-trotconfiance"><span class="nav-icon">🎯</span>Trot Confiance</button>
     <button class="nav-btn" onclick="goTo('ajouer')" id="tab-ajouer"><span class="nav-icon">💰</span>À jouer</button>
+    <button class="nav-btn" onclick="goTo('ajouersafe')" id="tab-ajouersafe"><span class="nav-icon">🛡️</span>À jouer Safe</button>
   </nav>
 
   <div id="screens-wrapper">
@@ -624,6 +625,24 @@ input[readonly]{opacity:.5;cursor:default}
       </div>
     </div>
 
+    <!-- À JOUER SAFE — même logique que "À jouer", mais avec des seuils
+         individuels plus élevés pour le 1er choix (validés en backtest,
+         sept. 2026), le seuil du 2e/3e choix restant inchangé pour ne
+         pas sacrifier le volume de Couplé Placé / Trio. -->
+    <div class="screen" id="screen-ajouersafe">
+      <div id="ajouersafe-content">
+        <div class="empty">
+          <div class="empty-icon">🛡️</div>
+          Version plus sélective de "À jouer" — seuil du 1er choix relevé<br>
+          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
+            PLAT (70%) · ATTELÉ (75%) · MONTÉ (70%)<br>
+            Le 2e choix (Couplé Placé) et le 3e choix (Trio) restent au seuil d'origine
+          </small>
+          <button class="btn full" onclick="calculerAJouerSafe()" style="margin-top:16px;font-size:11px">Calculer →</button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </div>
 <div id="toast"></div>
@@ -639,7 +658,7 @@ async function fetchAPI(path, options = {}) {
   return r;
 }
 const LS_SAISIE = 'martengo_v3', LS_HIST = 'martengo_hist';
-const SCREENS = ['saisie','selections','analyse','conseil','bestsimple','safe','safeplat','safeplus','offensif','trio','trioall','pro','prosa','couple','gagnantplat','gagnanttrot','stats','placetrot','platconfiance','trotconfiance','ajouer'];
+const SCREENS = ['saisie','selections','analyse','conseil','bestsimple','safe','safeplat','safeplus','offensif','trio','trioall','pro','prosa','couple','gagnantplat','gagnanttrot','stats','placetrot','platconfiance','trotconfiance','ajouer','ajouersafe'];
 
 let chevaux = [], predictions = null, notesPMU = {}, notesPMUData = null;
 let currentDate = '', horseCounter = 0, apiPrete = false, currentScreen = 'saisie';
@@ -4250,6 +4269,25 @@ const SEUILS_STRATEGIE = {
   MONTE:  { indiv: 0.70, course: 0.60 },  // seuil non backtesté séparément
 };
 
+// Seuils "Safe" — validés en backtest walk-forward (6 semaines glissantes,
+// sept. 2026) : seuil du 1er choix (Simple Placé) relevé pour améliorer la
+// réussite, seuil du 2e/3e choix (indiv2) laissé inchangé pour ne pas
+// sacrifier le volume de Couplé Placé / Trio (les deux cascadaient sur le
+// même seuil dans la version "À jouer" d'origine).
+//   PLAT   : indiv 65%→70% (course 60% inchangé) — 122 paris, 73.8% (vs 65.2%)
+//   ATTELÉ : indiv1 70%→75%, indiv2 reste 70% (course 60% inchangé pour le SP)
+//            — SP 312 paris/83.0% (vs 78.8%), CP quasi intact (69 vs 71 paris)
+//            Pour le Couplé Placé spécifiquement, seuil course relevé à 65%
+//            (courseCP) : le CP n'est proposé que si la course elle-même
+//            passe ce seuil plus strict, en plus du seuil indiv2.
+//   MONTÉ  : inchangé — le filtre ne discrimine rien à date (voir le
+//            backtest sweep MONTÉ, seuil non-bloquant jusqu'à 80%)
+const SEUILS_STRATEGIE_SAFE = {
+  PLAT:   { indiv: 0.70, indiv2: 0.70, course: 0.60 },
+  ATTELE: { indiv: 0.75, indiv2: 0.70, course: 0.60, courseCP: 0.65 },
+  MONTE:  { indiv: 0.70, indiv2: 0.70, course: 0.60 },
+};
+
 function _disciplineAffichage(disc) {
   if (disc === 'PLAT') return 'PLAT';
   if (disc === 'MONTE') return 'MONTÉ';
@@ -4312,6 +4350,7 @@ async function calculerAJouer() {
             const top3 = (d?.chevaux || []).slice(0, 3);
             const seuils = SEUILS_STRATEGIE[co.disc] || SEUILS_STRATEGIE.ATTELE;
             const confCourse = d.confiance_proba;
+            const nbPartants = d?.chevaux?.length || null;
             const porteOuverte = confCourse !== undefined && confCourse !== null && confCourse >= seuils.course;
             const h1 = top3[0], h2 = top3[1], h3 = top3[2];
 
@@ -4320,7 +4359,7 @@ async function calculerAJouer() {
             const joueTrio = joueCP && h3?.confiance_individuelle != null && h3.confiance_individuelle >= seuils.indiv;
 
             if (joueSP) {
-              paris.push({ ...co, confCourse, h1, h2, h3, joueSP, joueCP, joueTrio });
+              paris.push({ ...co, confCourse, nbPartants, h1, h2, h3, joueSP, joueCP, joueTrio });
             }
           }
         } catch(e) {}
@@ -4386,6 +4425,7 @@ function _renderAjouer() {
         <div class="gc-course-num" style="color:${couleurConf(p.confCourse)}">R${p.r}C${p.c}</div>
         <div class="gc-heure">${p.heure}</div>
         <div style="margin-top:4px;font-family:'Space Mono',monospace;font-size:10px;font-weight:bold;color:${couleurConf(p.confCourse)}">${fmtPct(p.confCourse)}</div>
+        <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">${p.nbPartants ? p.nbPartants+'p' : '—'}</div>
       </div>
       <div class="gc-body">
         <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px">${_disciplineAffichage(p.disc)} · ${p.lieu}</div>
@@ -4434,6 +4474,202 @@ function _renderAjouer() {
 
     for (const [rNum, rd] of Object.entries(byR)) {
       html += `<div class="gc-reunion" id="ajouer-R${rNum}">R${rNum} · ${rd.lieu}</div>`;
+      const parisTries = [...rd.paris].sort((a, b) => a.c - b.c);
+      for (const p of parisTries) html += renderPari(p);
+    }
+  }
+
+  el.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// À JOUER SAFE — copie indépendante de "À jouer" (l'onglet d'origine n'est
+// pas modifié), utilisant SEUILS_STRATEGIE_SAFE : seuil du 1er choix relevé,
+// seuil du 2e/3e choix (indiv2) laissé au niveau d'origine.
+// ══════════════════════════════════════════════════════════════════════════
+
+let _ajouerSafeCache = null;
+let _ajouerSafeTriParHeure = false;
+
+function toggleAjouerSafeTri() {
+  _ajouerSafeTriParHeure = !_ajouerSafeTriParHeure;
+  if (_ajouerSafeCache) _renderAjouerSafe();
+}
+
+async function calculerAJouerSafe() {
+  const el = document.getElementById('ajouersafe-content');
+  el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Recherche des paris valides du jour…</span></div>';
+  await acquireWakeLock();
+
+  const today = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const dateStr = pad(today.getDate()) + pad(today.getMonth()+1) + today.getFullYear();
+  const dateAffiche = pad(today.getDate()) + '/' + pad(today.getMonth()+1) + '/' + today.getFullYear();
+
+  try {
+    const resp = await fetch(`${API_URL_PRIMARY}/programme?date=${dateStr}`, {signal: AbortSignal.timeout(30000)});
+    if (!resp.ok) throw new Error('Programme indisponible (' + resp.status + ')');
+    const data = await resp.json();
+    if (data.error) throw new Error(data.error);
+
+    const courses = (data.courses || [])
+      .filter(c => ['PLAT','ATTELE','TROT_ATTELE','MONTE'].includes(c.disc))
+      .map(c => ({ r: c.r_num, c: c.c_num, lieu: c.lieu, heure: c.heure,
+                   disc: c.disc === 'TROT_ATTELE' ? 'ATTELE' : c.disc }));
+
+    if (!courses.length) {
+      el.innerHTML = '<div class="empty"><div class="empty-icon">🛡️</div>Aucune course trouvée aujourd\'hui</div>';
+      await releaseWakeLock();
+      return;
+    }
+
+    const paris = [];
+    const total = courses.length;
+    let loaded = 0;
+    const updateProgress = () => {
+      const pct = Math.round(loaded/total*100);
+      el.innerHTML = `<div class="dash-progress">
+        Analyse… ${loaded}/${total} courses (${pct}%)
+        <div class="dash-progress-bar"><div class="dash-progress-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    };
+    updateProgress();
+
+    for (let i=0; i<courses.length; i+=5) {
+      await Promise.all(courses.slice(i,i+5).map(async co => {
+        try {
+          const r = await fetch(`${API_URL_PRIMARY}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`);
+          if (r.ok) {
+            const d = await r.json();
+            const top3 = (d?.chevaux || []).slice(0, 3);
+            const seuils = SEUILS_STRATEGIE_SAFE[co.disc] || SEUILS_STRATEGIE_SAFE.ATTELE;
+            const confCourse = d.confiance_proba;
+            const nbPartants = d?.chevaux?.length || null;
+            const porteOuverte = confCourse !== undefined && confCourse !== null && confCourse >= seuils.course;
+            const h1 = top3[0], h2 = top3[1], h3 = top3[2];
+            const seuilIndiv2 = seuils.indiv2 != null ? seuils.indiv2 : seuils.indiv;
+            // Seuil course dédié au Couplé Placé (plus strict que celui du SP
+            // si défini pour la discipline) : la porte du CP ne s'ouvre que si
+            // la confiance course dépasse ce seuil, en plus du seuil indiv2.
+            const seuilCourseCP = seuils.courseCP != null ? seuils.courseCP : seuils.course;
+            const porteOuverteCP = confCourse !== undefined && confCourse !== null && confCourse >= seuilCourseCP;
+
+            const joueSP   = porteOuverte && h1?.confiance_individuelle != null && h1.confiance_individuelle >= seuils.indiv;
+            const joueCP   = joueSP && porteOuverteCP && h2?.confiance_individuelle != null && h2.confiance_individuelle >= seuilIndiv2;
+            const joueTrio = joueCP && h3?.confiance_individuelle != null && h3.confiance_individuelle >= seuilIndiv2;
+
+            if (joueSP) {
+              paris.push({ ...co, confCourse, nbPartants, h1, h2, h3, joueSP, joueCP, joueTrio });
+            }
+          }
+        } catch(e) {}
+        loaded++;
+        updateProgress();
+      }));
+    }
+
+    await releaseWakeLock();
+
+    _ajouerSafeCache = { paris, dateAffiche };
+
+    if (!paris.length) {
+      el.innerHTML = `<div class="empty"><div class="empty-icon">🛡️</div>Aucun pari ne remplit les conditions de la stratégie aujourd'hui
+        <button class="btn secondary" onclick="calculerAJouerSafe()" style="margin-top:16px;font-size:10px">↺ Réessayer</button></div>`;
+      return;
+    }
+
+    _renderAjouerSafe();
+  } catch(e) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>Erreur : ${e.message}<br>
+    <button class="btn secondary" onclick="calculerAJouerSafe()" style="margin-top:12px;font-size:10px">↺ Réessayer</button>
+    </div>`;
+  }
+}
+
+function _renderAjouerSafe() {
+  const el = document.getElementById('ajouersafe-content');
+  if (!_ajouerSafeCache) return;
+  const { paris, dateAffiche } = _ajouerSafeCache;
+
+  const fmtPct = v => (v===undefined || v===null || isNaN(v)) ? '—' : Math.round(v*100) + '%';
+  const couleurConf = v => {
+    if (v===undefined || v===null || isNaN(v)) return 'var(--text-dim)';
+    if (v >= 0.65) return '#2ecc71';
+    if (v >= 0.52) return '#c8942a';
+    return '#e74c3c';
+  };
+
+  const renderPari = (p) => {
+    const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${p.r}';document.getElementById('inp-course').value='${p.c}';chargerEtAnalyser();},100)`;
+    let lignes = `<div style="margin-top:6px">
+      <span style="font-size:10px;color:var(--text-dim)">Simple Placé</span><br>
+      <b style="font-size:15px">#${p.h1.numero} ${p.h1.nom||''}</b>
+      <span style="float:right;font-family:'Space Mono',monospace;font-weight:bold;color:${couleurConf(p.h1.confiance_individuelle)}">${fmtPct(p.h1.confiance_individuelle)}</span>
+    </div>`;
+    if (p.joueCP) {
+      lignes += `<div style="margin-top:8px">
+        <span style="font-size:10px;color:var(--text-dim)">+ Couplé Placé</span><br>
+        <b style="font-size:15px">#${p.h1.numero} + #${p.h2.numero} ${p.h2.nom||''}</b>
+        <span style="float:right;font-family:'Space Mono',monospace;font-weight:bold;color:${couleurConf(p.h2.confiance_individuelle)}">${fmtPct(p.h2.confiance_individuelle)}</span>
+      </div>`;
+    }
+    if (p.joueTrio) {
+      lignes += `<div style="margin-top:8px">
+        <span style="font-size:10px;color:var(--text-dim)">+ Trio</span><br>
+        <b style="font-size:15px">#${p.h1.numero} + #${p.h2.numero} + #${p.h3.numero} ${p.h3.nom||''}</b>
+        <span style="float:right;font-family:'Space Mono',monospace;font-weight:bold;color:${couleurConf(p.h3.confiance_individuelle)}">${fmtPct(p.h3.confiance_individuelle)}</span>
+      </div>`;
+    }
+    return `<div class="gc-card forte" onclick="${onclick}">
+      <div class="gc-left">
+        <div class="gc-course-num" style="color:${couleurConf(p.confCourse)}">R${p.r}C${p.c}</div>
+        <div class="gc-heure">${p.heure}</div>
+        <div style="margin-top:4px;font-family:'Space Mono',monospace;font-size:10px;font-weight:bold;color:${couleurConf(p.confCourse)}">${fmtPct(p.confCourse)}</div>
+        <div style="font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim)">${p.nbPartants ? p.nbPartants+'p' : '—'}</div>
+      </div>
+      <div class="gc-body">
+        <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);letter-spacing:1px">${_disciplineAffichage(p.disc)} · ${p.lieu}</div>
+        ${lignes}
+      </div>
+    </div>`;
+  };
+
+  let html = `<div class="gc-refresh">
+    <span>🛡️ À jouer Safe · ${paris.length} course${paris.length>1?'s':''} · ${dateAffiche}</span>
+    <button onclick="calculerAJouerSafe()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:6px;padding:4px 10px;font-family:'Space Mono',monospace;cursor:pointer">↺</button>
+  </div>`;
+
+  html += `<div style="display:flex;justify-content:flex-end;padding:0 0 10px">
+    <button onclick="toggleAjouerSafeTri()" style="background:none;border:1px solid var(--border);color:#c8942a;border-radius:20px;padding:6px 14px;font-family:'Space Mono',monospace;font-size:10px;font-weight:bold;cursor:pointer;white-space:nowrap">
+      ${_ajouerSafeTriParHeure ? '↕ Trier par réunion' : '🕒 Trier par heure de départ'}
+    </button>
+  </div>`;
+
+  const heureToMin = (h) => {
+    if (!h) return 9999;
+    const m = String(h).match(/(\d{1,2})[h:](\d{2})/);
+    if (!m) return 9999;
+    return parseInt(m[1],10)*60 + parseInt(m[2],10);
+  };
+
+  if (_ajouerSafeTriParHeure) {
+    const parisTries = [...paris].sort((a, b) => heureToMin(a.heure) - heureToMin(b.heure));
+    for (const p of parisTries) html += renderPari(p);
+  } else {
+    const byR = {};
+    for (const p of paris) {
+      if (!byR[p.r]) byR[p.r] = { lieu: p.lieu, paris: [] };
+      byR[p.r].paris.push(p);
+    }
+
+    html += `<div style="display:flex;gap:6px;overflow-x:auto;padding:4px 0 12px;-webkit-overflow-scrolling:touch">
+      ${Object.entries(byR).map(([rNum]) => `
+        <button onclick="document.getElementById('ajouersafe-R${rNum}').scrollIntoView({behavior:'smooth',block:'start'})"
+          style="flex-shrink:0;background:none;border:1px solid var(--border);color:#c8942a;border-radius:20px;padding:6px 14px;font-family:'Space Mono',monospace;font-size:11px;font-weight:bold;cursor:pointer;white-space:nowrap">R${rNum}</button>`).join('')}
+    </div>`;
+
+    for (const [rNum, rd] of Object.entries(byR)) {
+      html += `<div class="gc-reunion" id="ajouersafe-R${rNum}">R${rNum} · ${rd.lieu}</div>`;
       const parisTries = [...rd.paris].sort((a, b) => a.c - b.c);
       for (const p of parisTries) html += renderPari(p);
     }

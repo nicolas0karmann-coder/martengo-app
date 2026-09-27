@@ -3943,7 +3943,8 @@ async function calculerPlaceTrot() {
     }
     for (const [rNum, rd] of Object.entries(byR)) {
       html += `<div class="gc-reunion">R${rNum} · ${rd.lieu}</div>`;
-      for (const co of rd.courses) html += renderRow(co, resultatsParCourse[`${co.r}-${co.c}`]);
+      const coursesTriees = [...rd.courses].sort((a, b) => a.c - b.c);
+      for (const co of coursesTriees) html += renderRow(co, resultatsParCourse[`${co.r}-${co.c}`]);
     }
     el.innerHTML = html;
   } catch(e) {
@@ -4085,7 +4086,8 @@ async function calculerPlatConfiance() {
 
     for (const [rNum, rd] of Object.entries(byR)) {
       html += `<div class="gc-reunion" id="platconf-R${rNum}">R${rNum} · ${rd.lieu}</div>`;
-      for (const co of rd.courses) html += renderRow(co, resultatsParCourse[`${co.r}-${co.c}`]);
+      const coursesTriees = [...rd.courses].sort((a, b) => a.c - b.c);
+      for (const co of coursesTriees) html += renderRow(co, resultatsParCourse[`${co.r}-${co.c}`]);
     }
     el.innerHTML = html;
   } catch(e) {
@@ -4222,7 +4224,8 @@ async function calculerTrotConfiance() {
 
     for (const [rNum, rd] of Object.entries(byR)) {
       html += `<div class="gc-reunion" id="trotconf-R${rNum}">R${rNum} · ${rd.lieu}</div>`;
-      for (const co of rd.courses) html += renderRow(co, resultatsParCourse[`${co.r}-${co.c}`]);
+      const coursesTriees = [...rd.courses].sort((a, b) => a.c - b.c);
+      for (const co of coursesTriees) html += renderRow(co, resultatsParCourse[`${co.r}-${co.c}`]);
     }
     el.innerHTML = html;
   } catch(e) {
@@ -4336,19 +4339,22 @@ async function calculerAJouer() {
 
     const renderPari = (p) => {
       const onclick = `goTo('saisie');setTimeout(()=>{document.getElementById('inp-reunion').value='${p.r}';document.getElementById('inp-course').value='${p.c}';chargerEtAnalyser();},100)`;
-      let lignes = `<div style="font-size:13px;margin-top:6px">
-        <b>Simple Placé</b> : #${p.h1.numero} ${p.h1.nom||''}
+      let lignes = `<div style="margin-top:6px">
+        <span style="font-size:10px;color:var(--text-dim)">Simple Placé</span><br>
+        <b style="font-size:15px">#${p.h1.numero} ${p.h1.nom||''}</b>
         <span style="float:right;font-family:'Space Mono',monospace;font-weight:bold;color:${couleurConf(p.h1.confiance_individuelle)}">${fmtPct(p.h1.confiance_individuelle)}</span>
       </div>`;
       if (p.joueCP) {
-        lignes += `<div style="font-size:13px;margin-top:4px">
-          <b>+ Couplé Placé</b> : #${p.h1.numero} + #${p.h2.numero} ${p.h2.nom||''}
+        lignes += `<div style="margin-top:8px">
+          <span style="font-size:10px;color:var(--text-dim)">+ Couplé Placé</span><br>
+          <b style="font-size:15px">#${p.h1.numero} + #${p.h2.numero} ${p.h2.nom||''}</b>
           <span style="float:right;font-family:'Space Mono',monospace;font-weight:bold;color:${couleurConf(p.h2.confiance_individuelle)}">${fmtPct(p.h2.confiance_individuelle)}</span>
         </div>`;
       }
       if (p.joueTrio) {
-        lignes += `<div style="font-size:13px;margin-top:4px">
-          <b>+ Trio</b> : #${p.h1.numero} + #${p.h2.numero} + #${p.h3.numero} ${p.h3.nom||''}
+        lignes += `<div style="margin-top:8px">
+          <span style="font-size:10px;color:var(--text-dim)">+ Trio</span><br>
+          <b style="font-size:15px">#${p.h1.numero} + #${p.h2.numero} + #${p.h3.numero} ${p.h3.nom||''}</b>
           <span style="float:right;font-family:'Space Mono',monospace;font-weight:bold;color:${couleurConf(p.h3.confiance_individuelle)}">${fmtPct(p.h3.confiance_individuelle)}</span>
         </div>`;
       }
@@ -4384,7 +4390,8 @@ async function calculerAJouer() {
 
     for (const [rNum, rd] of Object.entries(byR)) {
       html += `<div class="gc-reunion" id="ajouer-R${rNum}">R${rNum} · ${rd.lieu}</div>`;
-      for (const p of rd.paris) html += renderPari(p);
+      const parisTries = [...rd.paris].sort((a, b) => a.c - b.c);
+      for (const p of parisTries) html += renderPari(p);
     }
     el.innerHTML = html;
   } catch(e) {

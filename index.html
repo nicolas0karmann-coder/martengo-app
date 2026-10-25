@@ -107,6 +107,37 @@ html,body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;f
 .bs-cheval-ligne3 b{color:var(--text);font-size:13px}
 .gc-badge.partants-ok{background:rgba(58,145,98,.15);color:#3a9162;font-weight:700}
 .gc-badge.partants-off{background:var(--bg3);color:var(--text-dim)}
+
+/* GRILLE D'ANALYSE */
+.grille-intro{padding:14px 16px 10px;border-bottom:1px solid var(--border)}
+.grille-intro-title{font-family:'Bebas Neue',sans-serif;font-size:19px;letter-spacing:1px;color:var(--gold)}
+.grille-intro-sub{font-family:'Space Mono',monospace;font-size:10.5px;color:var(--text-dim);line-height:1.6;margin-top:6px}
+.grille-criteres{display:flex;gap:8px;overflow-x:auto;padding:12px 16px;border-bottom:1px solid var(--border);-webkit-overflow-scrolling:touch}
+.grille-crit-card{flex:0 0 118px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px}
+.grille-crit-icon{font-size:16px}
+.grille-crit-nom{font-family:'Space Mono',monospace;font-size:9.5px;font-weight:700;color:var(--text);margin-top:4px;letter-spacing:.5px}
+.grille-crit-desc{font-size:9.5px;color:var(--text-dim);margin-top:4px;line-height:1.4}
+.grille-crit-max{font-family:'Space Mono',monospace;font-size:8.5px;color:var(--text-dim);margin-top:6px}
+.grille-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+.grille-table{width:100%;border-collapse:collapse;font-family:'Space Mono',monospace;font-size:9.5px}
+.grille-table th{padding:8px 6px;text-align:center;color:var(--text-dim);background:var(--bg2);border-bottom:1px solid var(--border);white-space:nowrap;font-weight:700;letter-spacing:.3px}
+.grille-table td{padding:7px 6px;text-align:center;border-bottom:1px solid var(--border);white-space:nowrap}
+.grille-table td.grille-nom-cell{text-align:left;font-size:11px;font-weight:600;color:var(--text);max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grille-pick{display:inline-flex;gap:2px;background:var(--bg3);border-radius:6px;padding:2px}
+.grille-pick-btn{width:18px;height:18px;line-height:18px;border:none;border-radius:4px;background:transparent;color:var(--text-dim);font-family:'Space Mono',monospace;font-size:9px;font-weight:700;cursor:pointer;padding:0}
+.grille-pick-btn.active{background:var(--gold);color:#080808}
+.grille-total-cell{font-weight:700;color:var(--gold);font-size:11px}
+.grille-note-input{width:90px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:10px;padding:5px 6px}
+.grille-note-input::placeholder{color:var(--text-dim)}
+.grille-resultat{margin:14px 16px 0;padding:14px;border:1px solid var(--gold);border-radius:10px;background:var(--gold-dim)}
+.grille-resultat-title{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:1px;color:var(--gold);margin-bottom:8px}
+.grille-resultat-row{display:flex;justify-content:space-between;align-items:center;font-family:'Space Mono',monospace;font-size:11px;color:var(--text);padding:4px 0}
+.grille-resultat-row b{color:var(--gold-lite);font-size:13px}
+.grille-tips{margin:14px 16px 0;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg2)}
+.grille-tips-title{font-family:'Space Mono',monospace;font-size:10px;font-weight:700;color:var(--text);letter-spacing:.5px;margin-bottom:8px}
+.grille-tips ul{margin:0;padding-left:16px;font-size:11px;color:var(--text-mid);line-height:1.9}
+.grille-warning{margin:14px 16px 0;padding:12px 14px;border:1px solid rgba(200,148,42,.4);border-radius:10px;background:rgba(200,148,42,.08);font-size:10.5px;color:var(--text-mid);line-height:1.6}
+.grille-warning b{color:var(--gold)}
 .header{display:flex;align-items:flex-end;justify-content:space-between;padding:20px 20px 14px;border-bottom:1px solid var(--border);position:relative}
 .header::after{content:'';position:absolute;bottom:0;left:20px;right:20px;height:1px;background:linear-gradient(90deg,var(--gold) 0%,transparent 60%);opacity:.4}
 .header-brand{display:flex;flex-direction:column;gap:2px}
@@ -298,6 +329,7 @@ input[readonly]{opacity:.5;cursor:default}
     <button class="nav-btn" onclick="goTo('selections')" id="tab-selections"><span class="nav-icon">🎯</span>Sélect.</button>
     <button class="nav-btn" onclick="goTo('analyse')" id="tab-analyse"><span class="nav-icon">🔬</span>Analyse</button>
     <button class="nav-btn" onclick="goTo('conseil')" id="tab-conseil"><span class="nav-icon">📝</span>Conseil</button>
+    <button class="nav-btn" onclick="goTo('grille')" id="tab-grille"><span class="nav-icon">🔍</span>Grille</button>
     <button class="nav-btn" onclick="goTo('bestsimple')" id="tab-bestsimple"><span class="nav-icon">⭐</span>Best Simple</button>
     <button class="nav-btn" onclick="safeCharge=false;goTo('safe')" id="tab-safe"><span class="nav-icon">🛡️</span>Safe</button>
     <button class="nav-btn" onclick="safePlatCharge=false;goTo('safeplat')" id="tab-safeplat"><span class="nav-icon">🛡️</span>Safe Plat</button>
@@ -391,6 +423,13 @@ input[readonly]{opacity:.5;cursor:default}
     <div class="screen" id="screen-conseil">
       <div id="conseil-content">
         <div class="empty"><div class="empty-icon">📝</div>Chargez les notes PMU<br>pour voir le récapitulatif</div>
+      </div>
+    </div>
+
+    <!-- GRILLE D'ANALYSE -->
+    <div class="screen" id="screen-grille">
+      <div id="grille-content">
+        <div class="empty"><div class="empty-icon">🔍</div>Chargez une course en Saisie<br>pour remplir la grille d'analyse</div>
       </div>
     </div>
 
@@ -658,7 +697,7 @@ async function fetchAPI(path, options = {}) {
   return r;
 }
 const LS_SAISIE = 'martengo_v3', LS_HIST = 'martengo_hist';
-const SCREENS = ['saisie','selections','analyse','conseil','bestsimple','safe','safeplat','safeplus','offensif','trio','trioall','pro','prosa','couple','gagnantplat','gagnanttrot','stats','placetrot','platconfiance','trotconfiance','ajouer','ajouersafe'];
+const SCREENS = ['saisie','selections','analyse','conseil','grille','bestsimple','safe','safeplat','safeplus','offensif','trio','trioall','pro','prosa','couple','gagnantplat','gagnanttrot','stats','placetrot','platconfiance','trotconfiance','ajouer','ajouersafe'];
 
 let chevaux = [], predictions = null, notesPMU = {}, notesPMUData = null;
 let currentDate = '', horseCounter = 0, apiPrete = false, currentScreen = 'saisie';
@@ -822,6 +861,7 @@ async function chargerEtAnalyser() {
 
     // Analyse V6 immédiate
     if (pmuData.chevaux[0]?.scores) { renderAnalyse(pmuData); renderConseil(pmuData); }
+    renderGrille(pmuData);
     setPmuProgress(75,`${pmuData.chevaux.length} chevaux — calcul prédictions…`);
 
     // /predict avec les notes courantes (manuelles si modifiées)
@@ -869,6 +909,7 @@ async function lancerPrediction() {
     if (notesPMUData && notesPMUData.chevaux && notesPMUData.chevaux[0]?.scores) {
       renderAnalyse(notesPMUData);
       renderConseil(notesPMUData);
+      renderGrille(notesPMUData);
     } else {
       // Fallback : construire depuis /predict quand pas de données PMU
       const analyseData = {
@@ -903,6 +944,7 @@ async function lancerPrediction() {
       };
       renderAnalyse(analyseData);
       renderConseil(analyseData);
+      renderGrille(analyseData);
     }
   } catch(e) {
     document.getElementById('selections-content').innerHTML=`<div class="empty"><div class="empty-icon">⚠️</div>Erreur de connexion<br><small style="color:var(--text-dim);margin-top:6px;display:block">${e.message}</small><div style="margin-top:12px;"><button class="btn secondary" onclick="lancerPrediction()" style="font-size:10px;">↺ Réessayer</button></div></div>`;
@@ -1582,6 +1624,157 @@ function renderConseilPlat(data) {
         </thead>
         <tbody>${lignes}</tbody>
       </table>
+    </div>`;
+}
+
+// ── Grille d'analyse manuelle — 5 critères notés 0-2, total /10 ──
+const GRILLE_CRITERES = [
+  { key: 'forme',       icon: '📈', nom: 'Forme récente',     desc: "Le cheval a-t-il réalisé plusieurs performances solides récemment ?" },
+  { key: 'regularite',  icon: '🔄', nom: 'Régularité',        desc: "Termine-t-il souvent dans les places payées ?" },
+  { key: 'aptitude',    icon: '🐎', nom: 'Aptitude',          desc: "A-t-il déjà bien couru sur cette distance, cette piste et ce type de terrain ?" },
+  { key: 'conditions',  icon: '⚙️', nom: 'Conditions de course', desc: "Départ, numéro, poids, ferrure selon la discipline." },
+  { key: 'cote',        icon: '🎯', nom: 'Cote intéressante', desc: "La cote offre-t-elle une rémunération suffisante par rapport au risque ?" },
+];
+
+let _grilleScores = {}; // { numero: { forme,regularite,aptitude,conditions,cote: 0|1|2|null, note: '' } }
+let _grilleData = null;  // dernière liste de chevaux chargée (pour recalcul)
+
+function _grilleInitScore(numero) {
+  if (!_grilleScores[numero]) {
+    _grilleScores[numero] = { forme: null, regularite: null, aptitude: null, conditions: null, cote: null, note: '' };
+  }
+  return _grilleScores[numero];
+}
+
+function _grilleTotal(numero) {
+  const s = _grilleScores[numero];
+  if (!s) return null;
+  const vals = GRILLE_CRITERES.map(c => s[c.key]);
+  if (vals.every(v => v === null)) return null;
+  return vals.reduce((a, v) => a + (v || 0), 0);
+}
+
+function grillePick(numero, critere, val) {
+  const s = _grilleInitScore(numero);
+  s[critere] = (s[critere] === val) ? null : val; // re-clic = désélectionne
+  // Boutons de la ligne
+  GRILLE_CRITERES.forEach(c => {
+    if (c.key !== critere) return;
+    [0,1,2].forEach(v => {
+      const btn = document.getElementById(`grille-btn-${numero}-${critere}-${v}`);
+      if (btn) btn.classList.toggle('active', s[critere] === v);
+    });
+  });
+  const total = _grilleTotal(numero);
+  const totalEl = document.getElementById(`grille-total-${numero}`);
+  if (totalEl) totalEl.textContent = total === null ? '__/10' : `${total}/10`;
+  _grilleRecalcResultat();
+}
+
+function grilleNote(numero, val) {
+  _grilleInitScore(numero).note = val;
+}
+
+function _grilleRecalcResultat() {
+  if (!_grilleData) return;
+  const totaux = _grilleData
+    .map(h => ({ numero: h.numero, total: _grilleTotal(h.numero) }))
+    .filter(x => x.total !== null);
+  const moyEl = document.getElementById('grille-score-moyen');
+  const retenirEl = document.getElementById('grille-chevaux-retenir');
+  if (!totaux.length) {
+    if (moyEl) moyEl.textContent = '__/10';
+    if (retenirEl) retenirEl.textContent = '—';
+    return;
+  }
+  const moyenne = totaux.reduce((a, x) => a + x.total, 0) / totaux.length;
+  if (moyEl) moyEl.textContent = `${moyenne.toFixed(1)}/10`;
+  const max = Math.max(...totaux.map(x => x.total));
+  const meilleurs = totaux.filter(x => x.total === max && max > 0).map(x => '#' + x.numero);
+  if (retenirEl) retenirEl.textContent = meilleurs.length ? meilleurs.join(', ') : '—';
+}
+
+function grilleEnregistrer() {
+  try {
+    localStorage.setItem('martengo_grille_' + (currentDate || 'jour'), JSON.stringify(_grilleScores));
+  } catch (e) {}
+  toast('Analyse enregistrée ✓', 'success');
+}
+
+function renderGrille(data) {
+  const liste = [...(data.chevaux || [])].sort((a, b) => a.numero - b.numero);
+  if (!liste.length) {
+    document.getElementById('grille-content').innerHTML = '<div class="empty"><div class="empty-icon">🔍</div>Aucun cheval à analyser</div>';
+    return;
+  }
+  _grilleData = liste;
+  _grilleScores = {}; // nouvelle course chargée → grille vierge
+  liste.forEach(h => _grilleInitScore(h.numero));
+
+  const critTh = GRILLE_CRITERES.map(c => `<th>${c.icon} ${c.nom}</th>`).join('');
+
+  const lignes = liste.map(h => {
+    const nom = h.nom || ('Cheval ' + h.numero);
+    const cote = (h.cote !== null && h.cote !== undefined) ? parseFloat(h.cote).toFixed(1) : '—';
+    const critTd = GRILLE_CRITERES.map(c => {
+      const picks = [0,1,2].map(v =>
+        `<button type="button" id="grille-btn-${h.numero}-${c.key}-${v}" class="grille-pick-btn" onclick="grillePick(${h.numero},'${c.key}',${v})">${v}</button>`
+      ).join('');
+      return `<td><div class="grille-pick">${picks}</div></td>`;
+    }).join('');
+    return `<tr>
+      <td style="font-weight:700;color:var(--gold)">#${h.numero}</td>
+      <td class="grille-nom-cell" title="${nom}">${nom}</td>
+      <td>${cote}</td>
+      ${critTd}
+      <td class="grille-total-cell" id="grille-total-${h.numero}">__/10</td>
+      <td><input class="grille-note-input" placeholder="Note…" onchange="grilleNote(${h.numero}, this.value)"></td>
+    </tr>`;
+  }).join('');
+
+  const critCards = GRILLE_CRITERES.map(c =>
+    `<div class="grille-crit-card">
+      <div class="grille-crit-icon">${c.icon}</div>
+      <div class="grille-crit-nom">${c.nom}</div>
+      <div class="grille-crit-desc">${c.desc}</div>
+      <div class="grille-crit-max">/2</div>
+    </div>`
+  ).join('');
+
+  document.getElementById('grille-content').innerHTML = `
+    <div class="grille-intro">
+      <div class="grille-intro-title">🔍 Grille d'analyse des chevaux</div>
+      <div class="grille-intro-sub">Note chaque cheval sur 10 points (2 points par critère). Plus le score est élevé, plus le cheval mérite d'être étudié.</div>
+    </div>
+    <div class="grille-criteres">${critCards}</div>
+    <div class="grille-table-wrap no-swipe">
+      <table class="grille-table">
+        <thead><tr>
+          <th>N°</th><th style="text-align:left">Cheval</th><th>Cote</th>
+          ${critTh}
+          <th>Score<br>/10</th><th>Notes</th>
+        </tr></thead>
+        <tbody>${lignes}</tbody>
+      </table>
+    </div>
+    <div class="grille-resultat">
+      <div class="grille-resultat-title">🧮 Résultat de l'analyse</div>
+      <div class="grille-resultat-row"><span>Score moyen des chevaux :</span><b id="grille-score-moyen">__/10</b></div>
+      <div class="grille-resultat-row"><span>Cheval(s) à retenir :</span><b id="grille-chevaux-retenir">—</b></div>
+      <button class="btn full" onclick="grilleEnregistrer()" style="margin-top:10px">💾 Enregistrer l'analyse</button>
+    </div>
+    <div class="grille-tips">
+      <div class="grille-tips-title">💡 Astuces</div>
+      <ul>
+        <li>Ne misez pas uniquement sur le favori.</li>
+        <li>Comparez toujours les cotes avec les chances réelles.</li>
+        <li>Tenez compte des conditions de course (terrain, distance, piste, etc.).</li>
+        <li>Gardez une trace de vos analyses pour progresser.</li>
+      </ul>
+    </div>
+    <div class="grille-warning">
+      <b>⚠️ Rappel important</b><br>
+      Les paris hippiques comportent des risques. Aucun système ne garantit un gain. Jouez avec modération.
     </div>`;
 }
 

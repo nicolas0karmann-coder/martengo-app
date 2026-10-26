@@ -1760,14 +1760,14 @@ const GRILLE_CRITERES_ATTELE = [
     } },
   { key: 'driver', court: 'Driver', icon: '🧑‍✈️', nom: 'Driver',
     d2: 'Bon bilan vérifiable avec ce cheval ou ce type de course', d1: 'Résultats moyens ou peu de données', d0: 'Difficultés répétées et documentées',
-    auto(h) {
-      const duo = h.scores && h.scores.duo;
-      const win = h.driver_win_rate;
-      if ((duo === undefined || duo === null) && (win === undefined || win === null)) return { pts: 1, nd: true, why: 'Pas de statistique driver' };
-      const pDuo = (duo !== undefined && duo !== null) ? (duo >= 60 ? 2 : duo >= 40 ? 1 : 0) : null;
-      const pWin = (win !== undefined && win !== null) ? (win >= 12 ? 2 : win >= 7 ? 1 : 0) : null;
-      const pts = (pDuo !== null && pWin !== null) ? Math.floor((pDuo + pWin) / 2) : (pDuo ?? pWin);
-      return { pts, why: `Duo cheval/driver ${duo ?? '—'}/100 · driver ${win ?? '—'}% de victoires` };
+    auto(h, liste) {
+      // Même donnée que l'onglet Analyse/Conseil (% du driver), jugée par rapport au lot :
+      // meilleur tiers = 2 pts, moins bon tiers = 0 pt (comme le critère Ferrure).
+      const w = h.driver_win_rate;
+      if (w === undefined || w === null) return { pts: 1, nd: true, why: 'Pas de statistique driver' };
+      const pts = _grilleTercile(liste, x => x.driver_win_rate, h, false);
+      if (pts === null) return { pts: 1, nd: true, why: `Driver ${w}% · lot trop petit pour comparer` };
+      return { pts, why: `Driver ${h.driver || ''} : ${w}% · ${pts === 2 ? 'meilleur' : pts === 0 ? 'moins bon' : 'tiers médian'} du lot` };
     } },
   { key: 'entraineur', court: 'Entr.', icon: '🛠️', nom: 'Entraîneur et préparation',
     d2: 'Régulièrement performant après une préparation comparable', d1: 'Signaux mitigés ou peu de données', d0: 'Mauvaises performances répétées dans des circonstances comparables',

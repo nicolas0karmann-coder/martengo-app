@@ -1809,15 +1809,17 @@ const GRILLE_CRITERES_ATTELE = [
       return { pts, nd, why: note };
     } },
   { key: 'cote', court: 'Cote', icon: '🎯', nom: 'Valeur de la cote',
-    d2: 'Les chances estimées du cheval battent la cote', d1: 'Chances estimées sous la cote, mais cote ≥ 5 (outsider)', d0: 'Chances estimées sous la cote, et cote < 5 (favori trop cher)',
-    auto(h) {
+    d2: 'Le modèle classe le cheval dans ses 2 premiers alors que le marché le met 3e ou plus loin', d1: 'Pas d\'écart de classement, mais cote ≥ 5', d0: 'Pas d\'écart de classement, et cote < 5 (favori)',
+    auto(h, liste) {
       const cote = h.cote, pw = h.proba_win;
-      if (cote === null || cote === undefined || pw === null || pw === undefined) return { pts: 1, nd: true, why: 'Cote ou estimation indisponible' };
-      const impl = 100 / cote;                                   // probabilité que la cote suppose (%)
-      const base = `Chances estimées ${pw}% vs ${impl.toFixed(1)}% impliqués par la cote ${cote}`;
-      if (pw > impl) return { pts: 2, why: `${base} → le modèle bat la cote` };
-      if (cote >= 5) return { pts: 1, why: `${base} → ne bat pas la cote, mais outsider (cote ≥ 5)` };
-      return { pts: 0, why: `${base} → ne bat pas la cote et cote < 5` };
+      if (cote === null || cote === undefined || !(cote > 0) || pw === null || pw === undefined) return { pts: 1, nd: true, why: 'Cote ou estimation indisponible' };
+      const L = liste || [];
+      const rangMod = 1 + L.filter(x => x.proba_win !== null && x.proba_win !== undefined && x.proba_win > pw).length;
+      const rangMarche = 1 + L.filter(x => x.cote > 0 && x.cote < cote).length;
+      const base = `Modèle : n°${rangMod} (${pw}% de victoire) · Marché : n°${rangMarche} (cote ${cote})`;
+      if (rangMod <= 2 && rangMarche >= 3) return { pts: 2, why: `${base} → le modèle voit ce cheval bien plus haut que le marché` };
+      if (cote >= 5) return { pts: 1, why: `${base} → pas d'écart de classement, cote ≥ 5` };
+      return { pts: 0, why: `${base} → pas d'écart de classement, cote < 5` };
     } },
 ];
 

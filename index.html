@@ -1765,14 +1765,14 @@ const GRILLE_CRITERES_ATTELE = [
     auto(h) {
       const avis = h.avis ?? 0;
       let pts, note, nd = false;
-      if (h.entr_taux !== undefined && h.entr_taux !== null && (h.entr_n || 0) >= 20) {
+      if (h.entr_taux !== undefined && h.entr_taux !== null) {
         // Taux de top 3 de l'entraîneur (base ≈ 31 %), puis avis et rentrée comme garde-fous
         pts = h.entr_taux >= 36 ? 2 : (h.entr_taux < 28 ? 0 : 1);
-        note = `Entraîneur : ${h.entr_taux}% de top 3 sur ${h.entr_n} partants`;
+        note = `Entraîneur : ${h.entr_taux}% de top 3 (${h.entr_n || 0} engagements passés)`;
         if (avis === -1 && pts > 1) { pts = 1; note += ' · avis défavorable'; }
       } else {
         pts = avis === 1 ? 2 : (avis === -1 ? 0 : 1);
-        note = `Avis entraîneur ${avis === 1 ? 'favorable' : avis === -1 ? 'défavorable' : 'neutre'} (stats entraîneur insuffisantes)`;
+        note = `Avis entraîneur ${avis === 1 ? 'favorable' : avis === -1 ? 'défavorable' : 'neutre'} (entraîneur absent des statistiques)`;
         nd = h.entr_taux === undefined;
       }
       const dd = h.date_derniere_course ? new Date(h.date_derniere_course) : null;

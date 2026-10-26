@@ -1725,7 +1725,16 @@ const GRILLE_CRITERES_ATTELE = [
     } },
   { key: 'depart', court: 'Départ', icon: '🚦', nom: 'Mode de départ',
     d2: 'Bon historique au même mode de départ (autostart / volté)', d1: 'Peu de références ou résultats moyens', d0: 'Difficultés répétées avec ce mode de départ',
-    auto() { return { pts: 1, nd: true, why: 'Mode de départ absent des données : 1 point par défaut' }; } },
+    auto(h) {
+      const m = h.mode_depart;
+      if (!m) return { pts: 1, nd: true, why: 'Mode de départ de la course inconnu' };
+      const lib = m === 'autostart' ? 'autostart' : 'volté';
+      if (h.depart_n === undefined || h.depart_n === null) return { pts: 1, nd: true, why: `Départ ${lib} · statistiques par mode non chargées côté serveur` };
+      const n = h.depart_n, t3 = h.depart_top3 || 0;
+      if (n < 3) return { pts: 1, why: `Départ ${lib} · peu de références (${n} course${n > 1 ? 's' : ''} dans ce mode)` };
+      const taux = Math.round(t3 / n * 100);
+      return { pts: taux >= 41 ? 2 : (taux <= 25 ? 0 : 1), why: `Départ ${lib} · ${t3} top 3 sur ${n} courses dans ce mode (${taux}%)` };
+    } },
   { key: 'ferrure', court: 'Ferrure', icon: '🧷', nom: 'Ferrure et configuration',
     d2: 'Configuration annoncée associée à de bonnes performances comparables', d1: 'Effet inconnu ou résultats mitigés', d0: 'Performances nettement moins bonnes dans cette configuration',
     auto(h, liste) {
@@ -1972,8 +1981,9 @@ function _grilleBuild() {
     `<button type="button" class="grille-chip${d.key === _grilleDisc ? ' on' : ''}" onclick="grilleSetDisc('${d.key}')">${d.label}</button>`
   ).join('');
 
+  const modeCourse = liste[0] && liste[0].mode_depart ? ` Départ : ${liste[0].mode_depart === 'autostart' ? 'autostart' : 'volté'}.` : '';
   const intro = attele
-    ? `Notation automatique sur ${max} points (9 critères × 2 points) à partir des données disponibles. Touche un chiffre pour corriger une note ; re-touche pour revenir à la note automatique.`
+    ? `Notation automatique sur ${max} points (9 critères × 2 points) à partir des données disponibles. Touche un chiffre pour corriger une note ; re-touche pour revenir à la note automatique.${modeCourse}`
     : `Le barème « ${GRILLE_DISCIPLINES.find(d => d.key === _grilleDisc).label} » reste à définir : grille générique manuelle sur ${max} points (2 points par critère).`;
 
   const critCards = crit.map(c =>

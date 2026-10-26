@@ -2020,11 +2020,11 @@ const GRILLE_CRITERES_GALOP = [
       return { pts, why: `Dotation du jour = ${r.toFixed(2)} × le niveau récent du cheval (${r <= 0.8 ? 'nette descente de classe' : r > 1.2 ? 'montée en classe' : 'niveau comparable'}) · ${n} courses` };
     } },
   { key: 'cote', court: 'Cote', icon: '🎯', nom: 'Valeur de la cote',
-    d2: 'Non utilisé au plat : le marché est déjà très bien calibré', d1: 'Neutre (toujours 1 pt au plat)', d0: 'Non utilisé',
+    d2: 'Non utilisé en plat et haies : le marché est déjà très bien calibré', d1: 'Neutre (toujours 1 pt)', d0: 'Non utilisé',
     auto(h) {
       // Backtest plat : le modèle n'apporte aucune information en plus de la cote (coefficient +0,009, z = 0,15) ;
       // la règle « modèle ≤ 2e et marché ≥ 3e » donne 0,95× les victoires attendues (IC95 0,79–1,12), soit aucun avantage.
-      return { pts: 1, nd: true, why: 'Au plat, la cote reflète déjà les chances réelles (aucun écart exploitable mesuré) : critère neutre' };
+      return { pts: 1, nd: true, why: 'Plat/haies : la cote reflète déjà les chances réelles (aucun écart exploitable mesuré au plat) : critère neutre' };
     } },
 ];
 // ── Haies : barème sur 20 (seuils provisoires, à valider par backtest) ──
@@ -2067,11 +2067,9 @@ const GRILLE_CRITERES_OBSTACLE = [
       if (!x) return { pts: 1, why: `Terrain ${lib} · références limitées (${h.nb_courses_terrain} course(s))` };
       return { pts: x.pts, why: `Terrain ${lib} : ${x.t}% de top 3 sur ${h.nb_courses_terrain} courses` };
     } },
-  { ..._critGalop('handicap'), auto(h, liste) {
-      if (_grilleRaw && _grilleRaw.est_handicap === false) return { pts: 1, nd: true, why: 'Course hors handicap : poids non discriminant' };
-      const pts = _grilleTercile(liste, x => (x.handicap_poids > 0 ? x.handicap_poids : null), h, true);
-      if (pts === null) return { pts: 1, nd: true, why: 'Poids indisponible ou lot trop petit' };
-      return { pts, why: `Poids ${h.handicap_poids} kg · ${pts === 2 ? 'tiers le plus léger' : pts === 0 ? 'tiers le plus lourd' : 'tiers médian'} du lot (non encore validé en haies)` };
+  { ..._critGalop('handicap'), d2: 'Non utilisé pour l\'instant', d1: 'Neutre (en cours de validation)', d0: 'Non utilisé pour l\'instant', auto() {
+      // Backtest haies : le tercile du poids est inversé (AUC 0,475) ; la règle « valeur handicap / poids passé » est en cours de test.
+      return { pts: 1, nd: true, why: 'Critère neutre en haies (règle en cours de validation par backtest)' };
     } },
   { key: 'experience', court: 'Expér.', icon: '📍', nom: 'Expérience du parcours',
     d2: 'Expérience réussie sur le parcours ou les obstacles concernés', d1: 'Expérience limitée ou résultats mitigés', d0: 'Échecs répétés sur ce parcours (données suffisantes)',
@@ -2100,10 +2098,10 @@ const GRILLE_CRITERES_OBSTACLE = [
       if (r === undefined || r === null) return { pts: 1, nd: true, why: 'Niveau du lot indisponible' };
       const n = h.nb_courses_base || 0;
       if (n < 3) return { pts: 1, why: `Peu de références (${n} course(s))` };
-      const pts = (r <= 1.0 && n >= 5) ? 2 : (r > 1.5 ? 0 : 1);
+      const pts = (r <= 0.8 && n >= 5) ? 2 : (r > 1.5 ? 0 : 1);
       return { pts, why: `Dotation du jour = ${r.toFixed(2)} × le niveau récent du cheval · ${n} courses` };
     } },
-  { ..._critAttele('cote') },
+  { ..._critGalop('cote') },
 ];
 const GRILLE_CRITERES_GENERIQUE = [
   { key: 'forme',      court: 'Forme',   icon: '📈', nom: 'Forme récente',        d2: 'Plusieurs performances solides récemment', d1: '', d0: '' },

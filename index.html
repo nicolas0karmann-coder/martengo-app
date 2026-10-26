@@ -1880,7 +1880,10 @@ const GRILLE_CRITERES_MONTE = [
       const m = h.mode_depart;
       if (!m) return { pts: 1, nd: true, why: 'Mode de départ de la course inconnu' };
       if (h.depart_n === undefined || h.depart_n === null) return { pts: 1, nd: true, why: 'Statistiques par mode de départ non chargées côté serveur' };
-      const lib = m === 'autostart' ? 'autostart' : 'volté';
+      // Au trot monté, ~99 % des départs sont voltés : le taux « dans ce mode » ne fait alors que répéter l'aptitude
+      // (backtest : mêmes chiffres, AUC 0,579 pour les deux). Départ volté = neutre ; vraie note seulement en autostart.
+      if (m !== 'autostart') return { pts: 1, why: 'Départ volté (cas courant au monté) : sans effet distinctif, neutre' };
+      const lib = 'autostart';
       const x = _grilleTaux(h.depart_n, h.depart_top3, 3);
       let pts = x ? x.pts : 1, note = x ? `Départ ${lib} : ${x.t}% de top 3 sur ${h.depart_n} courses` : `Départ ${lib} · peu de références (${h.depart_n} course(s))`;
       if ((h.rendement_distance || 0) > 0) {

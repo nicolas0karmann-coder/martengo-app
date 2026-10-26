@@ -2019,7 +2019,13 @@ const GRILLE_CRITERES_GALOP = [
       const pts = (r <= 0.8 && n >= 5) ? 2 : (r > 1.2 ? 0 : 1);
       return { pts, why: `Dotation du jour = ${r.toFixed(2)} × le niveau récent du cheval (${r <= 0.8 ? 'nette descente de classe' : r > 1.2 ? 'montée en classe' : 'niveau comparable'}) · ${n} courses` };
     } },
-  { ..._critAttele('cote') },
+  { key: 'cote', court: 'Cote', icon: '🎯', nom: 'Valeur de la cote',
+    d2: 'Non utilisé au plat : le marché est déjà très bien calibré', d1: 'Neutre (toujours 1 pt au plat)', d0: 'Non utilisé',
+    auto(h) {
+      // Backtest plat : le modèle n'apporte aucune information en plus de la cote (coefficient +0,009, z = 0,15) ;
+      // la règle « modèle ≤ 2e et marché ≥ 3e » donne 0,95× les victoires attendues (IC95 0,79–1,12), soit aucun avantage.
+      return { pts: 1, nd: true, why: 'Au plat, la cote reflète déjà les chances réelles (aucun écart exploitable mesuré) : critère neutre' };
+    } },
 ];
 // ── Haies : barème sur 20 (seuils provisoires, à valider par backtest) ──
 const _OBST_TAUX_HI = 47, _OBST_TAUX_LO = 30;        // base haies ≈ 35 % de top 3

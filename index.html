@@ -1643,7 +1643,7 @@ const GRILLE_DISCIPLINES = [
   { key: 'attele',   label: 'Trot attelé' },
   { key: 'monte',    label: 'Trot monté' },
   { key: 'galop',    label: 'Galop' },
-  { key: 'obstacle', label: 'Haies / obstacle' },
+  { key: 'obstacle', label: 'Haies' },
 ];
 
 const GRILLE_PROFILS_ATTELE = [
@@ -1801,11 +1801,15 @@ const GRILLE_CRITERES_ATTELE = [
       return { pts, nd, why: note };
     } },
   { key: 'cote', court: 'Cote', icon: '🎯', nom: 'Valeur de la cote',
-    d2: 'Cote intéressante vs une estimation indépendante des chances', d1: 'Avantage faible ou incertain', d0: 'Cote trop basse vs l\'estimation des chances',
+    d2: 'Les chances estimées du cheval battent la cote', d1: 'Chances estimées sous la cote, mais cote ≥ 5 (outsider)', d0: 'Chances estimées sous la cote, et cote < 5 (favori trop cher)',
     auto(h) {
-      if (h.cote === null || h.cote === undefined || h.ev_win === null || h.ev_win === undefined) return { pts: 1, nd: true, why: 'Cote ou estimation indisponible' };
-      const pts = h.ev_win >= 10 ? 2 : (h.ev_win <= -10 ? 0 : 1);
-      return { pts, why: `Cote ${h.cote} · espérance de gain selon le modèle ${h.ev_win > 0 ? '+' : ''}${h.ev_win}%` };
+      const cote = h.cote, pw = h.proba_win;
+      if (cote === null || cote === undefined || pw === null || pw === undefined) return { pts: 1, nd: true, why: 'Cote ou estimation indisponible' };
+      const impl = 100 / cote;                                   // probabilité que la cote suppose (%)
+      const base = `Chances estimées ${pw}% vs ${impl.toFixed(1)}% impliqués par la cote ${cote}`;
+      if (pw > impl) return { pts: 2, why: `${base} → le modèle bat la cote` };
+      if (cote >= 5) return { pts: 1, why: `${base} → ne bat pas la cote, mais outsider (cote ≥ 5)` };
+      return { pts: 0, why: `${base} → ne bat pas la cote et cote < 5` };
     } },
 ];
 
@@ -1986,7 +1990,7 @@ const GRILLE_CRITERES_GALOP = [
     } },
   { ..._critAttele('cote') },
 ];
-// ── Obstacle (haies) : barème sur 20 (seuils provisoires, à valider par backtest) ──
+// ── Haies : barème sur 20 (seuils provisoires, à valider par backtest) ──
 const _OBST_TAUX_HI = 47, _OBST_TAUX_LO = 30;        // base haies ≈ 35 % de top 3
 function _grilleTauxO(n, t3, minN) {
   if (n === undefined || n === null || n < minN) return null;
@@ -2189,7 +2193,7 @@ function grilleSetDisc(key) {
 function _grilleDiscDepuisProgramme(raw) {
   const d = String(raw || '').toUpperCase();
   if (d.includes('ATTELE')) return 'attele';
-  if (d.includes('HAIE') || d.includes('STEEPLE') || d.includes('CROSS')) return 'obstacle';
+  if (d.includes('HAIE')) return 'obstacle';   // steeple-chase et cross : non supportés par l'API
   if (d.includes('PLAT')) return 'galop';
   if (d.includes('MONTE')) return 'monte';
   return null;

@@ -1893,6 +1893,88 @@ const GRILLE_CRITERES_MONTE = [
 ];
 
 // Grille générique manuelle (disciplines dont le barème reste à définir)
+// ── Galop plat : barème sur 18 (seuils provisoires, à valider par backtest) ──
+const _GALOP_TAUX_HI = 40, _GALOP_TAUX_LO = 25;      // base plat ≈ 29 % de top 3
+function _grilleTauxG(n, t3, minN) {
+  if (n === undefined || n === null || n < minN) return null;
+  const t = t3 / n * 100;
+  return { t: Math.round(t), pts: t >= _GALOP_TAUX_HI ? 2 : (t <= _GALOP_TAUX_LO ? 0 : 1) };
+}
+const GRILLE_CRITERES_GALOP = [
+  { ..._critAttele('forme') },
+  { ..._critAttele('regularite'), d2: 'Termine régulièrement près des premiers', d1: 'Résultats variables', d0: 'Contre-performances importantes et répétées' },
+  { key: 'distance', court: 'Dist./parcours', icon: '📏', nom: 'Distance et parcours',
+    d2: 'A déjà bien couru sur distance et parcours similaires', d1: 'Peu de références ou résultats partagés', d0: 'Échecs répétés dans des conditions similaires',
+    auto(h) {
+      if (h.nb_courses_dist === undefined || h.nb_courses_dist === null) return { pts: 1, nd: true, why: 'Statistiques distance/hippodrome non chargées côté serveur' };
+      const ev = [], notes = [];
+      const d = _grilleTauxG(h.nb_courses_dist, h.top3_dist, 3);
+      if (d) { ev.push(d.pts); notes.push(`${h.nb_courses_dist} courses à ±200 m : ${d.t}% de top 3`); }
+      const p = _grilleTauxG(h.nb_courses_hippo, h.top3_hippo, 2);
+      if (p) { ev.push(p.pts); notes.push(`${h.nb_courses_hippo} course(s) sur cet hippodrome : ${p.t}% de top 3`); }
+      if (!ev.length) return { pts: 1, why: `Références limitées (${h.nb_courses_dist || 0} à distance proche, ${h.nb_courses_hippo || 0} sur cet hippodrome)` };
+      return { pts: Math.floor(ev.reduce((a, b) => a + b, 0) / ev.length), why: notes.join(' · ') };
+    } },
+  { key: 'terrain', court: 'Terrain', icon: '🌧️', nom: 'Terrain',
+    d2: 'Bons résultats sur le type de terrain annoncé', d1: 'Peu de références ou bilan mitigé', d0: 'Mauvais résultats répétés sur ce type de terrain',
+    auto(h) {
+      if (h.nb_courses_terrain === undefined || h.nb_courses_terrain === null) return { pts: 1, nd: true, why: 'Statistiques terrain non chargées côté serveur' };
+      const lib = h.terrain_cat ? ({ rapide: 'rapide', souple: 'souple', lourd: 'lourd' }[h.terrain_cat] || h.terrain_cat) : 'annoncé';
+      const x = _grilleTauxG(h.nb_courses_terrain, h.top3_terrain, 3);
+      if (!x) return { pts: 1, why: `Terrain ${lib} · peu de références (${h.nb_courses_terrain} course(s))` };
+      return { pts: x.pts, why: `Terrain ${lib} : ${x.t}% de top 3 sur ${h.nb_courses_terrain} courses` };
+    } },
+  { key: 'handicap', court: 'Handicap', icon: '⚖️', nom: 'Valeur handicap et poids',
+    d2: 'Poids et valeur handicap favorables', d1: 'Situation neutre ou incertaine', d0: 'Handicap difficile à surmonter',
+    auto(h, liste) {
+      if (_grilleRaw && _grilleRaw.est_handicap === false) return { pts: 1, nd: true, why: 'Course hors handicap : poids non discriminant' };
+      const pts = _grilleTercile(liste, x => (x.handicap_poids > 0 ? x.handicap_poids : null), h, true);
+      if (pts === null) return { pts: 1, nd: true, why: 'Poids indisponible ou lot trop petit' };
+      return { pts, why: `Poids ${h.handicap_poids} kg · ${pts === 2 ? 'tiers le plus léger' : pts === 0 ? 'tiers le plus lourd' : 'tiers médian'} du lot (comparaison aux poids passés non disponible)` };
+    } },
+  { key: 'corde', court: 'Corde', icon: '🎯', nom: 'Numéro de corde',
+    d2: 'Stalle favorable (tracé, distance)', d1: 'Effet neutre ou difficile à déterminer', d0: 'Stalle potentiellement défavorable',
+    auto(h) {
+      if (h.corde_n === undefined || h.corde_n === null || h.corde_taux === null || !h.corde_ref) return { pts: 1, nd: true, why: 'Pas de statistique de corde pour cet hippodrome/distance' };
+      if (h.corde_n < 150) return { pts: 1, nd: true, why: `Échantillon de corde trop faible (${h.corde_n} partants)` };
+      const lift = h.corde_taux / h.corde_ref;
+      const pts = lift >= 1.15 ? 2 : (lift <= 0.85 ? 0 : 1);
+      return { pts, why: `Corde ${h.place_corde} : ${h.corde_taux}% de top 3 pour ce tiers de corde vs ${h.corde_ref}% sur l'hippodrome (×${lift.toFixed(2)}, ${h.corde_n} partants)` };
+    } },
+  { ..._critAttele('driver'), nom: 'Jockey', court: 'Jockey',
+    d2: 'Bon bilan vérifiable dans cette catégorie ou avec ce cheval', d1: 'Bilan moyen ou peu de données', d0: 'Difficultés documentées dans ce contexte' },
+  { ..._critAttele('entraineur'), nom: 'Entraîneur et préparation',
+    d2: 'Bonnes performances régulières dans des conditions comparables', d1: 'Bilan mitigé ou peu de données', d0: 'Résultats répétés peu convaincants',
+    auto(h) {
+      const avis = h.avis ?? 0;
+      let pts, note, nd = false;
+      if (h.entr_taux !== undefined && h.entr_taux !== null) {
+        pts = h.entr_taux >= 35 ? 2 : (h.entr_taux < 27 ? 0 : 1);   // base plat ≈ 29 %
+        note = `Entraîneur : ${h.entr_taux}% de top 3`;
+        if (avis === -1 && pts > 1) { pts = 1; note += ' · avis défavorable'; }
+      } else {
+        pts = avis === 1 ? 2 : (avis === -1 ? 0 : 1);
+        note = `Avis entraîneur ${avis === 1 ? 'favorable' : avis === -1 ? 'défavorable' : 'neutre'} (entraîneur absent des statistiques)`;
+        nd = true;
+      }
+      const dd = h.date_derniere_course ? new Date(h.date_derniere_course) : null;
+      if (dd && !isNaN(dd.getTime()) && h.courses_60j === 0 && pts > 1) {
+        const jours = Math.round((Date.now() - dd.getTime()) / 86400000);
+        if (jours > 60) { pts = 1; note += ` · rentrée après ${jours} jours`; }
+      }
+      return { pts, nd, why: note };
+    } },
+  { key: 'niveau', court: 'Niveau', icon: '🏆', nom: 'Niveau du lot',
+    d2: 'A déjà rivalisé avec des chevaux de niveau égal ou supérieur', d1: 'Références limitées', d0: 'Semble manquer de références à ce niveau',
+    auto(h) {
+      const r = h.ratio_niveau_lot;
+      if (r === undefined || r === null) return { pts: 1, nd: true, why: 'Niveau du lot indisponible' };
+      const n = h.nb_courses_base || 0;
+      if (n < 3) return { pts: 1, why: `Peu de références (${n} course(s))` };
+      const pts = (r <= 1.0 && n >= 5) ? 2 : (r > 1.5 ? 0 : 1);
+      return { pts, why: `Dotation du jour = ${r.toFixed(2)} × le niveau récent du cheval (${r <= 1 ? 'même niveau ou descente' : r > 1.5 ? 'montée en classe nette' : 'légère montée'}) · ${n} courses` };
+    } },
+];
 const GRILLE_CRITERES_GENERIQUE = [
   { key: 'forme',      court: 'Forme',   icon: '📈', nom: 'Forme récente',        d2: 'Plusieurs performances solides récemment', d1: '', d0: '' },
   { key: 'regularite', court: 'Régul.',  icon: '🔄', nom: 'Régularité',           d2: 'Termine souvent dans les places payées', d1: '', d0: '' },
@@ -1911,9 +1993,10 @@ let _grilleNotes = {};          // { numero: texte }
 function _grilleCriteres() {
   if (_grilleDisc === 'attele') return GRILLE_CRITERES_ATTELE;
   if (_grilleDisc === 'monte') return GRILLE_CRITERES_MONTE;
+  if (_grilleDisc === 'galop') return GRILLE_CRITERES_GALOP;
   return GRILLE_CRITERES_GENERIQUE;
 }
-function _grilleABareme() { return _grilleDisc === 'attele' || _grilleDisc === 'monte'; }
+function _grilleABareme() { return _grilleDisc === 'attele' || _grilleDisc === 'monte' || _grilleDisc === 'galop'; }
 function _grilleMax() { return _grilleCriteres().length * 2; }
 
 function _grilleTotal(numero) {

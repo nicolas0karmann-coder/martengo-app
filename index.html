@@ -1826,7 +1826,7 @@ const GRILLE_CRITERES_ATTELE = [
 // ── Trot monté : barème sur 20 (9 critères + valeur de la cote) ──
 // Seuils provisoires : le taux de top 3 moyen au monté (~37 %) est plus haut qu'à l'attelé (~31 %),
 // les seuils sont donc décalés d'environ +6 points. À valider par backtest (spec_monte.py).
-const _MONTE_TAUX_HI = 47, _MONTE_TAUX_LO = 31;
+const _MONTE_TAUX_HI = 55, _MONTE_TAUX_LO = 31;   // backtest monté : l'avantage se joue au-dessus de 55 % (≈ 49 % de top 3, contre ≈ 37 % entre 47 et 55 %)
 function _grilleTaux(n, t3, minN) {
   if (n === undefined || n === null || n < minN) return null;
   const t = t3 / n * 100;
@@ -1912,7 +1912,16 @@ const GRILLE_CRITERES_MONTE = [
       }
       return { pts, nd, why: note };
     } },
-  { ..._critAttele('niveau') },
+  { key: 'niveau', court: 'Niveau', icon: '🏆', nom: 'Niveau du lot',
+    d2: 'A déjà rivalisé avec des chevaux de niveau égal ou supérieur', d1: 'Références limitées', d0: 'Semble manquer de références à ce niveau',
+    auto(h) {
+      const r = h.ratio_niveau_lot;
+      if (r === undefined || r === null) return { pts: 1, nd: true, why: 'Niveau du lot indisponible' };
+      const n = h.nb_courses_base || 0;
+      if (n < 3) return { pts: 1, why: `Peu de références (${n} course(s))` };
+      const pts = (r <= 0.8 && n >= 5) ? 2 : (r > 1.5 ? 0 : 1);
+      return { pts, why: `Dotation du jour = ${r.toFixed(2)} × le niveau récent du cheval (${r <= 0.8 ? 'nette descente de classe' : r > 1.5 ? 'montée en classe nette' : 'niveau comparable'}) · ${n} courses` };
+    } },
   { ..._critAttele('cote') },
 ];
 

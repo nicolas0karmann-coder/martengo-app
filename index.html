@@ -324,6 +324,15 @@ input[readonly]{opacity:.5;cursor:default}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .fade-in{animation:fadeIn .35s ease forwards}
 .fd1{animation-delay:.05s;opacity:0}.fd2{animation-delay:.1s;opacity:0}.fd3{animation-delay:.15s;opacity:0}.fd4{animation-delay:.2s;opacity:0}
+
+.grecap-sum{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;border-bottom:1px solid var(--border);background:var(--bg2)}
+.grecap-chip{font-family:'Space Mono',monospace;font-size:9px;font-weight:700;padding:3px 7px;border-radius:10px;border:1px solid}
+.grecap-row{display:grid;grid-template-columns:54px 1fr auto;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;min-width:0}
+.grecap-course{font-family:'Space Mono',monospace;font-size:10px;font-weight:700}
+.grecap-meta{font-size:8px;color:var(--text-dim);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.grecap-cheval{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.grecap-badge{font-size:9px;font-weight:700;letter-spacing:.3px;padding:3px 7px;border-radius:5px;white-space:nowrap;text-align:center;border:1px solid}
+.grecap-badge small{display:block;font-size:8px;font-weight:600;opacity:.85;margin-top:1px}
 </style>
 </head>
 <body>
@@ -345,6 +354,7 @@ input[readonly]{opacity:.5;cursor:default}
     <button class="nav-btn" onclick="goTo('analyse')" id="tab-analyse"><span class="nav-icon">🔬</span>Analyse</button>
     <button class="nav-btn" onclick="goTo('conseil')" id="tab-conseil"><span class="nav-icon">📝</span>Conseil</button>
     <button class="nav-btn" onclick="goTo('grille')" id="tab-grille"><span class="nav-icon">🔍</span>Grille</button>
+    <button class="nav-btn" onclick="goTo('grillerecap')" id="tab-grillerecap"><span class="nav-icon">🧾</span>Grille récap</button>
     <button class="nav-btn" onclick="goTo('bestsimple')" id="tab-bestsimple"><span class="nav-icon">⭐</span>Best Simple</button>
     <button class="nav-btn" onclick="safeCharge=false;goTo('safe')" id="tab-safe"><span class="nav-icon">🛡️</span>Safe</button>
     <button class="nav-btn" onclick="safePlatCharge=false;goTo('safeplat')" id="tab-safeplat"><span class="nav-icon">🛡️</span>Safe Plat</button>
@@ -445,6 +455,13 @@ input[readonly]{opacity:.5;cursor:default}
     <div class="screen" id="screen-grille">
       <div id="grille-content">
         <div class="empty"><div class="empty-icon">🔍</div>Chargez une course en Saisie<br>pour remplir la grille d'analyse</div>
+      </div>
+    </div>
+
+    <!-- GRILLE RÉCAP -->
+    <div class="screen" id="screen-grillerecap">
+      <div id="grillerecap-content">
+        <div class="empty"><div class="empty-icon">🧾</div>Ouvre cet onglet pour calculer, course par course,<br>le cheval à retenir de la grille et son profil</div>
       </div>
     </div>
 
@@ -712,7 +729,7 @@ async function fetchAPI(path, options = {}) {
   return r;
 }
 const LS_SAISIE = 'martengo_v3', LS_HIST = 'martengo_hist';
-const SCREENS = ['saisie','selections','analyse','conseil','grille','bestsimple','safe','safeplat','safeplus','offensif','trio','trioall','pro','prosa','couple','gagnantplat','gagnanttrot','stats','placetrot','platconfiance','trotconfiance','ajouer','ajouersafe'];
+const SCREENS = ['saisie','selections','analyse','conseil','grille','grillerecap','bestsimple','safe','safeplat','safeplus','offensif','trio','trioall','pro','prosa','couple','gagnantplat','gagnanttrot','stats','placetrot','platconfiance','trotconfiance','ajouer','ajouersafe'];
 
 let chevaux = [], predictions = null, notesPMU = {}, notesPMUData = null;
 let currentDate = '', horseCounter = 0, apiPrete = false, currentScreen = 'saisie';
@@ -763,6 +780,7 @@ function goTo(screen) {
   if (screen === 'pro') { chargerPro(); }
   if (screen === 'prosa') { chargerProSA(); }
   if (screen === 'couple') { chargerCouple(); }
+  if (screen === 'grillerecap') { chargerGrilleRecap(); }
 }
 function setBadge(show) { document.getElementById('badge-stats').classList.toggle('show', show && currentScreen !== 'stats'); }
 
@@ -2251,6 +2269,125 @@ function _grilleRenderTop3() {
         <b>${x.score}/${maxSans}</b>
       </div>`).join('')}`;
 }
+
+// ══════════ GRILLE RÉCAP : cheval à retenir de chaque course du jour, avec son profil ══════════
+let _grilleRecapCle = null;
+// Calcule la grille d'une course sans toucher à l'affichage de l'onglet Grille (variables globales sauvegardées puis restaurées).
+function _grilleRecapCourse(data, discProgramme) {
+  const sv = { raw: _grilleRaw, liste: _grilleListe, notes: _grilleNotes, disc: _grilleDisc, scores: _grilleScores };
+  try {
+    const liste = [...(data.chevaux || [])].sort((a, b) => a.numero - b.numero);
+    if (!liste.length) return null;
+    const disc = discProgramme
+      || (data.discipline === 'MONTE' ? 'monte' : (data.discipline === 'HAIE' ? 'obstacle' : (String(data.version || '').includes('plat') ? 'galop' : 'attele')));
+    _grilleRaw = data; _grilleListe = liste; _grilleNotes = {}; _grilleDisc = disc;
+    _grilleCalculer();
+    const tot = liste.map(h => ({ h, total: _grilleTotal(h.numero) })).filter(x => x.total !== null);
+    if (!tot.length) return null;
+    const best = Math.max(...tot.map(x => x.total));
+    const gagnants = tot.filter(x => x.total === best).map(x => x.h);
+    const p = _grilleProfil(best);
+    return { disc, max: _grilleMax(), best, gagnants, profil: p, nb: liste.length };
+  } catch (e) {
+    return null;
+  } finally {
+    _grilleRaw = sv.raw; _grilleListe = sv.liste; _grilleNotes = sv.notes; _grilleDisc = sv.disc; _grilleScores = sv.scores;
+  }
+}
+
+async function chargerGrilleRecap(force) {
+  const el = document.getElementById('grillerecap-content');
+  if (!el) return;
+  const dateVal = (document.getElementById('course-date') || {}).value;
+  const pad = n => String(n).padStart(2, '0');
+  let dateStr;
+  if (dateVal && dateVal.split('-').length === 3 && dateVal.split('-')[0].length === 4) {
+    const p = dateVal.split('-'); dateStr = p[2] + p[1] + p[0];
+  } else {
+    const t = new Date(); dateStr = pad(t.getDate()) + pad(t.getMonth() + 1) + t.getFullYear();
+  }
+  if (!force && _grilleRecapCle === dateStr) return;
+  el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement de la grille récap…</span></div>';
+  try {
+    let resp;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        resp = await fetch(`${API_URL_PRIMARY}/programme?date=${dateStr}`, { signal: AbortSignal.timeout(40000) });
+        if (resp.ok) break;
+      } catch (e) {
+        if (attempt === 2) throw new Error('Serveur indisponible après 3 tentatives');
+        await new Promise(r => setTimeout(r, 3000));
+      }
+    }
+    if (!resp || !resp.ok) throw new Error('Programme indisponible');
+    const prog = await resp.json();
+    const courses = (prog.courses || []).map(c => ({ r: c.r_num, c: c.c_num, disc: c.disc, dist: c.dist, lieu: c.lieu, heure: c.heure, discGrille: _grilleDiscDepuisProgramme(c.disc) }));
+    if (!courses.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">🧾</div>Aucune course au programme</div>'; return; }
+    const aCalculer = courses.filter(c => c.discGrille);
+    const res = {};
+    let fait = 0;
+    const maj = () => {
+      const pct = Math.round(fait / Math.max(aCalculer.length, 1) * 100);
+      el.innerHTML = `<div class="dash-progress">Calcul de la grille… ${fait}/${aCalculer.length} (${pct}%)<div class="dash-progress-bar"><div class="dash-progress-fill" style="width:${pct}%"></div></div></div>`;
+    };
+    maj();
+    for (let i = 0; i < aCalculer.length; i += 3) {
+      await Promise.all(aCalculer.slice(i, i + 3).map(async co => {
+        try {
+          const r = await fetch(`${API_URL_PRIMARY}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`, { signal: AbortSignal.timeout(25000) });
+          if (r.ok) res[`${co.r}-${co.c}`] = _grilleRecapCourse(await r.json(), co.discGrille);
+        } catch (e) {}
+        fait++; maj();
+      }));
+    }
+    _grilleRecapCle = dateStr;
+
+    const LIB = { attele: 'ATTELÉ', monte: 'MONTÉ', galop: 'PLAT', obstacle: 'HAIES' };
+    const compte = {};
+    Object.values(res).forEach(x => { if (x) compte[x.profil.court] = (compte[x.profil.court] || 0) + 1; });
+    const ordre = GRILLE_PROFILS_ATTELE.map(p => p);
+    const chips = ordre.filter(p => compte[p.court]).map(p =>
+      `<span class="grecap-chip" style="color:${p.color};border-color:${p.color}66;background:${p.color}1f">${p.court} : ${compte[p.court]}</span>`).join('');
+
+    const byR = {};
+    courses.forEach(co => { (byR[co.r] = byR[co.r] || { lieu: co.lieu, courses: [] }).courses.push(co); });
+    let html = `<div class="dash-refresh">
+      <span>🧾 Grille récap · ${dateStr.slice(0, 2)}/${dateStr.slice(2, 4)}/${dateStr.slice(4)}</span>
+      <button onclick="chargerGrilleRecap(true)" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
+    </div>
+    <div class="grecap-sum">${chips || '<span style="font-size:10px;color:var(--text-dim)">Aucune course calculée</span>'}</div>
+    <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2)">
+      Cheval(s) au meilleur score de la grille (notes automatiques, cote incluse) · barème /18 attelé, /20 autres · touche une course pour ouvrir sa grille
+    </div>`;
+    for (const [rNum, rd] of Object.entries(byR)) {
+      html += `<div class="dash-reunion">R${rNum} · ${rd.lieu || ''}</div>`;
+      for (const co of rd.courses) {
+        const x = res[`${co.r}-${co.c}`];
+        const meta = `${co.heure || ''} · ${LIB[co.discGrille] || co.disc || ''}${co.dist ? ' · ' + co.dist + ' m' : ''}`;
+        const onclick = `document.getElementById('pmu-reunion').value='${co.r}';document.getElementById('pmu-course').value='${co.c}';chargerEtAnalyser().then(()=>goTo('grille'))`;
+        if (!x) {
+          html += `<div class="grecap-row"${co.discGrille ? ` onclick="${onclick}"` : ''}>
+            <div><div class="grecap-course">R${co.r}C${co.c}</div></div>
+            <div><div class="grecap-cheval" style="color:var(--text-dim)">${co.discGrille ? 'Non disponible' : 'Discipline non prise en charge'}</div><div class="grecap-meta">${meta}</div></div>
+            <div></div></div>`;
+          continue;
+        }
+        const g = x.gagnants;
+        const noms = g.slice(0, 3).map(h => `#${h.numero} ${h.nom || ''}`.trim()).join(' · ') + (g.length > 3 ? ` · +${g.length - 3}` : '');
+        const c = x.profil.color;
+        html += `<div class="grecap-row" onclick="${onclick}">
+          <div><div class="grecap-course">R${co.r}C${co.c}</div></div>
+          <div><div class="grecap-cheval" style="color:${c}">${noms}</div><div class="grecap-meta">${meta} · ${x.nb} partants${g.length > 1 ? ' · ex æquo' : ''}</div></div>
+          <div class="grecap-badge" style="color:${c};border-color:${c}66;background:${c}1f">${x.profil.court}<small>${x.best}/${x.max}</small></div>
+        </div>`;
+      }
+    }
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>${e.message}<br><button class="btn" style="margin-top:10px" onclick="chargerGrilleRecap(true)">Réessayer</button></div>`;
+  }
+}
+
 
 function grilleEnregistrer() {
   try {

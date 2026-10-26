@@ -1961,13 +1961,21 @@ const GRILLE_CRITERES_GALOP = [
       return { pts: x.pts, why: `Terrain ${lib} : ${x.t}% de top 3 sur ${h.nb_courses_terrain} courses` };
     } },
   { key: 'handicap', court: 'Handicap', icon: '⚖️', nom: 'Valeur handicap et poids',
-    d2: 'Poids et valeur handicap favorables', d1: 'Situation neutre ou incertaine', d0: 'Handicap difficile à surmonter',
-    auto(h, liste) {
+    d2: 'Valeur handicap relevée depuis sa dernière course, ou même poids que lors de sa dernière bonne performance', d1: 'Situation neutre ou références insuffisantes', d0: 'Valeur handicap baissée (déclin de forme) ou nettement plus léger qu\'à sa dernière bonne performance',
+    auto(h) {
+      // Règle validée au backtest plat (hors échantillon : AUC 0,557, écart 2 vs 0 pt = +13 pts de top 3) : le handicapeur suit la forme.
       if (_grilleRaw && _grilleRaw.est_handicap === false) return { pts: 1, nd: true, why: 'Course hors handicap : poids non discriminant' };
-      // Backtest plat (312 000 partants) : le poids est inversé — les plus chargés (= les mieux classés au handicap) font le plus de top 3.
-      const pts = _grilleTercile(liste, x => (x.handicap_poids > 0 ? x.handicap_poids : null), h, false);
-      if (pts === null) return { pts: 1, nd: true, why: 'Poids indisponible ou lot trop petit' };
-      return { pts, why: `Poids ${h.handicap_poids} kg · ${pts === 2 ? 'tiers le plus lourd (mieux classé au handicap)' : pts === 0 ? 'tiers le plus léger' : 'tiers médian'} du lot` };
+      const hv = h.handicap_valeur, hvp = h.hv_prec, pw = h.handicap_poids, pwb = h.poids_bon;
+      const dHv = (hv > 0 && hvp > 0) ? hv - hvp : null;
+      const dBon = (pw > 0 && pwb > 0) ? (pw - pwb) / 10 : null;
+      if (dHv === null && dBon === null) return { pts: 1, nd: true, why: 'Poids/valeur handicap passés indisponibles (ou serveur non à jour)' };
+      const deux = (dHv !== null && dHv > 0) || (dBon !== null && Math.abs(dBon) < 0.01);
+      const zero = (dHv !== null && dHv <= -1) || (dBon !== null && dBon <= -2);
+      const pts = (deux && !zero) ? 2 : ((zero && !deux) ? 0 : 1);
+      const bits = [];
+      if (dHv !== null) bits.push(dHv > 0 ? `valeur handicap relevée de ${dHv.toFixed(1)}` : dHv < 0 ? `valeur handicap baissée de ${(-dHv).toFixed(1)}` : 'valeur handicap inchangée');
+      if (dBon !== null) bits.push(Math.abs(dBon) < 0.01 ? 'même poids qu\'à sa dernière bonne perf' : `${dBon > 0 ? '+' : ''}${dBon.toFixed(1)} kg vs sa dernière bonne perf`);
+      return { pts, why: bits.join(' · ') };
     } },
   { key: 'corde', court: 'Corde', icon: '🎯', nom: 'Numéro de corde',
     d2: 'Stalle favorable (tracé, distance)', d1: 'Effet neutre ou difficile à déterminer', d0: 'Stalle potentiellement défavorable',

@@ -1964,9 +1964,10 @@ const GRILLE_CRITERES_GALOP = [
     d2: 'Poids et valeur handicap favorables', d1: 'Situation neutre ou incertaine', d0: 'Handicap difficile à surmonter',
     auto(h, liste) {
       if (_grilleRaw && _grilleRaw.est_handicap === false) return { pts: 1, nd: true, why: 'Course hors handicap : poids non discriminant' };
-      const pts = _grilleTercile(liste, x => (x.handicap_poids > 0 ? x.handicap_poids : null), h, true);
+      // Backtest plat (312 000 partants) : le poids est inversé — les plus chargés (= les mieux classés au handicap) font le plus de top 3.
+      const pts = _grilleTercile(liste, x => (x.handicap_poids > 0 ? x.handicap_poids : null), h, false);
       if (pts === null) return { pts: 1, nd: true, why: 'Poids indisponible ou lot trop petit' };
-      return { pts, why: `Poids ${h.handicap_poids} kg · ${pts === 2 ? 'tiers le plus léger' : pts === 0 ? 'tiers le plus lourd' : 'tiers médian'} du lot (comparaison aux poids passés non disponible)` };
+      return { pts, why: `Poids ${h.handicap_poids} kg · ${pts === 2 ? 'tiers le plus lourd (mieux classé au handicap)' : pts === 0 ? 'tiers le plus léger' : 'tiers médian'} du lot` };
     } },
   { key: 'corde', court: 'Corde', icon: '🎯', nom: 'Numéro de corde',
     d2: 'Stalle favorable (tracé, distance)', d1: 'Effet neutre ou difficile à déterminer', d0: 'Stalle potentiellement défavorable',
@@ -2007,8 +2008,8 @@ const GRILLE_CRITERES_GALOP = [
       if (r === undefined || r === null) return { pts: 1, nd: true, why: 'Niveau du lot indisponible' };
       const n = h.nb_courses_base || 0;
       if (n < 3) return { pts: 1, why: `Peu de références (${n} course(s))` };
-      const pts = (r <= 1.0 && n >= 5) ? 2 : (r > 1.5 ? 0 : 1);
-      return { pts, why: `Dotation du jour = ${r.toFixed(2)} × le niveau récent du cheval (${r <= 1 ? 'même niveau ou descente' : r > 1.5 ? 'montée en classe nette' : 'légère montée'}) · ${n} courses` };
+      const pts = (r <= 0.8 && n >= 5) ? 2 : (r > 1.2 ? 0 : 1);
+      return { pts, why: `Dotation du jour = ${r.toFixed(2)} × le niveau récent du cheval (${r <= 0.8 ? 'nette descente de classe' : r > 1.2 ? 'montée en classe' : 'niveau comparable'}) · ${n} courses` };
     } },
   { ..._critAttele('cote') },
 ];
@@ -2052,7 +2053,12 @@ const GRILLE_CRITERES_OBSTACLE = [
       if (!x) return { pts: 1, why: `Terrain ${lib} · références limitées (${h.nb_courses_terrain} course(s))` };
       return { pts: x.pts, why: `Terrain ${lib} : ${x.t}% de top 3 sur ${h.nb_courses_terrain} courses` };
     } },
-  { ..._critGalop('handicap') },
+  { ..._critGalop('handicap'), auto(h, liste) {
+      if (_grilleRaw && _grilleRaw.est_handicap === false) return { pts: 1, nd: true, why: 'Course hors handicap : poids non discriminant' };
+      const pts = _grilleTercile(liste, x => (x.handicap_poids > 0 ? x.handicap_poids : null), h, true);
+      if (pts === null) return { pts: 1, nd: true, why: 'Poids indisponible ou lot trop petit' };
+      return { pts, why: `Poids ${h.handicap_poids} kg · ${pts === 2 ? 'tiers le plus léger' : pts === 0 ? 'tiers le plus lourd' : 'tiers médian'} du lot (non encore validé en haies)` };
+    } },
   { key: 'experience', court: 'Expér.', icon: '📍', nom: 'Expérience du parcours',
     d2: 'Expérience réussie sur le parcours ou les obstacles concernés', d1: 'Expérience limitée ou résultats mitigés', d0: 'Échecs répétés sur ce parcours (données suffisantes)',
     auto(h) {
@@ -2075,7 +2081,14 @@ const GRILLE_CRITERES_OBSTACLE = [
       }
       return { pts: avis === 1 ? 2 : (avis === -1 ? 0 : 1), nd: true, why: 'Entraîneur absent des statistiques' };
     } },
-  { ..._critGalop('niveau') },
+  { ..._critGalop('niveau'), auto(h) {
+      const r = h.ratio_niveau_lot;
+      if (r === undefined || r === null) return { pts: 1, nd: true, why: 'Niveau du lot indisponible' };
+      const n = h.nb_courses_base || 0;
+      if (n < 3) return { pts: 1, why: `Peu de références (${n} course(s))` };
+      const pts = (r <= 1.0 && n >= 5) ? 2 : (r > 1.5 ? 0 : 1);
+      return { pts, why: `Dotation du jour = ${r.toFixed(2)} × le niveau récent du cheval · ${n} courses` };
+    } },
   { ..._critAttele('cote') },
 ];
 const GRILLE_CRITERES_GENERIQUE = [

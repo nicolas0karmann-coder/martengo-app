@@ -140,6 +140,14 @@ html,body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;f
 .grille-resultat-title{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:1px;color:var(--gold);margin-bottom:8px}
 .grille-resultat-row{display:flex;justify-content:space-between;align-items:center;font-family:'Space Mono',monospace;font-size:11px;color:var(--text);padding:4px 0}
 .grille-resultat-row b{color:var(--gold-lite);font-size:13px}
+.grille-top3{margin:12px 16px 0;padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--bg3)}
+.grille-top3-title{font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:1px;color:var(--gold);margin-bottom:2px}
+.grille-top3-sub{font-family:'Space Mono',monospace;font-size:9px;color:var(--text-mid);margin-bottom:8px}
+.grille-top3-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-top:1px solid var(--border);font-family:'Space Mono',monospace;font-size:11px;color:var(--text)}
+.grille-top3-row .rang{font-family:'Bebas Neue',sans-serif;font-size:18px;color:var(--gold);width:18px;text-align:center}
+.grille-top3-row .nom{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.grille-top3-row b{color:var(--gold-lite);font-size:13px;white-space:nowrap}
+.grille-top3-row .cote{color:var(--text-mid);font-size:10px;white-space:nowrap}
 .grille-tips{margin:14px 16px 0;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--bg2)}
 .grille-tips-title{font-family:'Space Mono',monospace;font-size:10px;font-weight:700;color:var(--text);letter-spacing:.5px;margin-bottom:8px}
 .grille-tips ul{margin:0;padding-left:16px;font-size:11px;color:var(--text-mid);line-height:1.9}
@@ -2173,7 +2181,36 @@ function _grilleRecalcResultat() {
   }
   const best = Math.max(...totaux.map(x => x.total));
   const meilleurs = totaux.filter(x => x.total === best && best > 0).map(x => '#' + x.numero);
-  if (retenirEl) retenirEl.textContent = meilleurs.length ? meilleurs.join(', ') : '—';
+  if (retenirEl) retenirEl.textContent = meilleurs.length ? `${meilleurs.join(', ')} (${best}/${max})` : '—';
+  _grilleRenderTop3();
+}
+
+// Encadré « Top 3 sans la cote » : les 3 meilleurs scores en ignorant le critère « cote ».
+// Égalités départagées par les chances de victoire estimées par le modèle, puis par le numéro.
+function _grilleRenderTop3() {
+  const el = document.getElementById('grille-top3');
+  if (!el) return;
+  const maxSans = _grilleMax() - 2;
+  const lignes = _grilleListe.map(h => {
+    const t = _grilleTotal(h.numero);
+    if (t === null) return null;
+    const pCote = (_grilleScores[h.numero] && _grilleScores[h.numero].vals.cote) || 0;
+    return { h, score: t - pCote };
+  }).filter(Boolean)
+    .sort((a, b) => b.score - a.score || (b.h.proba_win || 0) - (a.h.proba_win || 0) || a.h.numero - b.h.numero)
+    .slice(0, 3);
+  if (!lignes.length) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  el.innerHTML = `
+    <div class="grille-top3-title">🏅 Top 3 sans la cote</div>
+    <div class="grille-top3-sub">Meilleurs scores en ignorant le critère « cote » (sur ${maxSans}). Égalité : départage par les chances estimées.</div>
+    ${lignes.map((x, i) => `
+      <div class="grille-top3-row">
+        <span class="rang">${i + 1}</span>
+        <span class="nom">#${x.h.numero} ${x.h.nom || ''}</span>
+        <span class="cote">${x.h.cote != null ? 'cote ' + x.h.cote : ''}</span>
+        <b>${x.score}/${maxSans}</b>
+      </div>`).join('')}`;
 }
 
 function grilleEnregistrer() {
@@ -2318,6 +2355,7 @@ function _grilleBuild() {
       ${legende}
       <button class="btn full" onclick="grilleEnregistrer()" style="margin-top:10px">💾 Enregistrer l'analyse</button>
     </div>
+    <div class="grille-top3" id="grille-top3"></div>
     <div class="grille-tips">
       <div class="grille-tips-title">💡 Astuces</div>
       <ul>

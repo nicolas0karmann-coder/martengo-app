@@ -1652,8 +1652,17 @@ const GRILLE_PROFILS_ATTELE = [
   { min: 9,  court: 'Incertain',      long: 'Profil incertain',                    color: '#d9803a' },
   { min: 0,  court: 'Peu convaincant', long: 'Peu convaincant selon la grille',    color: '#e05c5c' },
 ];
+// Barème sur 18 (attelé) : 15 / 12 / 9. Barème sur 20 (autres disciplines, avec critère cote) :
+// mêmes proportions, arrondies : 17 / 13 / 10.
+function _grilleProfils() {
+  if (_grilleMax() === 20) {
+    const mins = [17, 13, 10, 0];
+    return GRILLE_PROFILS_ATTELE.map((p, i) => ({ ...p, min: mins[i] }));
+  }
+  return GRILLE_PROFILS_ATTELE;
+}
 function _grilleProfil(total) {
-  return GRILLE_PROFILS_ATTELE.find(p => total >= p.min);
+  return _grilleProfils().find(p => total >= p.min);
 }
 
 function _grillePlaces(musique, n) {
@@ -1800,7 +1809,7 @@ const GRILLE_CRITERES_ATTELE = [
     } },
 ];
 
-// ── Trot monté : barème sur 18 (9 critères, sans critère « cote ») ──
+// ── Trot monté : barème sur 20 (9 critères + valeur de la cote) ──
 // Seuils provisoires : le taux de top 3 moyen au monté (~37 %) est plus haut qu'à l'attelé (~31 %),
 // les seuils sont donc décalés d'environ +6 points. À valider par backtest (spec_monte.py).
 const _MONTE_TAUX_HI = 47, _MONTE_TAUX_LO = 31;
@@ -1890,10 +1899,11 @@ const GRILLE_CRITERES_MONTE = [
       return { pts, nd, why: note };
     } },
   { ..._critAttele('niveau') },
+  { ..._critAttele('cote') },
 ];
 
 // Grille générique manuelle (disciplines dont le barème reste à définir)
-// ── Galop plat : barème sur 18 (seuils provisoires, à valider par backtest) ──
+// ── Galop plat : barème sur 20 (seuils provisoires, à valider par backtest) ──
 const _GALOP_TAUX_HI = 40, _GALOP_TAUX_LO = 25;      // base plat ≈ 29 % de top 3
 function _grilleTauxG(n, t3, minN) {
   if (n === undefined || n === null || n < minN) return null;
@@ -1974,8 +1984,9 @@ const GRILLE_CRITERES_GALOP = [
       const pts = (r <= 1.0 && n >= 5) ? 2 : (r > 1.5 ? 0 : 1);
       return { pts, why: `Dotation du jour = ${r.toFixed(2)} × le niveau récent du cheval (${r <= 1 ? 'même niveau ou descente' : r > 1.5 ? 'montée en classe nette' : 'légère montée'}) · ${n} courses` };
     } },
+  { ..._critAttele('cote') },
 ];
-// ── Obstacle (haies) : barème sur 18 (seuils provisoires, à valider par backtest) ──
+// ── Obstacle (haies) : barème sur 20 (seuils provisoires, à valider par backtest) ──
 const _OBST_TAUX_HI = 47, _OBST_TAUX_LO = 30;        // base haies ≈ 35 % de top 3
 function _grilleTauxO(n, t3, minN) {
   if (n === undefined || n === null || n < minN) return null;
@@ -2039,6 +2050,7 @@ const GRILLE_CRITERES_OBSTACLE = [
       return { pts: avis === 1 ? 2 : (avis === -1 ? 0 : 1), nd: true, why: 'Entraîneur absent des statistiques' };
     } },
   { ..._critGalop('niveau') },
+  { ..._critAttele('cote') },
 ];
 const GRILLE_CRITERES_GENERIQUE = [
   { key: 'forme',      court: 'Forme',   icon: '📈', nom: 'Forme récente',        d2: 'Plusieurs performances solides récemment', d1: '', d0: '' },
@@ -2270,8 +2282,8 @@ function _grilleBuild() {
 
   const legende = attele ? `
     <div class="grille-legende">
-      ${GRILLE_PROFILS_ATTELE.map((p, i) => {
-        const hi = i === 0 ? 18 : GRILLE_PROFILS_ATTELE[i - 1].min - 1;
+      ${_grilleProfils().map((p, i, arr) => {
+        const hi = i === 0 ? max : arr[i - 1].min - 1;
         return `<div><b style="color:${p.color}">${p.min}–${hi}</b> : ${p.long}</div>`;
       }).join('')}
       <div style="margin-top:6px"><span class="grille-pick-btn auto" style="display:inline-block">·</span> note automatique &nbsp; <span class="grille-pick-btn nd" style="display:inline-block">·</span> donnée manquante (1 pt par défaut) &nbsp; <span class="grille-pick-btn active" style="display:inline-block">·</span> corrigée à la main</div>

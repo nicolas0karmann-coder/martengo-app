@@ -1800,6 +1800,98 @@ const GRILLE_CRITERES_ATTELE = [
     } },
 ];
 
+// ── Trot monté : barème sur 18 (9 critères, sans critère « cote ») ──
+// Seuils provisoires : le taux de top 3 moyen au monté (~37 %) est plus haut qu'à l'attelé (~31 %),
+// les seuils sont donc décalés d'environ +6 points. À valider par backtest (spec_monte.py).
+const _MONTE_TAUX_HI = 47, _MONTE_TAUX_LO = 31;
+function _grilleTaux(n, t3, minN) {
+  if (n === undefined || n === null || n < minN) return null;
+  const t = t3 / n * 100;
+  return { t: Math.round(t), pts: t >= _MONTE_TAUX_HI ? 2 : (t <= _MONTE_TAUX_LO ? 0 : 1) };
+}
+function _grillePlacesDisc(musique, n) {
+  if (!musique) return [];
+  const clean = String(musique).replace(/\(\d+\)/g, '');
+  return (clean.match(/[0-9DATRdatr][amphscAMPHSC]?/g) || []).slice(0, n).map(t => {
+    const c = t[0].toUpperCase();
+    return { p: /[0-9]/.test(c) ? (c === '0' ? 10 : parseInt(c)) : 15, d: (t[1] || '').toLowerCase(), disq: c === 'D' };
+  });
+}
+const _critAttele = k => GRILLE_CRITERES_ATTELE.find(c => c.key === k);
+
+const GRILLE_CRITERES_MONTE = [
+  { ..._critAttele('forme'), d2: '≥ 2 bonnes performances sur les 3 dernières sorties', d1: 'Bilan mitigé', d0: 'Plusieurs sorties décevantes' },
+  { key: 'regularite', court: 'Allures', icon: '🔄', nom: 'Régularité des allures',
+    d2: 'Peu de fautes d\'allures ou de disqualifications', d1: 'Quelques fautes ou résultats irréguliers', d0: 'Fautes d\'allures ou disqualifications répétées',
+    auto(h) {
+      const p = _grillePlacesDisc(h.musique, 5);
+      if (!p.length) return { pts: 1, nd: true, why: 'Musique indisponible' };
+      const dRec = p.filter(x => x.disq).length, taux = h.taux_disq || 0;
+      const pts = (dRec === 0 && taux <= 10) ? 2 : ((dRec >= 2 || taux >= 30) ? 0 : 1);
+      return { pts, why: `${dRec} disqualification(s) sur les ${p.length} dernières sorties · taux global ${taux}%` };
+    } },
+  { key: 'aptitude', court: 'Monté', icon: '🏇', nom: 'Aptitude au monté',
+    d2: 'Plusieurs bonnes performances au trot monté', d1: 'Peu de références ou bilan mitigé', d0: 'Échecs répétés au trot monté',
+    auto(h) {
+      const p = _grillePlacesDisc(h.musique, 10).filter(x => x.d === 'm');
+      if (!h.musique) return { pts: 1, nd: true, why: 'Musique indisponible' };
+      const top3 = p.filter(x => x.p <= 3).length;
+      const pts = top3 >= 2 ? 2 : ((p.length >= 3 && top3 === 0) ? 0 : 1);
+      return { pts, why: `${top3} top 3 sur ${p.length} sortie(s) au monté dans la musique` };
+    } },
+  { key: 'distance', court: 'Dist./piste', icon: '📏', nom: 'Distance et piste',
+    d2: 'Réussite démontrée sur distance et piste similaires', d1: 'Références limitées ou résultats partagés', d0: 'Échecs répétés dans des conditions similaires',
+    auto(h) {
+      if (h.nb_courses_dist === undefined) return { pts: 1, nd: true, why: 'Statistiques distance/hippodrome non chargées côté serveur' };
+      const ev = [], notes = [];
+      const d = _grilleTaux(h.nb_courses_dist, h.top3_dist, 3);
+      if (d) { ev.push(d.pts); notes.push(`${h.nb_courses_dist} courses à ±300 m : ${d.t}% de top 3`); }
+      const p = _grilleTaux(h.nb_courses_hippo, h.top3_hippo, 2);
+      if (p) { ev.push(p.pts); notes.push(`${h.nb_courses_hippo} course(s) sur cet hippodrome : ${p.t}% de top 3`); }
+      if (!ev.length) return { pts: 1, why: `Références limitées (${h.nb_courses_dist || 0} à distance proche, ${h.nb_courses_hippo || 0} sur cet hippodrome)` };
+      return { pts: Math.floor(ev.reduce((a, b) => a + b, 0) / ev.length), why: notes.join(' · ') };
+    } },
+  { key: 'depart', court: 'Départ', icon: '🚦', nom: 'Départ et rendement de distance',
+    d2: 'Bon historique au mode de départ prévu (et au rendement de distance imposé)', d1: 'Résultats moyens ou peu de références', d0: 'Difficultés répétées dans cette configuration',
+    auto(h) {
+      const m = h.mode_depart;
+      if (!m) return { pts: 1, nd: true, why: 'Mode de départ de la course inconnu' };
+      if (h.depart_n === undefined || h.depart_n === null) return { pts: 1, nd: true, why: 'Statistiques par mode de départ non chargées côté serveur' };
+      const lib = m === 'autostart' ? 'autostart' : 'volté';
+      const x = _grilleTaux(h.depart_n, h.depart_top3, 3);
+      let pts = x ? x.pts : 1, note = x ? `Départ ${lib} : ${x.t}% de top 3 sur ${h.depart_n} courses` : `Départ ${lib} · peu de références (${h.depart_n} course(s))`;
+      if ((h.rendement_distance || 0) > 0) {
+        note += ` · rendement imposé de ${h.rendement_distance} m (non vérifiable : pas d'historique)`;
+        if (pts > 1) pts = 1;
+      }
+      return { pts, why: note };
+    } },
+  { ..._critAttele('ferrure') },
+  { ..._critAttele('driver'), nom: 'Jockey', court: 'Jockey',
+    d2: 'Bon bilan vérifiable dans cette discipline', d1: 'Bilan moyen ou données limitées', d0: 'Difficultés répétées et documentées' },
+  { ..._critAttele('entraineur'), nom: 'Entraîneur et préparation',
+    auto(h) {
+      const avis = h.avis ?? 0;
+      let pts, note, nd = false;
+      if (h.entr_taux !== undefined && h.entr_taux !== null) {
+        pts = h.entr_taux >= 42 ? 2 : (h.entr_taux < 34 ? 0 : 1);   // base monté ≈ 37 %
+        note = `Entraîneur : ${h.entr_taux}% de top 3`;
+        if (avis === -1 && pts > 1) { pts = 1; note += ' · avis défavorable'; }
+      } else {
+        pts = avis === 1 ? 2 : (avis === -1 ? 0 : 1);
+        note = `Avis entraîneur ${avis === 1 ? 'favorable' : avis === -1 ? 'défavorable' : 'neutre'} (entraîneur absent des statistiques)`;
+        nd = true;
+      }
+      const dd = h.date_derniere_course ? new Date(h.date_derniere_course) : null;
+      if (dd && !isNaN(dd.getTime())) {
+        const jours = Math.round((Date.now() - dd.getTime()) / 86400000);
+        if (jours > 60 && (h.courses_60j || 0) === 0 && pts > 1) { pts = 1; note += ` · rentrée après ${jours} jours`; }
+      }
+      return { pts, nd, why: note };
+    } },
+  { ..._critAttele('niveau') },
+];
+
 // Grille générique manuelle (disciplines dont le barème reste à définir)
 const GRILLE_CRITERES_GENERIQUE = [
   { key: 'forme',      court: 'Forme',   icon: '📈', nom: 'Forme récente',        d2: 'Plusieurs performances solides récemment', d1: '', d0: '' },
@@ -1817,8 +1909,11 @@ let _grilleScores = {};         // { numero: { vals, auto, manual } }
 let _grilleNotes = {};          // { numero: texte }
 
 function _grilleCriteres() {
-  return _grilleDisc === 'attele' ? GRILLE_CRITERES_ATTELE : GRILLE_CRITERES_GENERIQUE;
+  if (_grilleDisc === 'attele') return GRILLE_CRITERES_ATTELE;
+  if (_grilleDisc === 'monte') return GRILLE_CRITERES_MONTE;
+  return GRILLE_CRITERES_GENERIQUE;
 }
+function _grilleABareme() { return _grilleDisc === 'attele' || _grilleDisc === 'monte'; }
 function _grilleMax() { return _grilleCriteres().length * 2; }
 
 function _grilleTotal(numero) {
@@ -1882,7 +1977,7 @@ function _grilleMajTotal(numero) {
   if (el) el.textContent = total === null ? `__/${_grilleMax()}` : `${total}/${_grilleMax()}`;
   const pEl = document.getElementById(`grille-profil-${numero}`);
   if (pEl) {
-    if (_grilleDisc === 'attele' && total !== null) {
+    if (_grilleABareme() && total !== null) {
       const p = _grilleProfil(total);
       pEl.textContent = p.court; pEl.style.color = p.color; pEl.style.borderColor = p.color;
     } else { pEl.textContent = '—'; pEl.style.color = ''; pEl.style.borderColor = ''; }
@@ -1906,7 +2001,7 @@ function _grilleRecalcResultat() {
   const moyenne = totaux.reduce((a, x) => a + x.total, 0) / totaux.length;
   if (moyEl) moyEl.textContent = `${moyenne.toFixed(1)}/${max}`;
   if (profilEl) {
-    if (_grilleDisc === 'attele') {
+    if (_grilleABareme()) {
       const p = _grilleProfil(Math.floor(moyenne));
       profilEl.textContent = p.long; profilEl.style.color = p.color;
     } else profilEl.textContent = '';
@@ -1960,7 +2055,7 @@ async function _grilleDetecterDiscipline(data) {
 function renderGrille(data) {
   const liste = [...(data.chevaux || [])].sort((a, b) => a.numero - b.numero);
   _grilleRaw = data; _grilleListe = liste; _grilleNotes = {}; _grilleDiscManuel = false;
-  _grilleDisc = String(data.version || '').includes('plat') ? 'galop' : 'attele';
+  _grilleDisc = data.discipline === 'MONTE' ? 'monte' : (String(data.version || '').includes('plat') ? 'galop' : 'attele');
   _grilleBuild();
   _grilleDetecterDiscipline(data);
 }
@@ -1975,7 +2070,7 @@ function _grilleBuild() {
   _grilleCalculer();
   const crit = _grilleCriteres();
   const max = _grilleMax();
-  const attele = _grilleDisc === 'attele';
+  const attele = _grilleABareme();   // barème sur 18 avec profils (attelé, monté)
 
   const chips = GRILLE_DISCIPLINES.map(d =>
     `<button type="button" class="grille-chip${d.key === _grilleDisc ? ' on' : ''}" onclick="grilleSetDisc('${d.key}')">${d.label}</button>`

@@ -113,7 +113,7 @@ html,body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;f
 .grille-intro-title{font-family:'Bebas Neue',sans-serif;font-size:19px;letter-spacing:1px;color:var(--gold)}
 .grille-intro-sub{font-family:'Space Mono',monospace;font-size:10.5px;color:var(--text-dim);line-height:1.6;margin-top:6px}
 .grille-criteres{display:flex;gap:8px;overflow-x:auto;padding:12px 16px;border-bottom:1px solid var(--border);-webkit-overflow-scrolling:touch}
-.grille-crit-card{flex:0 0 118px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px}
+.grille-crit-card{flex:0 0 170px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:10px}
 .grille-crit-icon{font-size:16px}
 .grille-crit-nom{font-family:'Space Mono',monospace;font-size:9.5px;font-weight:700;color:var(--text);margin-top:4px;letter-spacing:.5px}
 .grille-crit-desc{font-size:9.5px;color:var(--text-dim);margin-top:4px;line-height:1.4}
@@ -126,6 +126,13 @@ html,body{background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;f
 .grille-pick{display:inline-flex;gap:2px;background:var(--bg3);border-radius:6px;padding:2px}
 .grille-pick-btn{width:18px;height:18px;line-height:18px;border:none;border-radius:4px;background:transparent;color:var(--text-dim);font-family:'Space Mono',monospace;font-size:9px;font-weight:700;cursor:pointer;padding:0}
 .grille-pick-btn.active{background:var(--gold);color:#080808}
+.grille-pick-btn.auto{background:rgba(58,145,98,.4);color:#b6ecce}
+.grille-pick-btn.nd{background:transparent;border:1px dashed var(--text-mid);color:var(--text-mid);line-height:16px}
+.grille-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.grille-chip{background:var(--bg3);border:1px solid var(--border);color:var(--text-mid);border-radius:16px;padding:6px 12px;font-family:'Space Mono',monospace;font-size:10px;font-weight:700;cursor:pointer}
+.grille-chip.on{background:var(--gold);border-color:var(--gold);color:#080808}
+.grille-profil{display:inline-block;border:1px solid;border-radius:10px;padding:2px 7px;font-size:9px;font-weight:700}
+.grille-legende{margin-top:8px;padding-top:8px;border-top:1px solid rgba(200,148,42,.25);font-family:'Space Mono',monospace;font-size:10px;color:var(--text-mid);line-height:1.8}
 .grille-total-cell{font-weight:700;color:var(--gold);font-size:11px}
 .grille-note-input{width:90px;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Syne',sans-serif;font-size:10px;padding:5px 6px}
 .grille-note-input::placeholder{color:var(--text-dim)}
@@ -1627,124 +1634,400 @@ function renderConseilPlat(data) {
     </div>`;
 }
 
-// ── Grille d'analyse manuelle — 5 critères notés 0-2, total /10 ──
-const GRILLE_CRITERES = [
-  { key: 'forme',       icon: '📈', nom: 'Forme récente',     desc: "Le cheval a-t-il réalisé plusieurs performances solides récemment ?" },
-  { key: 'regularite',  icon: '🔄', nom: 'Régularité',        desc: "Termine-t-il souvent dans les places payées ?" },
-  { key: 'aptitude',    icon: '🐎', nom: 'Aptitude',          desc: "A-t-il déjà bien couru sur cette distance, cette piste et ce type de terrain ?" },
-  { key: 'conditions',  icon: '⚙️', nom: 'Conditions de course', desc: "Départ, numéro, poids, ferrure selon la discipline." },
-  { key: 'cote',        icon: '🎯', nom: 'Cote intéressante', desc: "La cote offre-t-elle une rémunération suffisante par rapport au risque ?" },
+// ── Grille d'analyse — barème par discipline, notation automatique ──
+// Trot attelé : 9 critères notés 0-2 (max 18), calculés à partir des données
+// renvoyées par /notes_pmu. Les critères sans donnée fiable (ex. mode de départ)
+// reçoivent 1 point par défaut et sont marqués « n/d » (pointillés).
+// Les autres disciplines gardent pour l'instant la grille générique manuelle.
+const GRILLE_DISCIPLINES = [
+  { key: 'attele',   label: 'Trot attelé' },
+  { key: 'monte',    label: 'Trot monté' },
+  { key: 'galop',    label: 'Galop' },
+  { key: 'obstacle', label: 'Haies / obstacle' },
 ];
 
-let _grilleScores = {}; // { numero: { forme,regularite,aptitude,conditions,cote: 0|1|2|null, note: '' } }
-let _grilleData = null;  // dernière liste de chevaux chargée (pour recalcul)
-
-function _grilleInitScore(numero) {
-  if (!_grilleScores[numero]) {
-    _grilleScores[numero] = { forme: null, regularite: null, aptitude: null, conditions: null, cote: null, note: '' };
-  }
-  return _grilleScores[numero];
+const GRILLE_PROFILS_ATTELE = [
+  { min: 15, court: 'Intéressant',    long: 'Profil intéressant à étudier',        color: '#3a9162' },
+  { min: 12, court: 'Intermédiaire',  long: 'Profil intermédiaire',                color: '#c8942a' },
+  { min: 9,  court: 'Incertain',      long: 'Profil incertain',                    color: '#d9803a' },
+  { min: 0,  court: 'Peu convaincant', long: 'Peu convaincant selon la grille',    color: '#e05c5c' },
+];
+function _grilleProfil(total) {
+  return GRILLE_PROFILS_ATTELE.find(p => total >= p.min);
 }
+
+function _grillePlaces(musique, n) {
+  if (!musique) return [];
+  const clean = String(musique).replace(/\(\d+\)/g, '');
+  const tokens = (clean.match(/[0-9DATRdatr][amphscAMPHSC]?/g) || []).slice(0, n);
+  return tokens.map(t => {
+    const c = t[0].toUpperCase();
+    if (/[0-9]/.test(c)) return c === '0' ? 10 : parseInt(c);
+    return 15; // D / A / T / R
+  });
+}
+
+function _grilleTercile(liste, getter, h, basIsBon) {
+  const vals = liste.map(getter).filter(v => v !== null && v !== undefined && !isNaN(v)).sort((a, b) => a - b);
+  const v = getter(h);
+  if (vals.length < 3 || v === null || v === undefined || isNaN(v)) return null;
+  const k = Math.ceil(vals.length / 3);
+  const bas = vals[k - 1], haut = vals[vals.length - k];
+  if (basIsBon) return v <= bas ? 2 : (v >= haut ? 0 : 1);
+  return v >= haut ? 2 : (v <= bas ? 0 : 1);
+}
+
+const GRILLE_CRITERES_ATTELE = [
+  { key: 'forme', court: 'Forme', icon: '📈', nom: 'Forme récente',
+    d2: '≥ 2 performances convaincantes sur les 3 dernières sorties', d1: 'Résultats mitigés', d0: 'Plusieurs mauvaises sorties sans excuse',
+    auto(h) {
+      const p = _grillePlaces(h.musique, 3);
+      if (!p.length) return { pts: 1, nd: true, why: 'Musique indisponible' };
+      const podiums = p.filter(x => x <= 3).length, mauvais = p.filter(x => x >= 6).length;
+      const pts = podiums >= 2 ? 2 : (podiums === 0 && mauvais >= 2 ? 0 : 1);
+      return { pts, why: `${podiums} podium(s), ${mauvais} mauvaise(s) sortie(s) sur ${p.length} dernières` };
+    } },
+  { key: 'regularite', court: 'Régul.', icon: '🔄', nom: 'Régularité',
+    d2: 'Peu de disqualifications, résultats constants', d1: 'Quelques résultats irréguliers', d0: 'Disqualifications ou contre-performances répétées',
+    auto(h) {
+      const reg = _regulariteMusique(h.musique, 5);
+      if (reg === null) return { pts: 1, nd: true, why: 'Musique indisponible' };
+      const disq = h.taux_disq || 0;
+      const pts = (disq <= 10 && reg >= 60) ? 2 : ((disq >= 30 || reg <= 20) ? 0 : 1);
+      return { pts, why: `${Math.round(reg)}% dans les 5 premiers (5 dernières), disqualifications ${disq}%` };
+    } },
+  { key: 'distance', court: 'Dist./piste', icon: '📏', nom: 'Distance et piste',
+    d2: 'Réussites vérifiables sur distance et piste similaires', d1: 'Peu de références ou résultats partagés', d0: 'Échecs répétés dans des conditions similaires',
+    auto(h) {
+      // Preuve « distance » : taux de top 3 du cheval sur cette tranche de distance (base ≈ 31 %)
+      // Preuve « piste » : chrono médian sur le même hippodrome (± 300 m) vs sa médiane récente
+      const nbD = h.nb_courses_dist, nbH = h.nb_courses_hippo || 0;
+      if (nbD === undefined && h.spec_dist_taux === undefined) {
+        const a = h.scores && h.scores.adequation;
+        if (a === undefined || a === null) return { pts: 1, nd: true, why: 'Données distance/piste indisponibles' };
+        return { pts: a >= 60 ? 2 : (a >= 40 ? 1 : 0), why: `Adéquation distance/discipline ${a}/100 (indicateur indirect, API non à jour)` };
+      }
+      const ev = [], notes = [];
+      if ((nbD || 0) >= 3 && h.spec_dist_taux != null) {
+        const t = h.spec_dist_taux;
+        ev.push(t >= 41 ? 2 : (t <= 25 ? 0 : 1));
+        notes.push(`${nbD} courses à distance proche, top 3 : ${t}%`);
+      }
+      if (h.rk_hippo_med != null && h.rk_moyenne_3courses != null) {
+        const ecart = h.rk_hippo_med - h.rk_moyenne_3courses; // négatif = plus rapide ici
+        ev.push(ecart <= -500 ? 2 : (ecart >= 500 ? 0 : 1));
+        notes.push(`chrono médian sur cet hippodrome ${ecart <= 0 ? '' : '+'}${Math.round(ecart)} vs récent`);
+      } else if (nbH > 0) {
+        notes.push(`${nbH} course(s) sur cet hippodrome`);
+      }
+      if (!ev.length) return { pts: 1, why: `Peu de références (${nbD || 0} course(s) à distance proche, ${nbH} sur cet hippodrome)` };
+      return { pts: Math.floor(ev.reduce((x, y) => x + y, 0) / ev.length), why: notes.join(' · ') };
+    } },
+  { key: 'depart', court: 'Départ', icon: '🚦', nom: 'Mode de départ',
+    d2: 'Bon historique au même mode de départ (autostart / volté)', d1: 'Peu de références ou résultats moyens', d0: 'Difficultés répétées avec ce mode de départ',
+    auto() { return { pts: 1, nd: true, why: 'Mode de départ absent des données : 1 point par défaut' }; } },
+  { key: 'ferrure', court: 'Ferrure', icon: '🧷', nom: 'Ferrure et configuration',
+    d2: 'Configuration annoncée associée à de bonnes performances comparables', d1: 'Effet inconnu ou résultats mitigés', d0: 'Performances nettement moins bonnes dans cette configuration',
+    auto(h, liste) {
+      let pts = _grilleTercile(liste, x => x.rk_ferrure, h, true);
+      if (pts === null) return { pts: 1, nd: true, why: 'Pas de référence chrono pour cette ferrure' };
+      let note = `Réduction km avec cette ferrure : ${Math.round(h.rk_ferrure)} (tiers ${pts === 2 ? 'supérieur' : pts === 0 ? 'inférieur' : 'médian'} du lot)`;
+      if (h.changement_ferrure === true) {
+        const ordre = { FERRE: 0, DEFERRE_PARTIEL: 1, DEFERRE_TOTAL: 2 };
+        const avant = ordre[h.ferrure_precedente] ?? -1, apres = ordre[h.deferre] ?? -1;
+        if ((avant === -1 || apres === -1 || apres < avant) && pts > 1) { pts = 1; note += ' · changement de ferrure non favorable/inconnu'; }
+      }
+      return { pts, why: note };
+    } },
+  { key: 'niveau', court: 'Niveau', icon: '🏆', nom: 'Niveau du lot',
+    d2: 'A déjà bien couru contre des chevaux de niveau égal ou supérieur', d1: 'Niveau comparable, preuves limitées', d0: 'Manque de références face à ce niveau',
+    auto(h) {
+      const plafond = h.plafond_gains || 0;
+      if (plafond <= 0) return { pts: 1, nd: true, why: 'Plafond de gains de la course inconnu' };
+      const ratio = ((h.gains_carriere || 0) / 100) / plafond;
+      const nbC = h.nb_courses_base || 0;
+      const pts = (ratio >= 0.7 && nbC >= 5) ? 2 : (ratio >= 0.4 ? 1 : 0);
+      return { pts, why: `Gains = ${Math.round(ratio * 100)}% du plafond de la course (${nbC} courses de référence)` };
+    } },
+  { key: 'driver', court: 'Driver', icon: '🧑‍✈️', nom: 'Driver',
+    d2: 'Bon bilan vérifiable avec ce cheval ou ce type de course', d1: 'Résultats moyens ou peu de données', d0: 'Difficultés répétées et documentées',
+    auto(h) {
+      const duo = h.scores && h.scores.duo;
+      const win = h.driver_win_rate;
+      if ((duo === undefined || duo === null) && (win === undefined || win === null)) return { pts: 1, nd: true, why: 'Pas de statistique driver' };
+      const pDuo = (duo !== undefined && duo !== null) ? (duo >= 60 ? 2 : duo >= 40 ? 1 : 0) : null;
+      const pWin = (win !== undefined && win !== null) ? (win >= 12 ? 2 : win >= 7 ? 1 : 0) : null;
+      const pts = (pDuo !== null && pWin !== null) ? Math.floor((pDuo + pWin) / 2) : (pDuo ?? pWin);
+      return { pts, why: `Duo cheval/driver ${duo ?? '—'}/100 · driver ${win ?? '—'}% de victoires` };
+    } },
+  { key: 'entraineur', court: 'Entr.', icon: '🛠️', nom: 'Entraîneur et préparation',
+    d2: 'Régulièrement performant après une préparation comparable', d1: 'Signaux mitigés ou peu de données', d0: 'Mauvaises performances répétées dans des circonstances comparables',
+    auto(h) {
+      const avis = h.avis ?? 0;
+      let pts, note, nd = false;
+      if (h.entr_taux !== undefined && h.entr_taux !== null && (h.entr_n || 0) >= 20) {
+        // Taux de top 3 de l'entraîneur (base ≈ 31 %), puis avis et rentrée comme garde-fous
+        pts = h.entr_taux >= 36 ? 2 : (h.entr_taux < 28 ? 0 : 1);
+        note = `Entraîneur : ${h.entr_taux}% de top 3 sur ${h.entr_n} partants`;
+        if (avis === -1 && pts > 1) { pts = 1; note += ' · avis défavorable'; }
+      } else {
+        pts = avis === 1 ? 2 : (avis === -1 ? 0 : 1);
+        note = `Avis entraîneur ${avis === 1 ? 'favorable' : avis === -1 ? 'défavorable' : 'neutre'} (stats entraîneur insuffisantes)`;
+        nd = h.entr_taux === undefined;
+      }
+      const dd = h.date_derniere_course ? new Date(h.date_derniere_course) : null;
+      if (dd && !isNaN(dd.getTime())) {
+        const jours = Math.round((Date.now() - dd.getTime()) / 86400000);
+        if (jours > 60 && (h.courses_60j || 0) === 0 && pts > 1) { pts = 1; note += ` · rentrée après ${jours} jours`; }
+      }
+      return { pts, nd, why: note };
+    } },
+  { key: 'cote', court: 'Cote', icon: '🎯', nom: 'Valeur de la cote',
+    d2: 'Cote intéressante vs une estimation indépendante des chances', d1: 'Avantage faible ou incertain', d0: 'Cote trop basse vs l\'estimation des chances',
+    auto(h) {
+      if (h.cote === null || h.cote === undefined || h.ev_win === null || h.ev_win === undefined) return { pts: 1, nd: true, why: 'Cote ou estimation indisponible' };
+      const pts = h.ev_win >= 10 ? 2 : (h.ev_win <= -10 ? 0 : 1);
+      return { pts, why: `Cote ${h.cote} · espérance de gain selon le modèle ${h.ev_win > 0 ? '+' : ''}${h.ev_win}%` };
+    } },
+];
+
+// Grille générique manuelle (disciplines dont le barème reste à définir)
+const GRILLE_CRITERES_GENERIQUE = [
+  { key: 'forme',      court: 'Forme',   icon: '📈', nom: 'Forme récente',        d2: 'Plusieurs performances solides récemment', d1: '', d0: '' },
+  { key: 'regularite', court: 'Régul.',  icon: '🔄', nom: 'Régularité',           d2: 'Termine souvent dans les places payées', d1: '', d0: '' },
+  { key: 'aptitude',   court: 'Aptitude', icon: '🐎', nom: 'Aptitude',            d2: 'A déjà bien couru sur cette distance, cette piste, ce terrain', d1: '', d0: '' },
+  { key: 'conditions', court: 'Cond.',   icon: '⚙️', nom: 'Conditions de course', d2: 'Départ, numéro, poids, ferrure favorables', d1: '', d0: '' },
+  { key: 'cote',       court: 'Cote',    icon: '🎯', nom: 'Cote intéressante',    d2: 'Rémunération suffisante par rapport au risque', d1: '', d0: '' },
+];
+
+let _grilleRaw = null;          // données /notes_pmu de la course chargée
+let _grilleListe = [];          // chevaux triés par numéro
+let _grilleDisc = 'attele';     // discipline de la grille affichée
+let _grilleDiscManuel = false;  // true si l'utilisateur a choisi lui-même
+let _grilleScores = {};         // { numero: { vals, auto, manual } }
+let _grilleNotes = {};          // { numero: texte }
+
+function _grilleCriteres() {
+  return _grilleDisc === 'attele' ? GRILLE_CRITERES_ATTELE : GRILLE_CRITERES_GENERIQUE;
+}
+function _grilleMax() { return _grilleCriteres().length * 2; }
 
 function _grilleTotal(numero) {
   const s = _grilleScores[numero];
   if (!s) return null;
-  const vals = GRILLE_CRITERES.map(c => s[c.key]);
-  if (vals.every(v => v === null)) return null;
+  const vals = _grilleCriteres().map(c => s.vals[c.key]);
+  if (vals.every(v => v === null || v === undefined)) return null;
   return vals.reduce((a, v) => a + (v || 0), 0);
 }
 
-function grillePick(numero, critere, val) {
-  const s = _grilleInitScore(numero);
-  s[critere] = (s[critere] === val) ? null : val; // re-clic = désélectionne
-  // Boutons de la ligne
-  GRILLE_CRITERES.forEach(c => {
-    if (c.key !== critere) return;
-    [0,1,2].forEach(v => {
-      const btn = document.getElementById(`grille-btn-${numero}-${critere}-${v}`);
-      if (btn) btn.classList.toggle('active', s[critere] === v);
+function _grilleCalculer() {
+  const crit = _grilleCriteres();
+  _grilleScores = {};
+  _grilleListe.forEach(h => {
+    const s = { vals: {}, auto: {}, manual: {} };
+    crit.forEach(c => {
+      if (typeof c.auto === 'function') {
+        let r;
+        try { r = c.auto(h, _grilleListe); } catch (e) { r = { pts: 1, nd: true, why: 'Erreur de calcul' }; }
+        s.auto[c.key] = r; s.vals[c.key] = r.pts;
+      } else {
+        s.vals[c.key] = null;
+      }
     });
+    _grilleScores[h.numero] = s;
   });
-  const total = _grilleTotal(numero);
-  const totalEl = document.getElementById(`grille-total-${numero}`);
-  if (totalEl) totalEl.textContent = total === null ? '__/10' : `${total}/10`;
+}
+
+function _grilleMajBoutons(numero, key) {
+  const s = _grilleScores[numero];
+  const a = s.auto[key];
+  [0, 1, 2].forEach(v => {
+    const btn = document.getElementById(`grille-btn-${numero}-${key}-${v}`);
+    if (!btn) return;
+    const actif = s.vals[key] === v;
+    btn.classList.toggle('active', actif && !!s.manual[key]);
+    btn.classList.toggle('auto', actif && !s.manual[key] && !!a && !a.nd);
+    btn.classList.toggle('nd', actif && !s.manual[key] && !!a && !!a.nd);
+  });
+}
+
+function grillePick(numero, key, val) {
+  const s = _grilleScores[numero];
+  if (!s) return;
+  const a = s.auto[key];
+  if (a) {
+    // re-clic sur la valeur choisie à la main → retour à la note automatique
+    if (s.manual[key] && s.vals[key] === val) { s.manual[key] = false; s.vals[key] = a.pts; }
+    else { s.vals[key] = val; s.manual[key] = (val !== a.pts); }
+  } else {
+    s.vals[key] = (s.vals[key] === val) ? null : val; s.manual[key] = s.vals[key] !== null;
+  }
+  _grilleMajBoutons(numero, key);
+  _grilleMajTotal(numero);
   _grilleRecalcResultat();
 }
 
-function grilleNote(numero, val) {
-  _grilleInitScore(numero).note = val;
+function _grilleMajTotal(numero) {
+  const total = _grilleTotal(numero);
+  const el = document.getElementById(`grille-total-${numero}`);
+  if (el) el.textContent = total === null ? `__/${_grilleMax()}` : `${total}/${_grilleMax()}`;
+  const pEl = document.getElementById(`grille-profil-${numero}`);
+  if (pEl) {
+    if (_grilleDisc === 'attele' && total !== null) {
+      const p = _grilleProfil(total);
+      pEl.textContent = p.court; pEl.style.color = p.color; pEl.style.borderColor = p.color;
+    } else { pEl.textContent = '—'; pEl.style.color = ''; pEl.style.borderColor = ''; }
+  }
 }
 
+function grilleNote(numero, val) { _grilleNotes[numero] = val; }
+
 function _grilleRecalcResultat() {
-  if (!_grilleData) return;
-  const totaux = _grilleData
-    .map(h => ({ numero: h.numero, total: _grilleTotal(h.numero) }))
-    .filter(x => x.total !== null);
+  const max = _grilleMax();
+  const totaux = _grilleListe.map(h => ({ numero: h.numero, total: _grilleTotal(h.numero) })).filter(x => x.total !== null);
   const moyEl = document.getElementById('grille-score-moyen');
+  const profilEl = document.getElementById('grille-profil-moyen');
   const retenirEl = document.getElementById('grille-chevaux-retenir');
   if (!totaux.length) {
-    if (moyEl) moyEl.textContent = '__/10';
+    if (moyEl) moyEl.textContent = `__/${max}`;
+    if (profilEl) profilEl.textContent = '';
     if (retenirEl) retenirEl.textContent = '—';
     return;
   }
   const moyenne = totaux.reduce((a, x) => a + x.total, 0) / totaux.length;
-  if (moyEl) moyEl.textContent = `${moyenne.toFixed(1)}/10`;
-  const max = Math.max(...totaux.map(x => x.total));
-  const meilleurs = totaux.filter(x => x.total === max && max > 0).map(x => '#' + x.numero);
+  if (moyEl) moyEl.textContent = `${moyenne.toFixed(1)}/${max}`;
+  if (profilEl) {
+    if (_grilleDisc === 'attele') {
+      const p = _grilleProfil(Math.floor(moyenne));
+      profilEl.textContent = p.long; profilEl.style.color = p.color;
+    } else profilEl.textContent = '';
+  }
+  const best = Math.max(...totaux.map(x => x.total));
+  const meilleurs = totaux.filter(x => x.total === best && best > 0).map(x => '#' + x.numero);
   if (retenirEl) retenirEl.textContent = meilleurs.length ? meilleurs.join(', ') : '—';
 }
 
 function grilleEnregistrer() {
   try {
-    localStorage.setItem('martengo_grille_' + (currentDate || 'jour'), JSON.stringify(_grilleScores));
+    const out = { discipline: _grilleDisc, notes: _grilleNotes, scores: {} };
+    Object.keys(_grilleScores).forEach(n => { out.scores[n] = { vals: _grilleScores[n].vals, total: _grilleTotal(+n) }; });
+    localStorage.setItem('martengo_grille_' + (currentDate || 'jour'), JSON.stringify(out));
   } catch (e) {}
   toast('Analyse enregistrée ✓', 'success');
 }
 
+function grilleSetDisc(key) {
+  _grilleDisc = key; _grilleDiscManuel = true;
+  _grilleBuild();
+}
+
+function _grilleDiscDepuisProgramme(raw) {
+  const d = String(raw || '').toUpperCase();
+  if (d.includes('ATTELE')) return 'attele';
+  if (d.includes('HAIE') || d.includes('STEEPLE') || d.includes('CROSS')) return 'obstacle';
+  if (d.includes('PLAT')) return 'galop';
+  if (d.includes('MONTE')) return 'monte';
+  return null;
+}
+
+async function _grilleDetecterDiscipline(data) {
+  try {
+    const dateVal = document.getElementById('course-date').value;
+    const p = dateVal.split('-');
+    const datePMU = (p.length === 3 && p[0].length === 4) ? p[2] + p[1] + p[0] : null;
+    const r = parseInt(document.getElementById('pmu-reunion').value), c = parseInt(document.getElementById('pmu-course').value);
+    if (!datePMU || !r || !c) return;
+    const resp = await fetch(`${API_URL_PRIMARY}/programme?date=${datePMU}`, { signal: AbortSignal.timeout(15000) });
+    if (!resp.ok) return;
+    const prog = await resp.json();
+    const co = (prog.courses || []).find(x => x.r_num === r && x.c_num === c);
+    const disc = co ? _grilleDiscDepuisProgramme(co.disc) : null;
+    if (disc && _grilleRaw === data && !_grilleDiscManuel && disc !== _grilleDisc) {
+      _grilleDisc = disc; _grilleBuild();
+    }
+  } catch (e) {}
+}
+
 function renderGrille(data) {
   const liste = [...(data.chevaux || [])].sort((a, b) => a.numero - b.numero);
+  _grilleRaw = data; _grilleListe = liste; _grilleNotes = {}; _grilleDiscManuel = false;
+  _grilleDisc = String(data.version || '').includes('plat') ? 'galop' : 'attele';
+  _grilleBuild();
+  _grilleDetecterDiscipline(data);
+}
+
+function _grilleBuild() {
+  const liste = _grilleListe;
+  const el = document.getElementById('grille-content');
   if (!liste.length) {
-    document.getElementById('grille-content').innerHTML = '<div class="empty"><div class="empty-icon">🔍</div>Aucun cheval à analyser</div>';
+    el.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div>Aucun cheval à analyser</div>';
     return;
   }
-  _grilleData = liste;
-  _grilleScores = {}; // nouvelle course chargée → grille vierge
-  liste.forEach(h => _grilleInitScore(h.numero));
+  _grilleCalculer();
+  const crit = _grilleCriteres();
+  const max = _grilleMax();
+  const attele = _grilleDisc === 'attele';
 
-  const critTh = GRILLE_CRITERES.map(c => `<th>${c.icon} ${c.nom}</th>`).join('');
+  const chips = GRILLE_DISCIPLINES.map(d =>
+    `<button type="button" class="grille-chip${d.key === _grilleDisc ? ' on' : ''}" onclick="grilleSetDisc('${d.key}')">${d.label}</button>`
+  ).join('');
+
+  const intro = attele
+    ? `Notation automatique sur ${max} points (9 critères × 2 points) à partir des données disponibles. Touche un chiffre pour corriger une note ; re-touche pour revenir à la note automatique.`
+    : `Le barème « ${GRILLE_DISCIPLINES.find(d => d.key === _grilleDisc).label} » reste à définir : grille générique manuelle sur ${max} points (2 points par critère).`;
+
+  const critCards = crit.map(c =>
+    `<div class="grille-crit-card">
+      <div class="grille-crit-icon">${c.icon}</div>
+      <div class="grille-crit-nom">${c.nom}</div>
+      <div class="grille-crit-desc"><b>2</b> ${c.d2}</div>
+      ${c.d1 ? `<div class="grille-crit-desc"><b>1</b> ${c.d1}</div>` : ''}
+      ${c.d0 ? `<div class="grille-crit-desc"><b>0</b> ${c.d0}</div>` : ''}
+    </div>`).join('');
+
+  const critTh = crit.map(c => `<th>${c.icon}<br>${c.court}</th>`).join('');
 
   const lignes = liste.map(h => {
     const nom = h.nom || ('Cheval ' + h.numero);
     const cote = (h.cote !== null && h.cote !== undefined) ? parseFloat(h.cote).toFixed(1) : '—';
-    const critTd = GRILLE_CRITERES.map(c => {
-      const picks = [0,1,2].map(v =>
-        `<button type="button" id="grille-btn-${h.numero}-${c.key}-${v}" class="grille-pick-btn" onclick="grillePick(${h.numero},'${c.key}',${v})">${v}</button>`
-      ).join('');
-      return `<td><div class="grille-pick">${picks}</div></td>`;
+    const s = _grilleScores[h.numero];
+    const critTd = crit.map(c => {
+      const a = s.auto[c.key];
+      const picks = [0, 1, 2].map(v => {
+        const actif = s.vals[c.key] === v;
+        const cls = actif ? (a ? (a.nd ? ' nd' : ' auto') : ' active') : '';
+        return `<button type="button" id="grille-btn-${h.numero}-${c.key}-${v}" class="grille-pick-btn${cls}" onclick="grillePick(${h.numero},'${c.key}',${v})">${v}</button>`;
+      }).join('');
+      const why = a ? String(a.why).replace(/"/g, '&quot;') : '';
+      return `<td title="${why}"><div class="grille-pick">${picks}</div></td>`;
     }).join('');
+    const total = _grilleTotal(h.numero);
+    const prof = (attele && total !== null) ? _grilleProfil(total) : null;
     return `<tr>
       <td style="font-weight:700;color:var(--gold)">#${h.numero}</td>
       <td class="grille-nom-cell" title="${nom}">${nom}</td>
       <td>${cote}</td>
       ${critTd}
-      <td class="grille-total-cell" id="grille-total-${h.numero}">__/10</td>
-      <td><input class="grille-note-input" placeholder="Note…" onchange="grilleNote(${h.numero}, this.value)"></td>
+      <td class="grille-total-cell" id="grille-total-${h.numero}">${total === null ? '__' : total}/${max}</td>
+      ${attele ? `<td><span class="grille-profil" id="grille-profil-${h.numero}" style="color:${prof.color};border-color:${prof.color}">${prof.court}</span></td>` : ''}
+      <td><input class="grille-note-input" placeholder="Note…" value="${(_grilleNotes[h.numero] || '').replace(/"/g, '&quot;')}" onchange="grilleNote(${h.numero}, this.value)"></td>
     </tr>`;
   }).join('');
 
-  const critCards = GRILLE_CRITERES.map(c =>
-    `<div class="grille-crit-card">
-      <div class="grille-crit-icon">${c.icon}</div>
-      <div class="grille-crit-nom">${c.nom}</div>
-      <div class="grille-crit-desc">${c.desc}</div>
-      <div class="grille-crit-max">/2</div>
-    </div>`
-  ).join('');
+  const legende = attele ? `
+    <div class="grille-legende">
+      ${GRILLE_PROFILS_ATTELE.map((p, i) => {
+        const hi = i === 0 ? 18 : GRILLE_PROFILS_ATTELE[i - 1].min - 1;
+        return `<div><b style="color:${p.color}">${p.min}–${hi}</b> : ${p.long}</div>`;
+      }).join('')}
+      <div style="margin-top:6px"><span class="grille-pick-btn auto" style="display:inline-block">·</span> note automatique &nbsp; <span class="grille-pick-btn nd" style="display:inline-block">·</span> donnée manquante (1 pt par défaut) &nbsp; <span class="grille-pick-btn active" style="display:inline-block">·</span> corrigée à la main</div>
+    </div>` : '';
 
-  document.getElementById('grille-content').innerHTML = `
+  el.innerHTML = `
     <div class="grille-intro">
       <div class="grille-intro-title">🔍 Grille d'analyse des chevaux</div>
-      <div class="grille-intro-sub">Note chaque cheval sur 10 points (2 points par critère). Plus le score est élevé, plus le cheval mérite d'être étudié.</div>
+      <div class="grille-chips">${chips}</div>
+      <div class="grille-intro-sub">${intro}</div>
     </div>
     <div class="grille-criteres">${critCards}</div>
     <div class="grille-table-wrap no-swipe">
@@ -1752,15 +2035,17 @@ function renderGrille(data) {
         <thead><tr>
           <th>N°</th><th style="text-align:left">Cheval</th><th>Cote</th>
           ${critTh}
-          <th>Score<br>/10</th><th>Notes</th>
+          <th>Score<br>/${max}</th>${attele ? '<th>Profil</th>' : ''}<th>Notes</th>
         </tr></thead>
         <tbody>${lignes}</tbody>
       </table>
     </div>
     <div class="grille-resultat">
       <div class="grille-resultat-title">🧮 Résultat de l'analyse</div>
-      <div class="grille-resultat-row"><span>Score moyen des chevaux :</span><b id="grille-score-moyen">__/10</b></div>
+      <div class="grille-resultat-row"><span>Score moyen des chevaux :</span><b id="grille-score-moyen">__/${max}</b></div>
+      <div class="grille-resultat-row" style="justify-content:flex-end"><b id="grille-profil-moyen" style="font-size:11px"></b></div>
       <div class="grille-resultat-row"><span>Cheval(s) à retenir :</span><b id="grille-chevaux-retenir">—</b></div>
+      ${legende}
       <button class="btn full" onclick="grilleEnregistrer()" style="margin-top:10px">💾 Enregistrer l'analyse</button>
     </div>
     <div class="grille-tips">
@@ -1776,6 +2061,7 @@ function renderGrille(data) {
       <b>⚠️ Rappel important</b><br>
       Les paris hippiques comportent des risques. Aucun système ne garantit un gain. Jouez avec modération.
     </div>`;
+  _grilleRecalcResultat();
 }
 
 // ── Dashboard Journée ──

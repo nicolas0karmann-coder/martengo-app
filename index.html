@@ -2067,10 +2067,7 @@ const GRILLE_CRITERES_OBSTACLE = [
       if (!x) return { pts: 1, why: `Terrain ${lib} · références limitées (${h.nb_courses_terrain} course(s))` };
       return { pts: x.pts, why: `Terrain ${lib} : ${x.t}% de top 3 sur ${h.nb_courses_terrain} courses` };
     } },
-  { ..._critGalop('handicap'), d2: 'Non utilisé pour l\'instant', d1: 'Neutre (en cours de validation)', d0: 'Non utilisé pour l\'instant', auto() {
-      // Backtest haies : le tercile du poids est inversé (AUC 0,475) ; la règle « valeur handicap / poids passé » est en cours de test.
-      return { pts: 1, nd: true, why: 'Critère neutre en haies (règle en cours de validation par backtest)' };
-    } },
+  { ..._critGalop('handicap') },
   { key: 'experience', court: 'Expér.', icon: '📍', nom: 'Expérience du parcours',
     d2: 'Expérience réussie sur le parcours ou les obstacles concernés', d1: 'Expérience limitée ou résultats mitigés', d0: 'Échecs répétés sur ce parcours (données suffisantes)',
     auto(h) {
@@ -2212,15 +2209,18 @@ function _grilleRecalcResultat() {
   }
   const moyenne = totaux.reduce((a, x) => a + x.total, 0) / totaux.length;
   if (moyEl) moyEl.textContent = `${moyenne.toFixed(1)}/${max}`;
-  if (profilEl) {
-    if (_grilleABareme()) {
-      const p = _grilleProfil(Math.floor(moyenne));
-      profilEl.textContent = p.long; profilEl.style.color = p.color;
-    } else profilEl.textContent = '';
-  }
+  // Profil et couleur : calculés sur le score du (des) cheval(aux) à retenir, et non plus sur la moyenne du lot
   const best = Math.max(...totaux.map(x => x.total));
   const meilleurs = totaux.filter(x => x.total === best && best > 0).map(x => '#' + x.numero);
-  if (retenirEl) retenirEl.textContent = meilleurs.length ? `${meilleurs.join(', ')} (${best}/${max})` : '—';
+  const p = _grilleABareme() ? _grilleProfil(best) : null;
+  if (retenirEl) {
+    retenirEl.textContent = meilleurs.length ? `${meilleurs.join(', ')} (${best}/${max})` : '—';
+    retenirEl.style.color = (p && meilleurs.length) ? p.color : '';
+  }
+  if (profilEl) {
+    if (p && meilleurs.length) { profilEl.textContent = p.long; profilEl.style.color = p.color; }
+    else profilEl.textContent = '';
+  }
   _grilleRenderTop3();
 }
 
@@ -2389,8 +2389,8 @@ function _grilleBuild() {
     <div class="grille-resultat">
       <div class="grille-resultat-title">🧮 Résultat de l'analyse</div>
       <div class="grille-resultat-row"><span>Score moyen des chevaux :</span><b id="grille-score-moyen">__/${max}</b></div>
-      <div class="grille-resultat-row" style="justify-content:flex-end"><b id="grille-profil-moyen" style="font-size:11px"></b></div>
       <div class="grille-resultat-row"><span>Cheval(s) à retenir :</span><b id="grille-chevaux-retenir">—</b></div>
+      <div class="grille-resultat-row" style="justify-content:flex-end"><b id="grille-profil-moyen" style="font-size:11px"></b></div>
       ${legende}
       <button class="btn full" onclick="grilleEnregistrer()" style="margin-top:10px">💾 Enregistrer l'analyse</button>
     </div>

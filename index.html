@@ -1680,7 +1680,17 @@ const GRILLE_PROFILS_ATTELE = [
 ];
 // Barème sur 18 (attelé) : 15 / 12 / 9. Barème sur 20 (autres disciplines, avec critère cote) :
 // mêmes proportions, arrondies : 17 / 13 / 10.
+// Seuils de profil par discipline (score mini pour « Intéressant », « Intermédiaire », « Incertain »).
+// Calés sur les backtests : le profil doit être atteignable et refléter le taux de top 3 réel (voir tableau « A3bis » des rapports).
+const GRILLE_BANDES = {
+  attele:   [15, 12, 9],
+  monte:    [16, 13, 10],   // monté : meilleur score ≥ 16 dans 20 % des courses (retenu : 67–75 % de top 3 contre 61–63 % à 13–15)
+  galop:    [15, 13, 10],   // plat : meilleur score de course ≥ 15 dans 16 % des courses (retenu : 55–68 % de top 3)
+  obstacle: [14, 12, 10]    // haies : meilleur score ≥ 14 dans 17 % des courses (retenu : 57–58 % de top 3 contre 49–50 % à 12–13)
+};
 function _grilleProfils() {
+  const b = GRILLE_BANDES[_grilleDisc];
+  if (b) return GRILLE_PROFILS_ATTELE.map((p, i) => ({ ...p, min: i < 3 ? b[i] : 0 }));
   if (_grilleMax() === 20) {
     const mins = [17, 13, 10, 0];
     return GRILLE_PROFILS_ATTELE.map((p, i) => ({ ...p, min: mins[i] }));

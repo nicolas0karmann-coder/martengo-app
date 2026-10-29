@@ -1964,6 +1964,14 @@ function _grilleTauxG(n, t3, minN) {
   const t = t3 / n * 100;
   return { t: Math.round(t), pts: t >= _GALOP_TAUX_HI ? 2 : (t <= _GALOP_TAUX_LO ? 0 : 1) };
 }
+const _CRIT_COTE_NEUTRE =
+{ key: 'cote', court: 'Cote', icon: '🎯', nom: 'Valeur de la cote',
+    d2: 'Non utilisé en plat et haies : le marché est déjà très bien calibré', d1: 'Neutre (toujours 1 pt)', d0: 'Non utilisé',
+    auto(h) {
+      // Backtest plat : le modèle n'apporte aucune information en plus de la cote (coefficient +0,009, z = 0,15) ;
+      // la règle « modèle ≤ 2e et marché ≥ 3e » donne 0,95× les victoires attendues (IC95 0,79–1,12), soit aucun avantage.
+      return { pts: 1, nd: true, why: 'Plat/haies : la cote reflète déjà les chances réelles (aucun écart exploitable mesuré au plat) : critère neutre' };
+    } };
 const GRILLE_CRITERES_GALOP = [
   { ..._critAttele('forme') },
   { ..._critAttele('regularite'), d2: 'Termine régulièrement près des premiers', d1: 'Résultats variables', d0: 'Contre-performances importantes et répétées' },
@@ -1979,14 +1987,14 @@ const GRILLE_CRITERES_GALOP = [
       if (!ev.length) return { pts: 1, why: `Références limitées (${h.nb_courses_dist || 0} à distance proche, ${h.nb_courses_hippo || 0} sur cet hippodrome)` };
       return { pts: Math.floor(ev.reduce((a, b) => a + b, 0) / ev.length), why: notes.join(' · ') };
     } },
-  { key: 'terrain', court: 'Terrain', icon: '🌧️', nom: 'Terrain',
-    d2: 'Bons résultats sur le type de terrain annoncé', d1: 'Peu de références ou bilan mitigé', d0: 'Mauvais résultats répétés sur ce type de terrain',
+  { key: 'ecurie', court: 'Écurie', icon: '🏠', nom: "Forme de l'écurie",
+    d2: "Écurie en grande forme : plus de 35 % de top 3 sur 60 jours", d1: "Forme moyenne de l'écurie", d0: "Écurie en méforme : 25 % de top 3 ou moins sur 60 jours",
     auto(h) {
-      if (h.nb_courses_terrain === undefined || h.nb_courses_terrain === null) return { pts: 1, nd: true, why: 'Statistiques terrain non chargées côté serveur' };
-      const lib = h.terrain_cat ? ({ rapide: 'rapide', souple: 'souple', lourd: 'lourd' }[h.terrain_cat] || h.terrain_cat) : 'annoncé';
-      const x = _grilleTauxG(h.nb_courses_terrain, h.top3_terrain, 3);
-      if (!x) return { pts: 1, why: `Terrain ${lib} · peu de références (${h.nb_courses_terrain} course(s))` };
-      return { pts: x.pts, why: `Terrain ${lib} : ${x.t}% de top 3 sur ${h.nb_courses_terrain} courses` };
+      // Backtest plat : 19 % de top 3 (écurie en méforme) → 44 % (en grande forme), apport hors échantillon +0,004 d'AUC
+      const v = h.entr_forme_60j;
+      if (v === undefined || v === null) return { pts: 1, nd: true, why: "Forme de l'écurie indisponible (serveur non à jour)" };
+      const pts = v > 0.346 ? 2 : (v <= 0.247 ? 0 : 1);
+      return { pts, why: `Écurie : ${Math.round(v * 100)} % de top 3 sur 60 jours` };
     } },
   { key: 'handicap', court: 'Handicap', icon: '⚖️', nom: 'Valeur handicap et poids',
     d2: 'Valeur handicap relevée depuis sa dernière course, ou même poids que lors de sa dernière bonne performance', d1: 'Situation neutre ou références insuffisantes', d0: 'Valeur handicap baissée (déclin de forme) ou nettement plus léger qu\'à sa dernière bonne performance',
@@ -2005,14 +2013,14 @@ const GRILLE_CRITERES_GALOP = [
       if (dBon !== null) bits.push(Math.abs(dBon) < 0.01 ? 'même poids qu\'à sa dernière bonne perf' : `${dBon > 0 ? '+' : ''}${dBon.toFixed(1)} kg vs sa dernière bonne perf`);
       return { pts, why: bits.join(' · ') };
     } },
-  { key: 'corde', court: 'Corde', icon: '🎯', nom: 'Numéro de corde',
-    d2: 'Stalle favorable (tracé, distance)', d1: 'Effet neutre ou difficile à déterminer', d0: 'Stalle potentiellement défavorable',
+  { key: 'gains', court: 'Gains', icon: '💰', nom: 'Gains moyens par course',
+    d2: 'Parmi les meilleurs gains moyens par course du lot (classe supérieure)', d1: 'Gains moyens dans la moyenne du lot, ou peu de références', d0: 'Parmi les plus faibles gains moyens par course du lot',
     auto(h) {
-      if (h.corde_n === undefined || h.corde_n === null || h.corde_taux === null || !h.corde_ref) return { pts: 1, nd: true, why: 'Pas de statistique de corde pour cet hippodrome/distance' };
-      if (h.corde_n < 150) return { pts: 1, nd: true, why: `Échantillon de corde trop faible (${h.corde_n} partants)` };
-      const lift = h.corde_taux / h.corde_ref;
-      const pts = lift >= 1.15 ? 2 : (lift <= 0.85 ? 0 : 1);
-      return { pts, why: `Corde ${h.place_corde} : ${h.corde_taux}% de top 3 pour ce tiers de corde vs ${h.corde_ref}% sur l'hippodrome (×${lift.toFixed(2)}, ${h.corde_n} partants)` };
+      // Backtest plat : 19 % de top 3 (plus faible cinquième du lot) → 34 % (meilleur cinquième), apport hors échantillon +0,004 d'AUC
+      const r = h.gpc_rang;
+      if (r === undefined || r === null) return { pts: 1, nd: true, why: 'Moins de 3 courses ou gains indisponibles' };
+      const pts = r > 0.8 ? 2 : (r <= 0.4 ? 0 : 1);
+      return { pts, why: `Gains moyens par course : ${r > 0.8 ? 'meilleur cinquième' : r <= 0.4 ? 'deux cinquièmes les plus faibles' : 'milieu'} du lot (rang ${Math.round(r * 100)} %)` };
     } },
   { ..._critAttele('driver'), nom: 'Jockey', court: 'Jockey',
     d2: 'Bon bilan vérifiable dans cette catégorie ou avec ce cheval', d1: 'Bilan moyen ou peu de données', d0: 'Difficultés documentées dans ce contexte' },
@@ -2047,12 +2055,16 @@ const GRILLE_CRITERES_GALOP = [
       const pts = (r <= 0.8 && n >= 5) ? 2 : (r > 1.2 ? 0 : 1);
       return { pts, why: `Dotation du jour = ${r.toFixed(2)} × le niveau récent du cheval (${r <= 0.8 ? 'nette descente de classe' : r > 1.2 ? 'montée en classe' : 'niveau comparable'}) · ${n} courses` };
     } },
-  { key: 'cote', court: 'Cote', icon: '🎯', nom: 'Valeur de la cote',
-    d2: 'Non utilisé en plat et haies : le marché est déjà très bien calibré', d1: 'Neutre (toujours 1 pt)', d0: 'Non utilisé',
+  { key: 'corde', court: 'Corde', icon: '🎯', nom: 'Numéro de corde',
+    d2: 'Départ en corde intérieure (premier tiers du lot), pelotons de 9 partants et plus', d1: 'Corde intermédiaire, petit peloton, ou donnée absente', d0: 'Départ en corde extérieure (dernier tiers du lot), pelotons de 9 partants et plus',
     auto(h) {
-      // Backtest plat : le modèle n'apporte aucune information en plus de la cote (coefficient +0,009, z = 0,15) ;
-      // la règle « modèle ≤ 2e et marché ≥ 3e » donne 0,95× les victoires attendues (IC95 0,79–1,12), soit aucun avantage.
-      return { pts: 1, nd: true, why: 'Plat/haies : la cote reflète déjà les chances réelles (aucun écart exploitable mesuré au plat) : critère neutre' };
+      // Backtest plat (corde connue depuis 04/2026) : à 9+ partants, intérieur = 1,09–1,19× les victoires attendues, extérieur = 0,80–0,91× ;
+      // 2 pts vs 0 pt : 26,7 % vs 24,2 % de top 3 hors échantillon, même sens chaque mois. Apport d'AUC faible (+0,001). Cote : ajustement manuel.
+      const c = h.place_corde, n = h.nb_partants;
+      if (!(c > 0) || !(n >= 4)) return { pts: 1, nd: true, why: 'Numéro de corde ou taille du lot indisponible' };
+      if (n < 9) return { pts: 1, why: `Corde n°${c} sur ${n} partants : petit lot, effet de corde négligeable` };
+      const rel = c / n, tiers = rel <= 1 / 3 ? 'intérieur' : (rel > 2 / 3 ? 'extérieur' : 'milieu');
+      return { pts: tiers === 'intérieur' ? 2 : (tiers === 'extérieur' ? 0 : 1), why: `Corde n°${c} sur ${n} partants : ${tiers} du lot` };
     } },
 ];
 // ── Haies : barème sur 20 (seuils provisoires, à valider par backtest) ──
@@ -2126,7 +2138,7 @@ const GRILLE_CRITERES_OBSTACLE = [
       const pts = (r <= 0.8 && n >= 5) ? 2 : (r > 1.5 ? 0 : 1);
       return { pts, why: `Dotation du jour = ${r.toFixed(2)} × le niveau récent du cheval · ${n} courses` };
     } },
-  { ..._critGalop('cote') },
+  { ..._CRIT_COTE_NEUTRE },
 ];
 const GRILLE_CRITERES_GENERIQUE = [
   { key: 'forme',      court: 'Forme',   icon: '📈', nom: 'Forme récente',        d2: 'Plusieurs performances solides récemment', d1: '', d0: '' },

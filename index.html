@@ -2307,7 +2307,7 @@ function _grilleRenderTop3() {
 //   F < 38 % : incertaine   (≈ 19 % des courses · couplé exact 12 % · 69 %)
 // Monté (1 041 courses hors échantillon, chrono sans fuite) : sûre F ≥ 57 % (22 % des courses · exact 33 % · ≥1 sur 2 : 90 %) · moyenne 21 % / 77 % · incertaine F < 38 % : 11 % / 68 %.
 const TOP2_CFG = {
-  attele: { nom: 'attelé', icone: '🐎', mode: 'AUCUN', base: 'indicateur de fiabilité en cours de refonte : les probabilités calibrées renvoyées par l\'API en direct ne sont pas comparables à celles du backtest (valeurs plates et très élevées), donc les étiquettes précédentes n\'étaient pas fiables. Les 2 chevaux sont ceux du classement du modèle' },
+  attele: { nom: 'attelé', icone: '🐎', mode: 'RAW', sdMin: 0.15, sdMax: 0.9, leg: [['#3a9162', '<b>Sûre</b> (parmi les ~25 % de paires les plus nettes pour cette taille de lot) : 35 % de couplés exacts (les 2 favoris : 35 %), 90 % d\'au moins un dans les 2 premiers'], ['#c8942a', '<b>Moyenne</b> : 19 % (favoris : 23 %), 81 %'], ['#d9803a', '<b>Incertaine</b> (~25 % les moins nettes) : 10 % (favoris : 14 %), 67 %']], base: '2 640 courses d\'attelé, indice calculé sur le score brut du modèle (sans calibrateur). L\'étiquette compare la paire aux courses de MÊME taille de lot. Elle sépare bien les paires qui sortent des autres, mais le modèle ne bat pas les favoris, même en « sûre »' },
   monte:  { nom: 'monté',  icone: '🏇', mode: 'AUCUN', base: '1 040 courses de monté : sur ce volume, l\'écart entre les courses « sûres » et « incertaines » vient presque entièrement du nombre de partants (à taille de lot égale, AUC 0,55 ≈ rien). Le modèle monté fait aussi un peu moins bien que les 2 favoris du marché (19 % contre 23 % de couplés exacts). La paire est donc donnée sans niveau de fiabilité' }
 };
 const TOP2_NIVEAUX = {
@@ -2317,8 +2317,8 @@ const TOP2_NIVEAUX = {
   neutre:     { court: '',           color: 'var(--text)' }
 };
 // Seuils de l'étiquette par nombre de partants (centiles 25 / 75 de PART, appris sur 3 960 courses d'attelé, vérifiés sur 2 640).
-// PART = somme des proba_pmu des 2 premiers ÷ somme des proba_pmu de tous les partants. [incertaine si PART < 1er seuil, sûre si ≥ 2e].
-const TOP2_SEUILS_ATTELE = { 6: [0.515, 0.644], 7: [0.449, 0.547], 8: [0.405, 0.497], 9: [0.366, 0.470], 10: [0.337, 0.423], 11: [0.305, 0.388], 12: [0.288, 0.367], 13: [0.268, 0.337], 14: [0.246, 0.315] };
+// PART = somme des softmax(score_brut) des 2 premiers (température 1), score brut = sortie du modèle avant calibrateur. [incertaine si PART < 1er seuil, sûre si ≥ 2e].
+const TOP2_SEUILS_ATTELE = { 6: [0.469, 0.583], 7: [0.400, 0.486], 8: [0.357, 0.441], 9: [0.324, 0.401], 10: [0.292, 0.359], 11: [0.271, 0.331], 12: [0.250, 0.310], 13: [0.234, 0.285], 14: [0.213, 0.261] };
 let _top2Cle = null;
 function _top2Course(data, disc) {
   const cfg = TOP2_CFG[disc] || TOP2_CFG.attele;
@@ -2329,6 +2329,19 @@ function _top2Course(data, disc) {
   const paire = liste.slice(0, 2);
   const F = paire[0].proba_win + paire[1].proba_win;
   if (cfg.mode === 'AUCUN') return { paire, F, val: null, niv: 'neutre', nb: liste.length };
+  if (cfg.mode === 'RAW') {   // attelé : indice sur le score brut du modèle (l'API renvoie « score_brut »), invariant au calibrateur isotonique
+    const sb = liste.map(h => h.score_brut);
+    if (sb.some(v => v === null || v === undefined || !isFinite(v))) return { paire, F, val: null, niv: 'neutre', nb: liste.length, raison: 'score brut indisponible (API non mise à jour)' };
+    const mu = sb.reduce((u, v) => u + v, 0) / sb.length;
+    const sd = Math.sqrt(sb.reduce((u, v) => u + (v - mu) * (v - mu), 0) / sb.length);
+    if (sd < cfg.sdMin || sd > cfg.sdMax) return { paire, F, val: null, niv: 'neutre', nb: liste.length, sd, raison: 'échelle du score hors plage validée' };
+    const srt = [...sb].sort((a, b) => b - a), mx = srt[0];
+    const ex = srt.map(v => Math.exp(v - mx)), tot = ex.reduce((u, v) => u + v, 0);
+    const part = (ex[0] + ex[1]) / tot;
+    const sz = TOP2_SEUILS_ATTELE[Math.min(Math.max(liste.length, 6), 14)];
+    const niv = part >= sz[1] ? 'sure' : (part < sz[0] ? 'incertaine' : 'moyenne');
+    return { paire, F, val: part * 100, niv, nb: liste.length, part, sz, sd };
+  }
   let val = F;
   if (cfg.mode === 'P') {   // attelé : P(couplé exact) = logistique(PART) — régression apprise sur 3 960 courses, validée sur 2 640
     const sp = liste.map(h => h.proba_pmu || 0).sort((x, y) => y - x);
@@ -2396,7 +2409,7 @@ async function chargerTop2(force) {
     const byR = {};
     att.forEach(co => { (byR[co.r] = byR[co.r] || { lieu: co.lieu, courses: [] }).courses.push(co); });
     const discs = ['attele', 'monte'].filter(dk => att.some(c => c.discGrille === dk));
-    const legende = discs.map(dk => { const g = TOP2_CFG[dk]; if (g.mode === 'AUCUN') return `<div style="margin-top:6px"><b>${g.icone} ${g.nom}</b></div><div>Pas de niveau de fiabilité. ${g.base}.</div>`; return `<div style="margin-top:6px"><b>${g.icone} ${g.nom}</b></div>
+    const legende = discs.map(dk => { const g = TOP2_CFG[dk]; if (g.leg) return `<div style="margin-top:6px"><b>${g.icone} ${g.nom}</b></div>${g.leg.map(([col, txt]) => `<div style="color:${col}">${txt}</div>`).join('')}<div style="color:var(--text-dim)">${g.base}.</div>`; if (g.mode === 'AUCUN') return `<div style="margin-top:6px"><b>${g.icone} ${g.nom}</b></div><div>Pas de niveau de fiabilité. ${g.base}.</div>`; return `<div style="margin-top:6px"><b>${g.icone} ${g.nom}</b></div>
       <div style="color:var(--text-dim)">Pourcentage = ${g.unite}.</div>
       <div style="color:#3a9162"><b>Sûre</b> (≥ ${g.sur} %) : ${g.stats[0]}</div>
       <div style="color:#c8942a"><b>Moyenne</b> : ${g.stats[1]}</div>
@@ -2429,8 +2442,8 @@ async function chargerTop2(force) {
         const lignesH = x.paire.map(h => `<div class="grecap-cheval" style="color:${c}">#${h.numero} ${h.nom || ''}</div>`).join('');
         html += `<div class="grecap-row" onclick="${onclick}">
           <div><div class="grecap-course">R${co.r}C${co.c}</div></div>
-          <div style="min-width:0">${lignesH}<div class="grecap-meta">${meta} · ${x.nb} partants${co.discGrille === 'monte' ? ' · monté' : ''}${x.part !== undefined ? ` · PART ${x.part.toFixed(2)} (seuils ${x.sz[0].toFixed(2)} / ${x.sz[1].toFixed(2)})` : ''}</div></div>
-          ${x.niv === 'neutre' ? '<div></div>' : `<div class="grecap-badge" style="color:${c};border-color:${c}66;background:${c}1f">${p.court}<small>${Math.round(x.val)} %</small></div>`}
+          <div style="min-width:0">${lignesH}<div class="grecap-meta">${meta} · ${x.nb} partants${co.discGrille === 'monte' ? ' · monté' : ''}${x.part !== undefined ? ` · PART ${x.part.toFixed(2)} (seuils ${x.sz[0].toFixed(2)} / ${x.sz[1].toFixed(2)}) · σ ${x.sd.toFixed(2)}` : (x.raison ? ` · ${x.raison}${x.sd !== undefined ? ' (σ ' + x.sd.toFixed(2) + ')' : ''}` : '')}</div></div>
+          ${x.niv === 'neutre' ? '<div></div>' : `<div class="grecap-badge" style="color:${c};border-color:${c}66;background:${c}1f">${p.court}<small>${x.part !== undefined ? 'part ' : ''}${Math.round(x.val)} %</small></div>`}
         </div>`;
       }
     }

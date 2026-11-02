@@ -2307,7 +2307,7 @@ function _grilleRenderTop3() {
 //   F < 38 % : incertaine   (≈ 19 % des courses · couplé exact 12 % · 69 %)
 // Monté (1 041 courses hors échantillon, chrono sans fuite) : sûre F ≥ 57 % (22 % des courses · exact 33 % · ≥1 sur 2 : 90 %) · moyenne 21 % / 77 % · incertaine F < 38 % : 11 % / 68 %.
 const TOP2_CFG = {
-  attele: { nom: 'attelé', icone: '🐎', mode: 'P', sur: 31, inc: 13, stats: ['40 % de couplés exacts (les 2 favoris : 38 %), 92 % d\'au moins un dans les 2 premiers', '20 % (favoris : 23 %), 81 %', '11 % (favoris : 15 %), 68 %'], base: '2 640 courses d\'attelé (test hors échantillon). Quand le niveau n\'est pas « sûre », les 2 favoris du marché font mieux que le modèle', unite: 'chances que ces 2 chevaux soient bien les 2 premiers, d\'après la part de probabilité qu\'ils représentent dans le lot' },
+  attele: { nom: 'attelé', icone: '🐎', mode: 'P', sur: 31, inc: 13, stats: ['39 % de couplés exacts (les 2 favoris : 33 %), 90 % d\'au moins un dans les 2 premiers', '21 % (favoris : 24 %), 81 %', '11 % (favoris : 18 %), 71 %'], base: '2 640 courses d\'attelé (test hors échantillon). L\'étiquette compare la paire aux courses de MÊME taille de lot (≈ 20 % sûre, 50 % moyenne, 30 % incertaine dans chaque taille). Hors « sûre », les 2 favoris du marché font mieux que le modèle', unite: 'chances que ces 2 chevaux soient bien les 2 premiers (valeur absolue : elle baisse quand le lot grandit)' },
   monte:  { nom: 'monté',  icone: '🏇', mode: 'AUCUN', base: '1 040 courses de monté : sur ce volume, l\'écart entre les courses « sûres » et « incertaines » vient presque entièrement du nombre de partants (à taille de lot égale, AUC 0,55 ≈ rien). Le modèle monté fait aussi un peu moins bien que les 2 favoris du marché (19 % contre 23 % de couplés exacts). La paire est donc donnée sans niveau de fiabilité' }
 };
 const TOP2_NIVEAUX = {
@@ -2316,6 +2316,9 @@ const TOP2_NIVEAUX = {
   incertaine: { court: 'Incertaine', color: '#d9803a' },
   neutre:     { court: '',           color: 'var(--text)' }
 };
+// Seuils de l'étiquette par nombre de partants (centiles 25 / 75 de PART, appris sur 3 960 courses d'attelé, vérifiés sur 2 640).
+// PART = somme des proba_pmu des 2 premiers ÷ somme des proba_pmu de tous les partants. [incertaine si PART < 1er seuil, sûre si ≥ 2e].
+const TOP2_SEUILS_ATTELE = { 6: [0.515, 0.644], 7: [0.449, 0.547], 8: [0.405, 0.497], 9: [0.366, 0.470], 10: [0.337, 0.423], 11: [0.305, 0.388], 12: [0.288, 0.367], 13: [0.268, 0.337], 14: [0.246, 0.315] };
 let _top2Cle = null;
 function _top2Course(data, disc) {
   const cfg = TOP2_CFG[disc] || TOP2_CFG.attele;
@@ -2333,6 +2336,9 @@ function _top2Course(data, disc) {
     if (!(tot > 0)) return null;
     const part = (sp[0] + sp[1]) / tot;    // part de la paire dans la probabilité totale du lot
     val = 100 / (1 + Math.exp(-(-3.9379 + 6.2098 * part)));
+    const sz = TOP2_SEUILS_ATTELE[Math.min(Math.max(liste.length, 6), 14)];
+    const niv = part >= sz[1] ? 'sure' : (part < sz[0] ? 'incertaine' : 'moyenne');
+    return { paire, F, val, niv, nb: liste.length };
   }
   const niv = val >= cfg.sur ? 'sure' : (val < cfg.inc ? 'incertaine' : 'moyenne');
   return { paire, F, val, niv, nb: liste.length };

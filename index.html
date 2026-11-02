@@ -327,7 +327,7 @@ input[readonly]{opacity:.5;cursor:default}
 
 .grecap-sum{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;border-bottom:1px solid var(--border);background:var(--bg2)}
 .grecap-chip{font-family:'Space Mono',monospace;font-size:9px;font-weight:700;padding:3px 7px;border-radius:10px;border:1px solid}
-.grecap-row{display:grid;grid-template-columns:54px 1fr auto;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;min-width:0}
+.grecap-row{display:grid;grid-template-columns:54px minmax(0,1fr) auto;align-items:center;gap:8px;padding:9px 12px;border-bottom:1px solid var(--border);cursor:pointer;min-width:0}
 .grecap-course{font-family:'Space Mono',monospace;font-size:10px;font-weight:700}
 .grecap-meta{font-size:8px;color:var(--text-dim);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .grecap-cheval{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -2378,11 +2378,12 @@ async function chargerTop2(force) {
       <button onclick="chargerTop2(true)" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
     </div>
     <div class="grecap-sum">${chips || '<span style="font-size:10px;color:var(--text-dim)">Aucune course calculée</span>'}</div>
-    <div style="padding:6px 12px;font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2);line-height:1.5">
-      Les 2 premiers du classement du modèle (cote non utilisée). Fiabilité = chances de victoire des 2 chevaux additionnées.<br>
-      Mesuré sur 6 600 courses d'attelé : <b style="color:#3a9162">Sûre</b> (≥ ${TOP2_SEUIL_SUR} %) : les 2 sont bien les 2 premiers dans 36 % des cas, au moins un dans 91 % ·
-      <b style="color:#c8942a">Moyenne</b> : 20 % / 80 % · <b style="color:#d9803a">Incertaine</b> (&lt; ${TOP2_SEUIL_INCERT} %) : 12 % / 69 %.
-      Ce n'est pas un avantage sur le marché : c'est un indicateur de confiance. Touche une course pour ouvrir le Conseil.
+    <div style="padding:8px 12px;font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2);line-height:1.55;overflow-wrap:anywhere;word-break:break-word;box-sizing:border-box;max-width:100%">
+      <div>Les 2 premiers du classement du modèle, <b>sans la cote</b>. Fiabilité = chances de victoire des 2 chevaux additionnées.</div>
+      <div style="margin-top:4px;color:#3a9162"><b>Sûre</b> (≥ ${TOP2_SEUIL_SUR} %) : 36 % de couplés exacts, 91 % d'au moins un dans les 2 premiers</div>
+      <div style="color:#c8942a"><b>Moyenne</b> : 20 % / 80 %</div>
+      <div style="color:#d9803a"><b>Incertaine</b> (&lt; ${TOP2_SEUIL_INCERT} %) : 12 % / 69 %</div>
+      <div style="margin-top:4px">Mesuré sur 6 600 courses d'attelé. Indicateur de confiance, pas un avantage sur le marché. Touche une course pour ouvrir le Conseil.</div>
     </div>`;
     for (const [rNum, rd] of Object.entries(byR)) {
       html += `<div class="dash-reunion">R${rNum} · ${rd.lieu || ''}</div>`;
@@ -2393,15 +2394,15 @@ async function chargerTop2(force) {
         if (!x) {
           html += `<div class="grecap-row" onclick="${onclick}">
             <div><div class="grecap-course">R${co.r}C${co.c}</div></div>
-            <div><div class="grecap-cheval" style="color:var(--text-dim)">Non disponible</div><div class="grecap-meta">${meta}</div></div>
+            <div style="min-width:0"><div class="grecap-cheval" style="color:var(--text-dim)">Non disponible</div><div class="grecap-meta">${meta}</div></div>
             <div></div></div>`;
           continue;
         }
         const p = TOP2_NIVEAUX[x.niv], c = p.color;
-        const noms = x.paire.map(h => `#${h.numero} ${h.nom || ''}`.trim()).join(' · ');
+        const lignesH = x.paire.map(h => `<div class="grecap-cheval" style="color:${c}">#${h.numero} ${h.nom || ''}</div>`).join('');
         html += `<div class="grecap-row" onclick="${onclick}">
           <div><div class="grecap-course">R${co.r}C${co.c}</div></div>
-          <div><div class="grecap-cheval" style="color:${c}">${noms}</div><div class="grecap-meta">${meta} · ${x.nb} partants</div></div>
+          <div style="min-width:0">${lignesH}<div class="grecap-meta">${meta} · ${x.nb} partants</div></div>
           <div class="grecap-badge" style="color:${c};border-color:${c}66;background:${c}1f">${p.court}<small>${Math.round(x.F)} %</small></div>
         </div>`;
       }

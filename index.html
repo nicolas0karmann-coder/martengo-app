@@ -2305,20 +2305,26 @@ function _grilleRenderTop3() {
 //   F ≥ 56 % : sûre         (≈ 19 % des courses · couplé exact 36 % · au moins 1 des 2 dans les 2 premiers 91 %)
 //   38 ≤ F < 56 : moyenne   (≈ 62 % des courses · couplé exact 20 % · 80 %)
 //   F < 38 % : incertaine   (≈ 19 % des courses · couplé exact 12 % · 69 %)
-const TOP2_SEUIL_SUR = 56, TOP2_SEUIL_INCERT = 38;
+// Monté (1 041 courses hors échantillon) : sûre F ≥ 55 % (23 % des courses · exact 35 % · ≥1 sur 2 : 93 %) · moyenne 21 % / 83 % · incertaine F < 36 % : 14 % / 67 %.
+const TOP2_CFG = {
+  attele: { nom: 'attelé', icone: '🐎', sur: 56, inc: 38, stats: ['36 % de couplés exacts, 91 % d\'au moins un dans les 2 premiers', '20 % / 80 %', '12 % / 69 %'], base: '6 600 courses d\'attelé' },
+  monte:  { nom: 'monté',  icone: '🏇', sur: 55, inc: 36, stats: ['35 % de couplés exacts, 93 % d\'au moins un dans les 2 premiers', '21 % / 83 %', '14 % / 67 %'], base: '1 040 courses de monté (échantillon plus petit, donc moins précis)' }
+};
 const TOP2_NIVEAUX = {
   sure:       { court: 'Sûre',       color: '#3a9162' },
   moyenne:    { court: 'Moyenne',    color: '#c8942a' },
   incertaine: { court: 'Incertaine', color: '#d9803a' }
 };
 let _top2Cle = null;
-function _top2Course(data) {
+function _top2Course(data, disc) {
+  const cfg = TOP2_CFG[disc] || TOP2_CFG.attele;
   const liste = [...(data.chevaux || [])].filter(h => h.proba_win !== undefined && h.proba_win !== null);
   if (liste.length < 5) return null;
-  liste.sort((a, b) => (b.note_pmu !== a.note_pmu) ? b.note_pmu - a.note_pmu : (b.proba_pmu || 0) - (a.proba_pmu || 0));   // même tri que l'onglet Conseil
+  if (disc === 'monte') liste.sort((a, b) => b.proba_win - a.proba_win);   // monté : paire = 2 meilleurs scores du modèle (comme dans le backtest)
+  else liste.sort((a, b) => (b.note_pmu !== a.note_pmu) ? b.note_pmu - a.note_pmu : (b.proba_pmu || 0) - (a.proba_pmu || 0));   // même tri que l'onglet Conseil
   const paire = liste.slice(0, 2);
   const F = paire[0].proba_win + paire[1].proba_win;
-  const niv = F >= TOP2_SEUIL_SUR ? 'sure' : (F < TOP2_SEUIL_INCERT ? 'incertaine' : 'moyenne');
+  const niv = F >= cfg.sur ? 'sure' : (F < cfg.inc ? 'incertaine' : 'moyenne');
   return { paire, F, niv, nb: liste.length };
 }
 async function chargerTop2(force) {
@@ -2348,8 +2354,8 @@ async function chargerTop2(force) {
     if (!resp || !resp.ok) throw new Error('Programme indisponible');
     const prog = await resp.json();
     const courses = (prog.courses || []).map(c => ({ r: c.r_num, c: c.c_num, disc: c.disc, dist: c.dist, lieu: c.lieu, heure: c.heure, discGrille: _grilleDiscDepuisProgramme(c.disc) }));
-    const att = courses.filter(c => c.discGrille === 'attele');
-    if (!att.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">🥈</div>Aucune course d\'attelé au programme</div>'; return; }
+    const att = courses.filter(c => c.discGrille === 'attele' || c.discGrille === 'monte');
+    if (!att.length) { el.innerHTML = '<div class="empty"><div class="empty-icon">🥈</div>Aucune course d\'attelé ou de monté au programme</div>'; return; }
     const res = {};
     let fait = 0;
     const maj = () => {
@@ -2361,7 +2367,7 @@ async function chargerTop2(force) {
       await Promise.all(att.slice(i, i + 3).map(async co => {
         try {
           const r = await fetch(`${API_URL_PRIMARY}/notes_pmu?date=${dateStr}&reunion=${co.r}&course=${co.c}`, { signal: AbortSignal.timeout(25000) });
-          if (r.ok) res[`${co.r}-${co.c}`] = _top2Course(await r.json());
+          if (r.ok) res[`${co.r}-${co.c}`] = _top2Course(await r.json(), co.discGrille);
         } catch (e) {}
         fait++; maj();
       }));
@@ -2373,17 +2379,21 @@ async function chargerTop2(force) {
       `<span class="grecap-chip" style="color:${p.color};border-color:${p.color}66;background:${p.color}1f">${p.court} : ${compte[k]}</span>`).join('');
     const byR = {};
     att.forEach(co => { (byR[co.r] = byR[co.r] || { lieu: co.lieu, courses: [] }).courses.push(co); });
+    const discs = ['attele', 'monte'].filter(dk => att.some(c => c.discGrille === dk));
+    const legende = discs.map(dk => { const g = TOP2_CFG[dk]; return `<div style="margin-top:6px"><b>${g.icone} ${g.nom}</b></div>
+      <div style="color:#3a9162"><b>Sûre</b> (≥ ${g.sur} %) : ${g.stats[0]}</div>
+      <div style="color:#c8942a"><b>Moyenne</b> : ${g.stats[1]}</div>
+      <div style="color:#d9803a"><b>Incertaine</b> (&lt; ${g.inc} %) : ${g.stats[2]}</div>
+      <div style="color:var(--text-dim)">Mesuré sur ${g.base}.</div>`; }).join('');
     let html = `<div class="dash-refresh">
-      <span>🥈 Top 2 attelé · ${dateStr.slice(0, 2)}/${dateStr.slice(2, 4)}/${dateStr.slice(4)}</span>
+      <span>🥈 Top 2 · ${dateStr.slice(0, 2)}/${dateStr.slice(2, 4)}/${dateStr.slice(4)}</span>
       <button onclick="chargerTop2(true)" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button>
     </div>
     <div class="grecap-sum">${chips || '<span style="font-size:10px;color:var(--text-dim)">Aucune course calculée</span>'}</div>
     <div style="padding:8px 12px;font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2);line-height:1.55;overflow-wrap:anywhere;word-break:break-word;box-sizing:border-box;max-width:100%">
-      <div>Les 2 premiers du classement du modèle, <b>sans la cote</b>. Fiabilité = chances de victoire des 2 chevaux additionnées.</div>
-      <div style="margin-top:4px;color:#3a9162"><b>Sûre</b> (≥ ${TOP2_SEUIL_SUR} %) : 36 % de couplés exacts, 91 % d'au moins un dans les 2 premiers</div>
-      <div style="color:#c8942a"><b>Moyenne</b> : 20 % / 80 %</div>
-      <div style="color:#d9803a"><b>Incertaine</b> (&lt; ${TOP2_SEUIL_INCERT} %) : 12 % / 69 %</div>
-      <div style="margin-top:4px">Mesuré sur 6 600 courses d'attelé. Indicateur de confiance, pas un avantage sur le marché. Touche une course pour ouvrir le Conseil.</div>
+      <div>Les 2 premiers du classement du modèle, <b>sans la cote</b>. Fiabilité = chances de victoire des 2 chevaux additionnées (seuils propres à chaque discipline).</div>
+      ${legende}
+      <div style="margin-top:6px">Indicateur de confiance, pas un avantage sur le marché. Touche une course pour ouvrir le Conseil.</div>
     </div>`;
     for (const [rNum, rd] of Object.entries(byR)) {
       html += `<div class="dash-reunion">R${rNum} · ${rd.lieu || ''}</div>`;
@@ -2402,7 +2412,7 @@ async function chargerTop2(force) {
         const lignesH = x.paire.map(h => `<div class="grecap-cheval" style="color:${c}">#${h.numero} ${h.nom || ''}</div>`).join('');
         html += `<div class="grecap-row" onclick="${onclick}">
           <div><div class="grecap-course">R${co.r}C${co.c}</div></div>
-          <div style="min-width:0">${lignesH}<div class="grecap-meta">${meta} · ${x.nb} partants</div></div>
+          <div style="min-width:0">${lignesH}<div class="grecap-meta">${meta} · ${x.nb} partants${co.discGrille === 'monte' ? ' · monté' : ''}</div></div>
           <div class="grecap-badge" style="color:${c};border-color:${c}66;background:${c}1f">${p.court}<small>${Math.round(x.F)} %</small></div>
         </div>`;
       }

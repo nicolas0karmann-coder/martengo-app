@@ -2307,7 +2307,7 @@ function _grilleRenderTop3() {
 //   F < 38 % : incertaine   (≈ 19 % des courses · couplé exact 12 % · 69 %)
 // Monté (1 041 courses hors échantillon, chrono sans fuite) : sûre F ≥ 57 % (22 % des courses · exact 33 % · ≥1 sur 2 : 90 %) · moyenne 21 % / 77 % · incertaine F < 38 % : 11 % / 68 %.
 const TOP2_CFG = {
-  attele: { nom: 'attelé', icone: '🐎', mode: 'P', sur: 31, inc: 13, stats: ['39 % de couplés exacts (les 2 favoris : 33 %), 90 % d\'au moins un dans les 2 premiers', '21 % (favoris : 24 %), 81 %', '11 % (favoris : 18 %), 71 %'], base: '2 640 courses d\'attelé (test hors échantillon). L\'étiquette compare la paire aux courses de MÊME taille de lot (≈ 20 % sûre, 50 % moyenne, 30 % incertaine dans chaque taille). Hors « sûre », les 2 favoris du marché font mieux que le modèle', unite: 'chances que ces 2 chevaux soient bien les 2 premiers (valeur absolue : elle baisse quand le lot grandit)' },
+  attele: { nom: 'attelé', icone: '🐎', mode: 'AUCUN', base: 'indicateur de fiabilité en cours de refonte : les probabilités calibrées renvoyées par l\'API en direct ne sont pas comparables à celles du backtest (valeurs plates et très élevées), donc les étiquettes précédentes n\'étaient pas fiables. Les 2 chevaux sont ceux du classement du modèle' },
   monte:  { nom: 'monté',  icone: '🏇', mode: 'AUCUN', base: '1 040 courses de monté : sur ce volume, l\'écart entre les courses « sûres » et « incertaines » vient presque entièrement du nombre de partants (à taille de lot égale, AUC 0,55 ≈ rien). Le modèle monté fait aussi un peu moins bien que les 2 favoris du marché (19 % contre 23 % de couplés exacts). La paire est donc donnée sans niveau de fiabilité' }
 };
 const TOP2_NIVEAUX = {

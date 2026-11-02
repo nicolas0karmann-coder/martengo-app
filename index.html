@@ -2338,7 +2338,7 @@ function _top2Course(data, disc) {
     val = 100 / (1 + Math.exp(-(-3.9379 + 6.2098 * part)));
     const sz = TOP2_SEUILS_ATTELE[Math.min(Math.max(liste.length, 6), 14)];
     const niv = part >= sz[1] ? 'sure' : (part < sz[0] ? 'incertaine' : 'moyenne');
-    return { paire, F, val, niv, nb: liste.length };
+    return { paire, F, val, niv, nb: liste.length, part, sz };
   }
   const niv = val >= cfg.sur ? 'sure' : (val < cfg.inc ? 'incertaine' : 'moyenne');
   return { paire, F, val, niv, nb: liste.length };
@@ -2429,7 +2429,7 @@ async function chargerTop2(force) {
         const lignesH = x.paire.map(h => `<div class="grecap-cheval" style="color:${c}">#${h.numero} ${h.nom || ''}</div>`).join('');
         html += `<div class="grecap-row" onclick="${onclick}">
           <div><div class="grecap-course">R${co.r}C${co.c}</div></div>
-          <div style="min-width:0">${lignesH}<div class="grecap-meta">${meta} · ${x.nb} partants${co.discGrille === 'monte' ? ' · monté' : ''}</div></div>
+          <div style="min-width:0">${lignesH}<div class="grecap-meta">${meta} · ${x.nb} partants${co.discGrille === 'monte' ? ' · monté' : ''}${x.part !== undefined ? ` · PART ${x.part.toFixed(2)} (seuils ${x.sz[0].toFixed(2)} / ${x.sz[1].toFixed(2)})` : ''}</div></div>
           ${x.niv === 'neutre' ? '<div></div>' : `<div class="grecap-badge" style="color:${c};border-color:${c}66;background:${c}1f">${p.court}<small>${Math.round(x.val)} %</small></div>`}
         </div>`;
       }

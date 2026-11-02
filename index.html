@@ -2307,7 +2307,7 @@ function _grilleRenderTop3() {
 //   F < 38 % : incertaine   (≈ 19 % des courses · couplé exact 12 % · 69 %)
 // Monté (1 041 courses hors échantillon, chrono sans fuite) : sûre F ≥ 57 % (22 % des courses · exact 33 % · ≥1 sur 2 : 90 %) · moyenne 21 % / 77 % · incertaine F < 38 % : 11 % / 68 %.
 const TOP2_CFG = {
-  attele: { nom: 'attelé', icone: '🐎', mode: 'P', sur: 31, inc: 13, stats: ['40 % de couplés exacts, 92 % d\'au moins un dans les 2 premiers', '20 % / 80 %', '11 % / 69 %'], base: '2 640 courses d\'attelé (test hors échantillon)', unite: 'chances que ces 2 chevaux soient bien les 2 premiers, corrigées du nombre de partants et de l\'écart avec le 3e' },
+  attele: { nom: 'attelé', icone: '🐎', mode: 'P', sur: 31, inc: 13, stats: ['40 % de couplés exacts (les 2 favoris : 38 %), 92 % d\'au moins un dans les 2 premiers', '20 % (favoris : 23 %), 81 %', '11 % (favoris : 15 %), 68 %'], base: '2 640 courses d\'attelé (test hors échantillon). Quand le niveau n\'est pas « sûre », les 2 favoris du marché font mieux que le modèle', unite: 'chances que ces 2 chevaux soient bien les 2 premiers, d\'après la part de probabilité qu\'ils représentent dans le lot' },
   monte:  { nom: 'monté',  icone: '🏇', mode: 'AUCUN', base: '1 040 courses de monté : sur ce volume, l\'écart entre les courses « sûres » et « incertaines » vient presque entièrement du nombre de partants (à taille de lot égale, AUC 0,55 ≈ rien). Le modèle monté fait aussi un peu moins bien que les 2 favoris du marché (19 % contre 23 % de couplés exacts). La paire est donc donnée sans niveau de fiabilité' }
 };
 const TOP2_NIVEAUX = {
@@ -2327,14 +2327,12 @@ function _top2Course(data, disc) {
   const F = paire[0].proba_win + paire[1].proba_win;
   if (cfg.mode === 'AUCUN') return { paire, F, val: null, niv: 'neutre', nb: liste.length };
   let val = F;
-  if (cfg.mode === 'P') {   // attelé : P(couplé exact) = logistique(F, nb partants, écarts de score) — régression apprise sur 3 960 courses, validée sur 2 640
-    const sp = liste.map(h => h.proba_pmu || 0).sort((a, b) => b - a);
-    const rng = sp[0] - sp[sp.length - 1];
-    if (sp[0] > 0 && rng > 0) {
-      const ecTop = (sp[1] - sp[2]) / sp[0], ec23 = (sp[1] - sp[2]) / rng;
-      const z = -5.7284 + 6.6484 * (F / 100) + 0.4901 * Math.log(liste.length) + 7.5460 * ecTop - 5.5581 * ec23;
-      val = 100 / (1 + Math.exp(-z));
-    } else return null;
+  if (cfg.mode === 'P') {   // attelé : P(couplé exact) = logistique(PART) — régression apprise sur 3 960 courses, validée sur 2 640
+    const sp = liste.map(h => h.proba_pmu || 0).sort((x, y) => y - x);
+    const tot = sp.reduce((u, v) => u + v, 0);
+    if (!(tot > 0)) return null;
+    const part = (sp[0] + sp[1]) / tot;    // part de la paire dans la probabilité totale du lot
+    val = 100 / (1 + Math.exp(-(-3.9379 + 6.2098 * part)));
   }
   const niv = val >= cfg.sur ? 'sure' : (val < cfg.inc ? 'incertaine' : 'moyenne');
   return { paire, F, val, niv, nb: liste.length };

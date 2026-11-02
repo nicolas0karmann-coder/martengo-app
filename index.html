@@ -2307,8 +2307,8 @@ function _grilleRenderTop3() {
 //   F < 38 % : incertaine   (≈ 19 % des courses · couplé exact 12 % · 69 %)
 // Monté (1 041 courses hors échantillon, chrono sans fuite) : sûre F ≥ 57 % (22 % des courses · exact 33 % · ≥1 sur 2 : 90 %) · moyenne 21 % / 77 % · incertaine F < 38 % : 11 % / 68 %.
 const TOP2_CFG = {
-  attele: { nom: 'attelé', icone: '🐎', sur: 56, inc: 38, stats: ['36 % de couplés exacts, 91 % d\'au moins un dans les 2 premiers', '20 % / 80 %', '12 % / 69 %'], base: '6 600 courses d\'attelé' },
-  monte:  { nom: 'monté',  icone: '🏇', sur: 57, inc: 38, stats: ['33 % de couplés exacts, 90 % d\'au moins un dans les 2 premiers', '21 % / 77 %', '11 % / 68 %'], base: '1 040 courses de monté (échantillon réduit, moins précis). Le monté est moins bien prédit : sur l\'ensemble, les 2 favoris du marché font un peu mieux que le modèle' }
+  attele: { nom: 'attelé', icone: '🐎', mode: 'P', sur: 31, inc: 13, stats: ['40 % de couplés exacts, 92 % d\'au moins un dans les 2 premiers', '20 % / 80 %', '11 % / 69 %'], base: '2 640 courses d\'attelé (test hors échantillon)', unite: 'chances que ces 2 chevaux soient bien les 2 premiers, corrigées du nombre de partants et de l\'écart avec le 3e' },
+  monte:  { nom: 'monté',  icone: '🏇', sur: 57, inc: 38, stats: ['33 % de couplés exacts, 90 % d\'au moins un dans les 2 premiers', '21 % / 77 %', '11 % / 68 %'], base: '1 040 courses de monté (échantillon réduit, moins précis). Le monté est moins bien prédit : sur l\'ensemble, les 2 favoris du marché font un peu mieux que le modèle. Ce pourcentage n\'est pas encore corrigé du nombre de partants : il baisse mécaniquement dans les grands lots', unite: 'chances de victoire des 2 chevaux additionnées' }
 };
 const TOP2_NIVEAUX = {
   sure:       { court: 'Sûre',       color: '#3a9162' },
@@ -2324,8 +2324,18 @@ function _top2Course(data, disc) {
   else liste.sort((a, b) => (b.note_pmu !== a.note_pmu) ? b.note_pmu - a.note_pmu : (b.proba_pmu || 0) - (a.proba_pmu || 0));   // même tri que l'onglet Conseil
   const paire = liste.slice(0, 2);
   const F = paire[0].proba_win + paire[1].proba_win;
-  const niv = F >= cfg.sur ? 'sure' : (F < cfg.inc ? 'incertaine' : 'moyenne');
-  return { paire, F, niv, nb: liste.length };
+  let val = F;
+  if (cfg.mode === 'P') {   // attelé : P(couplé exact) = logistique(F, nb partants, écarts de score) — régression apprise sur 3 960 courses, validée sur 2 640
+    const sp = liste.map(h => h.proba_pmu || 0).sort((a, b) => b - a);
+    const rng = sp[0] - sp[sp.length - 1];
+    if (sp[0] > 0 && rng > 0) {
+      const ecTop = (sp[1] - sp[2]) / sp[0], ec23 = (sp[1] - sp[2]) / rng;
+      const z = -5.7284 + 6.6484 * (F / 100) + 0.4901 * Math.log(liste.length) + 7.5460 * ecTop - 5.5581 * ec23;
+      val = 100 / (1 + Math.exp(-z));
+    } else return null;
+  }
+  const niv = val >= cfg.sur ? 'sure' : (val < cfg.inc ? 'incertaine' : 'moyenne');
+  return { paire, F, val, niv, nb: liste.length };
 }
 async function chargerTop2(force) {
   const el = document.getElementById('top2-content');
@@ -2381,6 +2391,7 @@ async function chargerTop2(force) {
     att.forEach(co => { (byR[co.r] = byR[co.r] || { lieu: co.lieu, courses: [] }).courses.push(co); });
     const discs = ['attele', 'monte'].filter(dk => att.some(c => c.discGrille === dk));
     const legende = discs.map(dk => { const g = TOP2_CFG[dk]; return `<div style="margin-top:6px"><b>${g.icone} ${g.nom}</b></div>
+      <div style="color:var(--text-dim)">Pourcentage = ${g.unite}.</div>
       <div style="color:#3a9162"><b>Sûre</b> (≥ ${g.sur} %) : ${g.stats[0]}</div>
       <div style="color:#c8942a"><b>Moyenne</b> : ${g.stats[1]}</div>
       <div style="color:#d9803a"><b>Incertaine</b> (&lt; ${g.inc} %) : ${g.stats[2]}</div>
@@ -2391,7 +2402,7 @@ async function chargerTop2(force) {
     </div>
     <div class="grecap-sum">${chips || '<span style="font-size:10px;color:var(--text-dim)">Aucune course calculée</span>'}</div>
     <div style="padding:8px 12px;font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2);line-height:1.55;overflow-wrap:anywhere;word-break:break-word;box-sizing:border-box;max-width:100%">
-      <div>Les 2 premiers du classement du modèle, <b>sans la cote</b>. Fiabilité = chances de victoire des 2 chevaux additionnées (seuils propres à chaque discipline).</div>
+      <div>Les 2 premiers du classement du modèle, <b>sans la cote</b>. Le pourcentage du badge et ses seuils sont propres à chaque discipline.</div>
       ${legende}
       <div style="margin-top:6px">Indicateur de confiance, pas un avantage sur le marché. Touche une course pour ouvrir le Conseil.</div>
     </div>`;
@@ -2413,7 +2424,7 @@ async function chargerTop2(force) {
         html += `<div class="grecap-row" onclick="${onclick}">
           <div><div class="grecap-course">R${co.r}C${co.c}</div></div>
           <div style="min-width:0">${lignesH}<div class="grecap-meta">${meta} · ${x.nb} partants${co.discGrille === 'monte' ? ' · monté' : ''}</div></div>
-          <div class="grecap-badge" style="color:${c};border-color:${c}66;background:${c}1f">${p.court}<small>${Math.round(x.F)} %</small></div>
+          <div class="grecap-badge" style="color:${c};border-color:${c}66;background:${c}1f">${p.court}<small>${Math.round(x.val)} %</small></div>
         </div>`;
       }
     }

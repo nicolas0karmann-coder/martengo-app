@@ -2308,12 +2308,13 @@ function _grilleRenderTop3() {
 // Monté (1 041 courses hors échantillon, chrono sans fuite) : sûre F ≥ 57 % (22 % des courses · exact 33 % · ≥1 sur 2 : 90 %) · moyenne 21 % / 77 % · incertaine F < 38 % : 11 % / 68 %.
 const TOP2_CFG = {
   attele: { nom: 'attelé', icone: '🐎', mode: 'P', sur: 31, inc: 13, stats: ['40 % de couplés exacts, 92 % d\'au moins un dans les 2 premiers', '20 % / 80 %', '11 % / 69 %'], base: '2 640 courses d\'attelé (test hors échantillon)', unite: 'chances que ces 2 chevaux soient bien les 2 premiers, corrigées du nombre de partants et de l\'écart avec le 3e' },
-  monte:  { nom: 'monté',  icone: '🏇', sur: 57, inc: 38, stats: ['33 % de couplés exacts, 90 % d\'au moins un dans les 2 premiers', '21 % / 77 %', '11 % / 68 %'], base: '1 040 courses de monté (échantillon réduit, moins précis). Le monté est moins bien prédit : sur l\'ensemble, les 2 favoris du marché font un peu mieux que le modèle. Ce pourcentage n\'est pas encore corrigé du nombre de partants : il baisse mécaniquement dans les grands lots', unite: 'chances de victoire des 2 chevaux additionnées' }
+  monte:  { nom: 'monté',  icone: '🏇', mode: 'AUCUN', base: '1 040 courses de monté : sur ce volume, l\'écart entre les courses « sûres » et « incertaines » vient presque entièrement du nombre de partants (à taille de lot égale, AUC 0,55 ≈ rien). Le modèle monté fait aussi un peu moins bien que les 2 favoris du marché (19 % contre 23 % de couplés exacts). La paire est donc donnée sans niveau de fiabilité' }
 };
 const TOP2_NIVEAUX = {
   sure:       { court: 'Sûre',       color: '#3a9162' },
   moyenne:    { court: 'Moyenne',    color: '#c8942a' },
-  incertaine: { court: 'Incertaine', color: '#d9803a' }
+  incertaine: { court: 'Incertaine', color: '#d9803a' },
+  neutre:     { court: '',           color: 'var(--text)' }
 };
 let _top2Cle = null;
 function _top2Course(data, disc) {
@@ -2324,6 +2325,7 @@ function _top2Course(data, disc) {
   else liste.sort((a, b) => (b.note_pmu !== a.note_pmu) ? b.note_pmu - a.note_pmu : (b.proba_pmu || 0) - (a.proba_pmu || 0));   // même tri que l'onglet Conseil
   const paire = liste.slice(0, 2);
   const F = paire[0].proba_win + paire[1].proba_win;
+  if (cfg.mode === 'AUCUN') return { paire, F, val: null, niv: 'neutre', nb: liste.length };
   let val = F;
   if (cfg.mode === 'P') {   // attelé : P(couplé exact) = logistique(F, nb partants, écarts de score) — régression apprise sur 3 960 courses, validée sur 2 640
     const sp = liste.map(h => h.proba_pmu || 0).sort((a, b) => b - a);
@@ -2383,14 +2385,14 @@ async function chargerTop2(force) {
       }));
     }
     _top2Cle = dateStr;
-    const compte = { sure: 0, moyenne: 0, incertaine: 0 };
+    const compte = { sure: 0, moyenne: 0, incertaine: 0, neutre: 0 };
     Object.values(res).forEach(x => { if (x) compte[x.niv]++; });
-    const chips = Object.entries(TOP2_NIVEAUX).filter(([k]) => compte[k]).map(([k, p]) =>
+    const chips = Object.entries(TOP2_NIVEAUX).filter(([k]) => k !== 'neutre' && compte[k]).map(([k, p]) =>
       `<span class="grecap-chip" style="color:${p.color};border-color:${p.color}66;background:${p.color}1f">${p.court} : ${compte[k]}</span>`).join('');
     const byR = {};
     att.forEach(co => { (byR[co.r] = byR[co.r] || { lieu: co.lieu, courses: [] }).courses.push(co); });
     const discs = ['attele', 'monte'].filter(dk => att.some(c => c.discGrille === dk));
-    const legende = discs.map(dk => { const g = TOP2_CFG[dk]; return `<div style="margin-top:6px"><b>${g.icone} ${g.nom}</b></div>
+    const legende = discs.map(dk => { const g = TOP2_CFG[dk]; if (g.mode === 'AUCUN') return `<div style="margin-top:6px"><b>${g.icone} ${g.nom}</b></div><div>Pas de niveau de fiabilité. ${g.base}.</div>`; return `<div style="margin-top:6px"><b>${g.icone} ${g.nom}</b></div>
       <div style="color:var(--text-dim)">Pourcentage = ${g.unite}.</div>
       <div style="color:#3a9162"><b>Sûre</b> (≥ ${g.sur} %) : ${g.stats[0]}</div>
       <div style="color:#c8942a"><b>Moyenne</b> : ${g.stats[1]}</div>
@@ -2424,7 +2426,7 @@ async function chargerTop2(force) {
         html += `<div class="grecap-row" onclick="${onclick}">
           <div><div class="grecap-course">R${co.r}C${co.c}</div></div>
           <div style="min-width:0">${lignesH}<div class="grecap-meta">${meta} · ${x.nb} partants${co.discGrille === 'monte' ? ' · monté' : ''}</div></div>
-          <div class="grecap-badge" style="color:${c};border-color:${c}66;background:${c}1f">${p.court}<small>${Math.round(x.val)} %</small></div>
+          ${x.niv === 'neutre' ? '<div></div>' : `<div class="grecap-badge" style="color:${c};border-color:${c}66;background:${c}1f">${p.court}<small>${Math.round(x.val)} %</small></div>`}
         </div>`;
       }
     }

@@ -2305,10 +2305,10 @@ function _grilleRenderTop3() {
 //   F ≥ 56 % : sûre         (≈ 19 % des courses · couplé exact 36 % · au moins 1 des 2 dans les 2 premiers 91 %)
 //   38 ≤ F < 56 : moyenne   (≈ 62 % des courses · couplé exact 20 % · 80 %)
 //   F < 38 % : incertaine   (≈ 19 % des courses · couplé exact 12 % · 69 %)
-// Monté (1 041 courses hors échantillon) : sûre F ≥ 55 % (23 % des courses · exact 35 % · ≥1 sur 2 : 93 %) · moyenne 21 % / 83 % · incertaine F < 36 % : 14 % / 67 %.
+// Monté (1 041 courses hors échantillon, chrono sans fuite) : sûre F ≥ 57 % (22 % des courses · exact 33 % · ≥1 sur 2 : 90 %) · moyenne 21 % / 77 % · incertaine F < 38 % : 11 % / 68 %.
 const TOP2_CFG = {
   attele: { nom: 'attelé', icone: '🐎', sur: 56, inc: 38, stats: ['36 % de couplés exacts, 91 % d\'au moins un dans les 2 premiers', '20 % / 80 %', '12 % / 69 %'], base: '6 600 courses d\'attelé' },
-  monte:  { nom: 'monté',  icone: '🏇', sur: 55, inc: 36, stats: ['35 % de couplés exacts, 93 % d\'au moins un dans les 2 premiers', '21 % / 83 %', '14 % / 67 %'], base: '1 040 courses de monté (échantillon plus petit, donc moins précis)' }
+  monte:  { nom: 'monté',  icone: '🏇', sur: 57, inc: 38, stats: ['33 % de couplés exacts, 90 % d\'au moins un dans les 2 premiers', '21 % / 77 %', '11 % / 68 %'], base: '1 040 courses de monté (échantillon réduit, moins précis). Le monté est moins bien prédit : sur l\'ensemble, les 2 favoris du marché font un peu mieux que le modèle' }
 };
 const TOP2_NIVEAUX = {
   sure:       { court: 'Sûre',       color: '#3a9162' },

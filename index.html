@@ -1628,6 +1628,9 @@ function renderConseilPlat(data) {
     const rangMarcheC = (h.cote!=null && h.cote>0) ? 1 + liste.filter(x=>x.cote>0 && x.cote<h.cote).length : null;
     const coteCell = rangMarcheC!=null ? `${coteTxt} <span style="font-size:9px;color:var(--text-dim)">(${rangMarcheC}<sup>e</sup>)</span>` : '—';
     const coteStyle = rangMarcheC!=null && rangMarcheC<=3 ? `color:${GREEN};font-weight:700` : 'color:var(--text)';
+    // Niveau (dotation en milliers d'euros) des 6 dernières courses, de la plus récente à la plus ancienne (comme la musique)
+    const _nv = Array.isArray(h.niveaux_hist) ? h.niveaux_hist : [];
+    const niveauxTxt = _nv.length ? [..._nv].reverse().map(v=>v!=null ? String(Math.round(v/1000)) : '·').join(' · ') : '—';
     const corde = h.place_corde!=null ? h.place_corde : '—';
     const terrainTxt = h.apt_terrain_actuel!=null ? h.apt_terrain_actuel+'%' : '—';
     const terrainStyle = styleBest(h.apt_terrain_actuel, terrainStat.top5, v=>v===terrainStat.best);
@@ -1668,6 +1671,7 @@ function renderConseilPlat(data) {
       <td style="text-align:center;${coteStyle}" title="Cote du jour et rang au marché (1er = favori)">${coteCell}</td>
       <td style="text-align:center;${poidsStyle}">${poidsTxt}${poidsDeltaTxt}</td>
       <td style="text-align:center;font-size:9px;color:var(--text-dim)">${poidsHistTxt}</td>
+      <td style="text-align:center;font-size:9px" title="Dotation des 6 dernières courses, en milliers d'euros (récent → ancien)">${niveauxTxt}</td>
       <td style="text-align:center;${chgDistStyle}">${chgDistTxt}</td>
       <td style="text-align:center;${chgJkyStyle}" title="${chgJkyTip}">${chgJkyTxt}</td>
       <td style="text-align:center;${chgOeilStyle}" title="${chgOeilTip}">${chgOeilTxt}</td>
@@ -1683,7 +1687,7 @@ function renderConseilPlat(data) {
   }).join('');
 
   document.getElementById('conseil-content').innerHTML = `
-    <div class="pred-meta fade-in">${liste.length} chevaux · ${data.date||currentDate||''}</div>
+    <div class="pred-meta fade-in">${liste.length} chevaux · ${data.date||currentDate||''}${(liste[0]&&liste[0].prix_jour) ? ' · dotation du jour : '+Math.round(liste[0].prix_jour/1000)+' k€' : ''}</div>
     <div class="no-swipe" style="overflow-x:auto;border:1px solid var(--border);border-radius:8px">
       <table style="width:100%;border-collapse:collapse;font-family:'Space Mono',monospace;font-size:10px;white-space:nowrap">
         <thead>
@@ -1696,6 +1700,7 @@ function renderConseilPlat(data) {
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Cote<br><span style="font-size:8px">(rang marché)</span></th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Poids<br>porté</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Poids 6 dern.<br><span style="font-size:8px">récent → ancien</span></th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Niveau 6 dern.<br><span style="font-size:8px">dotation k€ · récent → ancien</span></th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Chgt<br>distance</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Chgt<br>jockey</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Chgt<br>œillères</th>

@@ -1616,6 +1616,18 @@ function renderConseilPlat(data) {
       if (_c.oeilleres===true) { chgOeilTxt = '≠'; chgOeilStyle = 'color:#e05c5c;font-weight:700'; chgOeilTip = 'Dernières œillères : '+(_c.oeil_prec||'?'); }
       else if (_c.oeilleres===false) { chgOeilTxt = '='; }
     }
+    // Hippodrome : compte réel « top 3 / sorties » (couleur seulement à partir de 3 sorties)
+    const _nh = h.nb_courses_hippo, _th = h.top3_hippo;
+    let hippoCptTxt = '—', hippoCptStyle = 'color:var(--text-dim)';
+    if (_nh!=null && _nh>0 && _th!=null) {
+      hippoCptTxt = `${_th}/${_nh}`;
+      if (_nh>=3) { const _r=_th/_nh; hippoCptStyle = _r>=0.6 ? `color:${GREEN};font-weight:700` : _r<=0.2 ? 'color:#e05c5c' : 'color:var(--text)'; }
+    } else if (_nh===0) { hippoCptTxt = '0/0'; }
+    // Cote du jour et rang au marché (1 = favori)
+    const coteTxt = (h.cote!=null && h.cote>0) ? h.cote : '—';
+    const rangMarcheC = (h.cote!=null && h.cote>0) ? 1 + liste.filter(x=>x.cote>0 && x.cote<h.cote).length : null;
+    const coteCell = rangMarcheC!=null ? `${coteTxt} <span style="font-size:9px;color:var(--text-dim)">(${rangMarcheC}<sup>e</sup>)</span>` : '—';
+    const coteStyle = rangMarcheC!=null && rangMarcheC<=3 ? `color:${GREEN};font-weight:700` : 'color:var(--text)';
     const corde = h.place_corde!=null ? h.place_corde : '—';
     const terrainTxt = h.apt_terrain_actuel!=null ? h.apt_terrain_actuel+'%' : '—';
     const terrainStyle = styleBest(h.apt_terrain_actuel, terrainStat.top5, v=>v===terrainStat.best);
@@ -1653,15 +1665,14 @@ function renderConseilPlat(data) {
       <td style="text-align:center;letter-spacing:0;font-family:monospace;font-size:10px">${formatMusique7(h.musique)}</td>
       <td style="text-align:center;${styleBest(h.scores?.forme, formeTop5, v=>v===formeBest)}">${h.scores?.forme!=null ? h.scores.forme : '—'}</td>
       <td style="text-align:center;${styleBest(h.score_value, valeurTop5, v=>v===valeurBest)}">${h.score_value!=null ? h.score_value : '—'}</td>
+      <td style="text-align:center;${coteStyle}" title="Cote du jour et rang au marché (1er = favori)">${coteCell}</td>
       <td style="text-align:center;${poidsStyle}">${poidsTxt}${poidsDeltaTxt}</td>
       <td style="text-align:center;font-size:9px;color:var(--text-dim)">${poidsHistTxt}</td>
       <td style="text-align:center;${chgDistStyle}">${chgDistTxt}</td>
       <td style="text-align:center;${chgJkyStyle}" title="${chgJkyTip}">${chgJkyTxt}</td>
       <td style="text-align:center;${chgOeilStyle}" title="${chgOeilTip}">${chgOeilTxt}</td>
       <td style="text-align:center">${corde}</td>
-      <td style="text-align:center;${terrainStyle}">${terrainTxt}</td>
-      <td style="text-align:center;${distStyle}">${distTxt}</td>
-      <td style="text-align:center;${hippoStyle}">${hippoTxt}</td>
+      <td style="text-align:center;${hippoCptStyle}" title="Top 3 / sorties sur cet hippodrome">${hippoCptTxt}</td>
       <td style="text-align:center;${jockeyHippoStyle}">${jockeyHippoTxt}</td>
       <td style="text-align:center">${ratioNiveauTxt}</td>
       <td style="text-align:center;${descenteStyle}">${descenteTxt}</td>
@@ -1682,15 +1693,14 @@ function renderConseilPlat(data) {
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Musique</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Score<br>forme</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Valeur</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Cote<br><span style="font-size:8px">(rang marché)</span></th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Poids<br>porté</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Poids 6 dern.<br><span style="font-size:8px">récent → ancien</span></th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Chgt<br>distance</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Chgt<br>jockey</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Chgt<br>œillères</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Corde</th>
-            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Apt.<br>terrain</th>
-            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Apt.<br>distance</th>
-            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Apt.<br>hippodrome</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Top 3 / sorties<br><span style="font-size:8px">ici (hippodrome)</span></th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Jockey (% victoire)</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Ratio<br>niveau lot</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Descente<br>lot</th>

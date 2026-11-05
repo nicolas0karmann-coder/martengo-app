@@ -1602,6 +1602,23 @@ function renderConseilPlat(data) {
       }
       poidsHistTxt = [..._ph].reverse().map(v=>v!=null ? v.toFixed(1).replace(/\.0$/,'') : '·').join(' · ');
     }
+    // Changements par rapport à la dernière course connue (distance, hippodrome, terrain, jockey, œillères)
+    let chgTxt = '—';
+    const _c = h.changements;
+    if (_c) {
+      const it = [];
+      const tag = (txt, col, tip) => `<span title="${tip}" style="display:inline-block;margin:1px 2px;padding:1px 4px;border:1px solid var(--border);border-radius:4px;color:${col}">${txt}</span>`;
+      if (_c.d_dist!=null && Math.abs(_c.d_dist)>=100) it.push(tag(`Dist ${_c.d_dist>0?'+':''}${_c.d_dist} m`, 'var(--gold)', 'Distance du jour vs dernière course'));
+      if (_c.hippo===true) it.push(tag('Hippo ≠', 'var(--gold)', 'Autre hippodrome que la dernière course'));
+      if (_c.terrain===true) it.push(tag('Terrain ≠', 'var(--gold)', 'Autre catégorie de terrain que la dernière course'));
+      if (_c.jockey===true) it.push(tag('Jockey ≠', '#e05c5c', 'Dernier jockey : '+(_c.jockey_prec||'?')));
+      if (_c.oeilleres===true) it.push(tag('Œil. ≠', '#e05c5c', 'Dernières œillères : '+(_c.oeil_prec||'?')));
+      const _manque = [];
+      if (_c.jockey===null) _manque.push('jockey');
+      if (_c.oeilleres===null) _manque.push('œillères');
+      chgTxt = it.length ? it.join('') : '<span style="color:var(--text-dim)">Aucun</span>';
+      if (_manque.length) chgTxt += `<div style="font-size:8px;color:var(--text-dim)" title="Historique non disponible">${_manque.join('/')} : n/d</div>`;
+    }
     const corde = h.place_corde!=null ? h.place_corde : '—';
     const terrainTxt = h.apt_terrain_actuel!=null ? h.apt_terrain_actuel+'%' : '—';
     const terrainStyle = styleBest(h.apt_terrain_actuel, terrainStat.top5, v=>v===terrainStat.best);
@@ -1641,6 +1658,7 @@ function renderConseilPlat(data) {
       <td style="text-align:center;${styleBest(h.score_value, valeurTop5, v=>v===valeurBest)}">${h.score_value!=null ? h.score_value : '—'}</td>
       <td style="text-align:center;${poidsStyle}">${poidsTxt}${poidsDeltaTxt}</td>
       <td style="text-align:center;font-size:9px;color:var(--text-dim)">${poidsHistTxt}</td>
+      <td style="text-align:center;font-size:9px;white-space:normal;min-width:120px">${chgTxt}</td>
       <td style="text-align:center">${corde}</td>
       <td style="text-align:center;${terrainStyle}">${terrainTxt}</td>
       <td style="text-align:center;${distStyle}">${distTxt}</td>
@@ -1667,6 +1685,7 @@ function renderConseilPlat(data) {
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Valeur</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Poids<br>porté</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Poids 6 dern.<br><span style="font-size:8px">récent → ancien</span></th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Changements<br><span style="font-size:8px">vs dernière course</span></th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Corde</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Apt.<br>terrain</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Apt.<br>distance</th>

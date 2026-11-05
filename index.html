@@ -1648,18 +1648,14 @@ function renderConseilPlat(data) {
     const equipementTxt = h.oeilleres_brut || '—';
     const dateDerniereTxt = formatDateConseil(h.date_derniere_course);
 
-    // Engagement PLAT
-    const plafondP = h.plafond_gains || 0;
-    const gainsP = (h.gains_carriere || 0) / 100;  // gains en centimes → euros
-    const nbCP = h.nb_courses_base || null;
-    let engTxt = '—', engStyle = 'color:var(--text-dim)';
-    if (plafondP > 0) {
-      const ratio = gainsP / plafondP;
-      const pct = Math.round(ratio * 100);
-      engTxt = `${pct}%${nbCP ? ' <span style="font-size:8px;opacity:.7">('+nbCP+'c)</span>' : ''}`;
-      if (ratio >= 0.9) engStyle = 'color:#3a9162;font-weight:700';
-      else if (ratio >= 0.7) engStyle = 'color:#d4a72c;font-weight:700';
-      else engStyle = 'color:#e05c5c;font-weight:700';
+    // Classe : rang du cheval dans le lot selon ses gains moyens par course (gains de carrière / (courses + 1))
+    let classeTxt = '—', classeStyle = 'color:var(--text-dim)', classeTip = 'Moins de 3 courses ou gains indisponibles';
+    if (h.gpc_rang!=null) {
+      const _avec = liste.filter(x=>x.gpc_rang!=null);
+      const _pos = 1 + _avec.filter(x=>x.gpc_rang > h.gpc_rang).length;
+      classeTxt = `${_pos}<sup>e</sup>/${_avec.length}`;
+      classeTip = `Gains moyens par course : mieux classé que ${Math.round(h.gpc_rang*100)} % des chevaux du lot`;
+      classeStyle = h.gpc_rang>=0.8 ? `color:${GREEN};font-weight:700` : h.gpc_rang<=0.2 ? 'color:#e05c5c;font-weight:700' : 'color:var(--text)';
     }
 
     return `<tr>
@@ -1682,7 +1678,7 @@ function renderConseilPlat(data) {
       <td style="text-align:center;${descenteStyle}">${descenteTxt}</td>
       <td style="text-align:center;font-size:9px">${equipementTxt}</td>
       <td style="text-align:center">${dateDerniereTxt}</td>
-      <td style="text-align:center;${engStyle}">${engTxt}</td>
+      <td style="text-align:center;${classeStyle}" title="${classeTip}">${classeTxt}</td>
     </tr>`;
   }).join('');
 
@@ -1711,7 +1707,7 @@ function renderConseilPlat(data) {
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Descente<br>lot</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Équipement</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Dernière<br>course</th>
-            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Engagement</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Classe<br><span style="font-size:8px">gains/course (rang)</span></th>
           </tr>
         </thead>
         <tbody>${lignes}</tbody>

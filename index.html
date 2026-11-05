@@ -1589,6 +1589,19 @@ function renderConseilPlat(data) {
     const poidsKg = (h.handicap_poids!=null && h.handicap_poids>0) ? (h.handicap_poids/10) : null;
     const poidsTxt = poidsKg!=null ? poidsKg.toFixed(1)+' kg' : '—';
     const poidsStyle = styleBest(poidsKg, poidsTop5, v=>v===poidsBest);
+    // Historique des poids (6 dernières courses, du plus ancien au plus récent) + évolution vs la course précédente
+    const _ph = Array.isArray(h.poids_hist) ? h.poids_hist : [];
+    let poidsDeltaTxt = '', poidsHistTxt = '—';
+    if (_ph.length) {
+      const _last = _ph[_ph.length-1];
+      if (poidsKg!=null && _last!=null) {
+        const d = Math.round((poidsKg - _last)*10)/10;
+        poidsDeltaTxt = d>0 ? ` <span style="color:#e05c5c;font-size:9px">▲+${d}</span>`
+                      : d<0 ? ` <span style="color:#3a9162;font-size:9px">▼${d}</span>`
+                      : ` <span style="color:var(--text-dim);font-size:9px">=</span>`;
+      }
+      poidsHistTxt = _ph.map(v=>v!=null ? v.toFixed(1).replace(/\.0$/,'') : '·').join(' · ');
+    }
     const corde = h.place_corde!=null ? h.place_corde : '—';
     const terrainTxt = h.apt_terrain_actuel!=null ? h.apt_terrain_actuel+'%' : '—';
     const terrainStyle = styleBest(h.apt_terrain_actuel, terrainStat.top5, v=>v===terrainStat.best);
@@ -1626,7 +1639,8 @@ function renderConseilPlat(data) {
       <td style="text-align:center;letter-spacing:0;font-family:monospace;font-size:10px">${formatMusique7(h.musique)}</td>
       <td style="text-align:center;${styleBest(h.scores?.forme, formeTop5, v=>v===formeBest)}">${h.scores?.forme!=null ? h.scores.forme : '—'}</td>
       <td style="text-align:center;${styleBest(h.score_value, valeurTop5, v=>v===valeurBest)}">${h.score_value!=null ? h.score_value : '—'}</td>
-      <td style="text-align:center;${poidsStyle}">${poidsTxt}</td>
+      <td style="text-align:center;${poidsStyle}">${poidsTxt}${poidsDeltaTxt}</td>
+      <td style="text-align:center;font-size:9px;color:var(--text-dim)">${poidsHistTxt}</td>
       <td style="text-align:center">${corde}</td>
       <td style="text-align:center;${terrainStyle}">${terrainTxt}</td>
       <td style="text-align:center;${distStyle}">${distTxt}</td>
@@ -1652,6 +1666,7 @@ function renderConseilPlat(data) {
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Score<br>forme</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Valeur</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Poids<br>porté</th>
+            <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Poids 6 dern.<br><span style="font-size:8px">ancien → récent</span></th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Corde</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Apt.<br>terrain</th>
             <th style="padding:8px 10px;text-align:center;color:var(--text-dim)">Apt.<br>distance</th>

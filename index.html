@@ -3402,11 +3402,12 @@ function platPlusEvaluer(data) {
   const tJour = _ppTerrain(co.terrain), pJour = _ppPiste(co.piste);
   return (data.chevaux || []).map(h => {
     const r = { numero: h.numero, nom: h.nom, h, filtres: {}, exclu: null, ligne: 6, cat: 'PASSE', catBase: 'PASSE', note: [], marq: [] };
-    const perfs = (h.perfs || []).filter(x => x.date);
+    const perfs = (h.perfs || []);
     // ── Étape 0 : filtres d'exclusion ──
     r.filtres.derniere = h.jours_derniere; r.filtres.nb12 = h.nb_courses_12m;
     if (!perfs.length) { r.exclu = 'Aucune performance disponible'; r.cat = 'EXCLU'; return r; }
-    if (h.jours_derniere == null || h.jours_derniere > PP.REPOS_MAX_J) { r.exclu = `Rentrée (dernière course il y a ${h.jours_derniere ?? '?'} j)`; r.cat = 'EXCLU'; return r; }
+    if (h.jours_derniere == null) { r.exclu = 'Date de la dernière course inconnue'; r.cat = 'EXCLU'; return r; }
+    if (h.jours_derniere > PP.REPOS_MAX_J) { r.exclu = `Rentrée (dernière course il y a ${h.jours_derniere ?? '?'} j)`; r.cat = 'EXCLU'; return r; }
     if ((h.nb_courses_12m ?? 0) < PP.NB_COURSES_MIN) { r.exclu = `Pas assez de courses (${h.nb_courses_12m ?? 0} sur 12 mois)`; r.cat = 'EXCLU'; return r; }
     // ── Étape 1 : catégorie ──
     const ev = perfs.map(x => {
@@ -3533,7 +3534,7 @@ async function chargerPlatPlus() {
       for (const co of rd.courses) {
         const data = res[`${co.r}-${co.c}`];
         if (!data || !data.chevaux) { body += `<div class="safe-row" style="cursor:default"><div class="safe-course">R${co.r}C${co.c} <span class="safe-heure">${co.heure || ''}</span></div><div class="safe-chevaux" style="color:var(--text-dim);font-weight:400">Non disponible</div></div>`; continue; }
-        if (!dbg) dbg = data.debug;
+        if (!dbg || (data.debug && data.debug.nb_chevaux_avec_perfs > 0 && !(dbg.nb_chevaux_avec_perfs > 0))) dbg = data.debug;
         const ev = platPlusEvaluer(data); nBase += ev.filter(e => e.cat === 'BASE').length;
         body += _ppRenderCourse(co, data, ev);
       }
@@ -3545,7 +3546,7 @@ async function chargerPlatPlus() {
       <div style="padding:10px 14px;font-family:'Space Mono',monospace;font-size:11px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2);line-height:1.7">
         Filtres : dernière course &lt; ${PP.REPOS_MAX_J / 30} mois · ≥ ${PP.NB_COURSES_MIN} courses/12 mois. « Bonne perf » = top ${PP.BONNE_RANG}.<br>
         <span class="pp-ok">[jockey]</span> jockey/entraîneur dans les 25 % meilleurs · <span class="pp-ko">[terrain] [hippo] [corde] [distance]</span> signaux défavorables (un Outsider reste Outsider) · Outsider (léger) : dotation 60-85 % · (fort) : &lt; 60 %.<br>
-        <span style="font-size:9px">Champs PMU lus (perf) : ${cles}</span>
+        <span style="font-size:9px;word-break:break-all">Diagnostic PMU : HTTP ${dbg ? JSON.stringify(dbg.statuts_http) : '?'} · chevaux avec perfs ${dbg ? dbg.nb_chevaux_avec_perfs : '?'} · perfs datées ${dbg ? dbg.nb_perfs_avec_date : '?'}<br>Champs d'une perf : ${cles}<br>Champs d'un cheval : ${dbg && dbg.cles_cheval && dbg.cles_cheval.length ? dbg.cles_cheval.join(', ') : '—'}<br>Exemple : ${dbg && dbg.echantillon_perf ? JSON.stringify(dbg.echantillon_perf) : '—'}</span>
       </div>` + body;
   } catch (e) {
     el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>${e.message}<br><button class="btn secondary" onclick="platPlusCharge=false;chargerPlatPlus()" style="margin-top:12px;font-size:10px">↺ Réessayer</button></div>`;

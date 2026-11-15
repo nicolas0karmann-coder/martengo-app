@@ -343,6 +343,16 @@ input[readonly]{opacity:.5;cursor:default}
 .pp-tab th{font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);text-align:left;padding:4px 6px;border-bottom:1px solid var(--border);white-space:nowrap}
 .pp-tab td{padding:5px 6px;border-bottom:1px solid var(--border);vertical-align:top}
 .pp-ok{color:#5fc58c}.pp-ko{color:#e05c5c}.pp-q{color:var(--text-dim)}
+.pp-h{margin:10px 0;padding:10px 10px 6px;background:var(--bg2);border:1px solid var(--border);border-radius:8px}
+.pp-h-top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px}
+.pp-h-sub{font-size:11px;color:var(--text-mid);margin-top:4px;line-height:1.6}
+.pp-m{display:inline-block;margin-left:2px;padding:0 5px;border:1px solid currentColor;border-radius:3px;font-size:10px}
+.pp-c{width:100%;border-collapse:collapse;margin-top:8px;font-size:11px}
+.pp-c th{font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);text-align:left;padding:3px 4px;border-bottom:1px solid var(--border2);font-weight:400}
+.pp-c td{padding:5px 4px;border-bottom:1px solid var(--border);vertical-align:top;color:var(--text-mid)}
+.pp-c tr.pp-util td{color:var(--text);background:var(--gold-dim)}
+.pp-c tr.pp-util td:first-child{border-left:2px solid var(--gold)}
+@media(max-width:520px){.pp-c th:nth-child(2),.pp-c td:nth-child(2){max-width:110px}}
 </style>
 </head>
 <body>
@@ -3426,7 +3436,7 @@ function platPlusEvaluer(data) {
         else if (e.niveau === 'sim' && egal(e)) { l = 'L2'; lab = 'Associé'; }
         else if (e.niveau === 'inf' && (e.dp == null || e.dp <= PP.POIDS_EGAL)) { l = 'L4'; lab = 'Outsider'; }
         else if (e.niveau === 'sim' && e.x.rang === 1 && e.dp != null && e.dp > PP.POIDS_EGAL) { l = 'L5'; lab = 'Outsider'; }
-        else { l = '—'; lab = 'top ' + PP.BONNE_RANG + ' mais poids en hausse ou autre cas : rien'; }
+        else { l = '—'; lab = 'top ' + PP.BONNE_RANG + ', aucune ligne'; }
       } else if (e.bonne) { lab = 'top ' + PP.BONNE_RANG + ' (dotation inconnue)'; }
       return { e, l, lab };
     });
@@ -3498,21 +3508,27 @@ function _ppRenderCourse(co, data, evals) {
   else {
     html += ligne('pp-base', 'BASE', base) + ligne('pp-assoc', 'ASSOCIÉ', assoc) + ligne('pp-out', 'OUTSIDER', out);
     html += `<div style="margin-top:7px;font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim)">${passe.length} on passe · ${excl.length} exclus (filtres) · <a href="#" onclick="event.preventDefault();const t=document.getElementById('${id}');t.style.display=t.style.display==='none'?'block':'none'" style="color:var(--gold-lite)">détail ▾</a></div>`;
-    const rows = evals.slice().sort((a, b) => (_PP_ORDRE.indexOf(a.cat) < 0 ? 9 : _PP_ORDRE.indexOf(a.cat)) - (_PP_ORDRE.indexOf(b.cat) < 0 ? 9 : _PP_ORDRE.indexOf(b.cat)) || _ppTri(a, b)).map(e => {
-      const h = e.h, ref = e.ref;
-      const f0 = e.exclu ? `<span class="pp-ko">${e.exclu}</span>` : `<span class="pp-ok">✓</span> ${h.jours_derniere ?? '?'} j · ${h.nb_courses_12m} c.`;
-      const dotTxt = ref && ref.ratio != null ? `${Math.round(ref.ratio * 100)} % (${ref.niveau === 'sup' ? 'sup.' : ref.niveau === 'sim' ? 'sim.' : 'inf.'})` : '<span class="pp-q">?</span>';
-      const pTxt = ref ? (ref.dp == null ? '<span class="pp-q">?</span>' : (ref.dp > 0 ? '+' : '') + ref.dp + ' kg') : '';
+    const jj = d => { if (!d) return '?'; const q = d.split('-'); return q.length === 3 ? `${q[2]}/${q[1]}` : d; };
+    const fmtKg = dp => dp == null ? '?' : (Math.abs(dp) <= PP.POIDS_EGAL ? '=' : (dp > 0 ? '+' : '−') + String(Math.abs(dp)).replace('.', ',') + ' kg');
+    const cartes = evals.slice().sort((a, b) => (_PP_ORDRE.indexOf(a.cat) < 0 ? 9 : _PP_ORDRE.indexOf(a.cat)) - (_PP_ORDRE.indexOf(b.cat) < 0 ? 9 : _PP_ORDRE.indexOf(b.cat)) || _ppTri(a, b)).map(e => {
       const cl = ({ 'BASE': 'pp-base', 'ASSOCIÉ': 'pp-assoc', 'OUTSIDER': 'pp-out' })[e.cat] || 'pp-passe';
-      return `<tr><td><b>#${e.numero}</b> ${(e.nom || '')}</td><td>${f0}</td><td>${e.exclu ? '' : (e.ligne < 6 ? 'L' + e.ligne : '—')}<br><span style="color:var(--text-dim)">${dotTxt}</span></td><td>${pTxt}</td>
-        <td>${e.marq.map(m => `<span class="${m.cls}">${m.t}</span>`).join('<br>') || ''}${e.note.length ? '<br><span class="pp-q">' + e.note.join(' · ') + '</span>' : ''}</td>
-        <td><span class="pp-tag ${cl}">${e.exclu ? 'EXCLU' : e.cat}${e.sous && e.cat === 'OUTSIDER' ? '<br>(' + e.sous + ')' : ''}</span></td></tr>` +
-        (e.courses ? `<tr><td colspan="6" style="padding:0 6px 8px 22px;font-size:10px;color:var(--text-dim)">${e.courses.map(c => {
-          const x = c.e.x, rg = x.rang ? x.rang + (x.nb_partants ? '/' + Math.round(x.nb_partants) : '') : '?';
-          return `${x.date || '?'} · ${x.hippodrome || '?'} ${x.distance ? Math.round(x.distance) + ' m' : ''} ${x.terrain || ''} ${x.piste || ''} · <b>${rg}</b> · dot. ${c.e.ratio != null ? Math.round(c.e.ratio * 100) + ' %' : '?'} · poids ${c.e.dp == null ? '?' : (c.e.dp > 0 ? '+' : '') + c.e.dp + ' kg'} → <span style="color:var(--text-mid)">${c.l} ${c.lab}</span>`;
-        }).join('<br>')}</td></tr>` : '');
+      const verdict = `<span class="pp-tag ${cl}">${e.exclu ? 'EXCLU' : e.cat}${e.sous && e.cat === 'OUTSIDER' ? ' (' + e.sous + ')' : ''}</span>`;
+      const tete = `<div class="pp-h-top"><span><b>#${e.numero}</b> ${e.nom || ''}</span>${verdict}</div>`;
+      if (e.exclu) return `<div class="pp-h">${tete}<div class="pp-h-sub pp-ko">${e.exclu}</div></div>`;
+      const marq = e.marq.map(m => `<span class="${m.cls} pp-m">${m.court}</span>`).join('');
+      const infos = `Dernière course il y a ${e.h.jours_derniere ?? '?'} j` + (e.ligne < 6 ? ` · <b>ligne ${e.ligne}</b>` : ' · aucune ligne') + (e.catBase !== e.cat && e.ligne < 6 ? ` · catégorie de départ ${e.catBase.toLowerCase()}` : '');
+      const lignes = (e.courses || []).map(c => {
+        const x = c.e.x, rg = x.rang ? x.rang + (x.nb_partants ? '<span class="pp-q">/' + Math.round(x.nb_partants) + '</span>' : '') : '?';
+        const dot = c.e.ratio == null ? '<span class="pp-q">?</span>' : `${Math.round(c.e.ratio * 100)} % <span class="pp-q">${c.e.niveau === 'sup' ? '▲' : c.e.niveau === 'inf' ? '▼' : '≈'}</span>`;
+        const lieu = [[x.hippodrome, x.distance ? Math.round(x.distance) + ' m' : ''].filter(Boolean).join(' '), [x.terrain, x.piste].filter(Boolean).join(' · ')].filter(Boolean).join('<br>');
+        const util = e.ref && c.e === e.ref;
+        const res = c.l === '—' ? `<span class="pp-q">${c.lab}</span>` : `<b>${c.l}</b> ${c.lab}`;
+        return `<tr class="${util ? 'pp-util' : ''}"><td>${jj(x.date)}</td><td>${lieu || '?'}</td><td>${rg}</td><td>${dot}</td><td>${fmtKg(c.e.dp)}</td><td>${res}</td></tr>`;
+      }).join('');
+      return `<div class="pp-h">${tete}<div class="pp-h-sub">${infos}${marq ? ' · ' + marq : ''}</div>${e.note.length ? `<div class="pp-h-sub pp-q">${e.note.join(' · ')}</div>` : ''}
+        <table class="pp-c"><tr><th>Date</th><th>Course</th><th>Place</th><th>Dotation</th><th>Poids</th><th>Donne</th></tr>${lignes}</table></div>`;
     }).join('');
-    html += `<div id="${id}" class="no-swipe" style="display:none;overflow-x:auto"><table class="pp-tab"><tr><th>Cheval</th><th>Filtres</th><th>Ligne / dotation</th><th>Poids</th><th>Marqueurs</th><th>Verdict</th></tr>${rows}</table></div>`;
+    html += `<div id="${id}" style="display:none">${cartes}</div>`;
   }
   return html + '</div>';
 }

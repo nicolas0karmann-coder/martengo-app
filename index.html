@@ -3519,24 +3519,25 @@ function _ppRenderCourse(co, data, evals) {
     html += ligne('pp-base', 'BASE', base) + ligne('pp-assoc', 'ASSOCIÉ', assoc) + ligne('pp-out', 'OUTSIDER', out);
     html += `<div style="margin-top:7px;font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim)">${passe.length} on passe · ${excl.length} exclus (filtres) · <a href="#" onclick="event.preventDefault();const t=document.getElementById('${id}');t.style.display=t.style.display==='none'?'block':'none'" style="color:var(--gold-lite)">détail ▾</a></div>`;
     const jj = d => { if (!d) return '?'; const q = d.split('-'); return q.length === 3 ? `${q[2]}/${q[1]}` : d; };
-    const fmtKg = dp => dp == null ? '?' : (Math.abs(dp) <= PP.POIDS_EGAL ? '=' : (dp > 0 ? '+' : '−') + String(Math.abs(dp)).replace('.', ',') + ' kg');
+    const kg = v => String(Math.abs(v)).replace('.', ',') + ' kg';
+    const fmtKg = dp => dp == null ? '<span class="pp-q">poids ?</span>' : (Math.abs(dp) <= PP.POIDS_EGAL ? '= poids du jour' : dp > 0 ? `<span class="pp-ko">aujourd'hui +${kg(dp)}</span>` : `<span class="pp-ok">aujourd'hui −${kg(dp)}</span>`);
     const cartes = evals.slice().sort((a, b) => (_PP_ORDRE.indexOf(a.cat) < 0 ? 9 : _PP_ORDRE.indexOf(a.cat)) - (_PP_ORDRE.indexOf(b.cat) < 0 ? 9 : _PP_ORDRE.indexOf(b.cat)) || _ppTri(a, b)).map(e => {
       const cl = ({ 'BASE': 'pp-base', 'ASSOCIÉ': 'pp-assoc', 'OUTSIDER': 'pp-out' })[e.cat] || 'pp-passe';
       const verdict = `<span class="pp-tag ${cl}">${e.exclu ? 'EXCLU' : e.cat}${e.sous && e.cat === 'OUTSIDER' ? ' (' + e.sous + ')' : ''}</span>`;
       const tete = `<div class="pp-h-top"><span><b>#${e.numero}</b> ${e.nom || ''}</span>${verdict}</div>`;
       if (e.exclu) return `<div class="pp-h">${tete}<div class="pp-h-sub pp-ko">${e.exclu}</div></div>`;
       const marq = e.marq.map(m => `<span class="${m.cls} pp-m">${m.court}</span>`).join('');
-      const infos = `Dernière course il y a ${e.h.jours_derniere ?? '?'} j` + (e.ligne < 6 ? ` · <b>ligne ${e.ligne}</b>` : ' · aucune ligne') + (e.catBase !== e.cat && e.ligne < 6 ? ` · catégorie de départ ${e.catBase.toLowerCase()}` : '');
+      const infos = `<b>Poids du jour : ${e.h.poids_jour != null ? String(e.h.poids_jour).replace('.', ',') + ' kg' : '?'}</b> · dernière course il y a ${e.h.jours_derniere ?? '?'} j` + (e.ligne < 6 ? ` · <b>ligne ${e.ligne}</b>` : ' · aucune ligne') + (e.catBase !== e.cat && e.ligne < 6 ? ` · catégorie de départ ${e.catBase.toLowerCase()}` : '');
       const lignes = (e.courses || []).map(c => {
         const x = c.e.x, rg = x.rang ? x.rang + (x.nb_partants ? '<span class="pp-q">/' + Math.round(x.nb_partants) + '</span>' : '') : '?';
         const dot = c.e.ratio == null ? '<span class="pp-q">?</span>' : `${Math.round(c.e.ratio * 100)} % <span class="pp-q">${c.e.niveau === 'sup' ? '▲' : c.e.niveau === 'inf' ? '▼' : '≈'}</span>`;
         const lieu = [[x.hippodrome, x.distance ? Math.round(x.distance) + ' m' : ''].filter(Boolean).join(' '), [x.terrain, x.piste].filter(Boolean).join(' · ')].filter(Boolean).join('<br>');
         const util = e.ref && c.e === e.ref;
         const res = c.l === '—' ? `<span class="pp-q">${c.lab}</span>` : `<b>${c.l}</b> ${c.lab}`;
-        return `<tr class="${util ? 'pp-util' : ''}"><td>${jj(x.date)}</td><td>${lieu || '?'}</td><td>${rg}</td><td>${dot}</td><td>${fmtKg(c.e.dp)}</td><td>${res}</td></tr>`;
+        return `<tr class="${util ? 'pp-util' : ''}"><td>${jj(x.date)}</td><td>${lieu || '?'}</td><td>${rg}</td><td>${dot}</td><td>${x.poids != null ? '<b>' + String(x.poids).replace('.', ',') + ' kg</b>' : '?'}<br><span style="font-size:10px">${fmtKg(c.e.dp)}</span></td><td>${res}</td></tr>`;
       }).join('');
       return `<div class="pp-h">${tete}<div class="pp-h-sub">${infos}${marq ? ' · ' + marq : ''}</div>${e.note.length ? `<div class="pp-h-sub pp-q">${e.note.join(' · ')}</div>` : ''}
-        <table class="pp-c"><tr><th>Date</th><th>Course</th><th>Place</th><th>Dotation</th><th>Poids</th><th>Donne</th></tr>${lignes}</table></div>`;
+        <table class="pp-c"><tr><th>Date</th><th>Course</th><th>Place</th><th>Dotation</th><th>Poids porté</th><th>Donne</th></tr>${lignes}</table></div>`;
     }).join('');
     html += `<div id="${id}" style="display:none">${cartes}</div>`;
   }

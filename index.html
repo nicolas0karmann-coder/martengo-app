@@ -3380,7 +3380,7 @@ let safePlatCharge = false;
 let platPlusCharge = false;
 const PP = {
   REPOS_MAX_J: 60,        // dernière course < 2 mois
-  NB_COURSES_MIN: 4,      // au moins 4 courses sur les 12 derniers mois (seuil à ajuster)
+  NB_COURSES_MIN: 0,      // filtre « nombre de courses sur 12 mois » désactivé (0) ; mettre 4 pour le réactiver
   BONNE_RANG: 3,          // « bonne perf » = classé dans les 3 premiers (à préciser dans le document)
   DOT_SUP: 1.15,          // dotation de la perf ≥ 115 % de celle du jour = supérieure
   DOT_FORT: 0.60,         // ligne 4 : dotation entre 60 et 85 % = Outsider (léger) ; < 60 % = Outsider (fort)
@@ -3408,7 +3408,7 @@ function platPlusEvaluer(data) {
     if (!perfs.length) { r.exclu = 'Aucune performance disponible'; r.cat = 'EXCLU'; return r; }
     if (h.jours_derniere == null) { r.exclu = 'Date de la dernière course inconnue'; r.cat = 'EXCLU'; return r; }
     if (h.jours_derniere > PP.REPOS_MAX_J) { r.exclu = `Rentrée (dernière course il y a ${h.jours_derniere ?? '?'} j)`; r.cat = 'EXCLU'; return r; }
-    if ((h.nb_courses_12m ?? 0) < PP.NB_COURSES_MIN) { r.exclu = `Pas assez de courses (${h.nb_courses_12m ?? 0} sur 12 mois)`; r.cat = 'EXCLU'; return r; }
+    if (PP.NB_COURSES_MIN > 0 && (h.nb_courses_12m ?? 0) < PP.NB_COURSES_MIN) { r.exclu = `Pas assez de courses (${h.nb_courses_12m ?? 0} sur 12 mois)`; r.cat = 'EXCLU'; return r; }
     // ── Étape 1 : catégorie ──
     const ev = perfs.map(x => {
       const ratio = (x.allocation && dot > 0) ? x.allocation / dot : null;
@@ -3418,6 +3418,18 @@ function platPlusEvaluer(data) {
       return { x, ratio, dp, bonne, moy, niveau: ratio == null ? null : (ratio >= PP.DOT_SUP ? 'sup' : ratio >= PP.DOT_INF ? 'sim' : 'inf') };
     });
     const egal = e => e.dp == null || Math.abs(e.dp) <= PP.POIDS_EGAL;
+    // lecture course par course (affichée dans le détail) : que donne CHAQUE course passée ?
+    r.courses = ev.map(e => {
+      let l = '—', lab = 'pas dans le top ' + PP.BONNE_RANG;
+      if (e.bonne && e.niveau) {
+        if (e.niveau === 'sup' && egal(e)) { l = 'L1'; lab = 'Base'; }
+        else if (e.niveau === 'sim' && egal(e)) { l = 'L2'; lab = 'Associé'; }
+        else if (e.niveau === 'inf' && (e.dp == null || e.dp <= PP.POIDS_EGAL)) { l = 'L4'; lab = 'Outsider'; }
+        else if (e.niveau === 'sim' && e.x.rang === 1 && e.dp != null && e.dp > PP.POIDS_EGAL) { l = 'L5'; lab = 'Outsider'; }
+        else { l = '—'; lab = 'top ' + PP.BONNE_RANG + ' mais poids en hausse ou autre cas : rien'; }
+      } else if (e.bonne) { lab = 'top ' + PP.BONNE_RANG + ' (dotation inconnue)'; }
+      return { e, l, lab };
+    });
     const cands = [];
     for (const e of ev.filter(e => e.bonne && e.niveau)) {
       if (e.niveau === 'sup' && egal(e)) cands.push({ ligne: 1, e });
@@ -3494,7 +3506,11 @@ function _ppRenderCourse(co, data, evals) {
       const cl = ({ 'BASE': 'pp-base', 'ASSOCIÉ': 'pp-assoc', 'OUTSIDER': 'pp-out' })[e.cat] || 'pp-passe';
       return `<tr><td><b>#${e.numero}</b> ${(e.nom || '')}</td><td>${f0}</td><td>${e.exclu ? '' : (e.ligne < 6 ? 'L' + e.ligne : '—')}<br><span style="color:var(--text-dim)">${dotTxt}</span></td><td>${pTxt}</td>
         <td>${e.marq.map(m => `<span class="${m.cls}">${m.t}</span>`).join('<br>') || ''}${e.note.length ? '<br><span class="pp-q">' + e.note.join(' · ') + '</span>' : ''}</td>
-        <td><span class="pp-tag ${cl}">${e.exclu ? 'EXCLU' : e.cat}${e.sous && e.cat === 'OUTSIDER' ? '<br>(' + e.sous + ')' : ''}</span></td></tr>`;
+        <td><span class="pp-tag ${cl}">${e.exclu ? 'EXCLU' : e.cat}${e.sous && e.cat === 'OUTSIDER' ? '<br>(' + e.sous + ')' : ''}</span></td></tr>` +
+        (e.courses ? `<tr><td colspan="6" style="padding:0 6px 8px 22px;font-size:10px;color:var(--text-dim)">${e.courses.map(c => {
+          const x = c.e.x, rg = x.rang ? x.rang + (x.nb_partants ? '/' + Math.round(x.nb_partants) : '') : '?';
+          return `${x.date || '?'} · ${x.hippodrome || '?'} ${x.distance ? Math.round(x.distance) + ' m' : ''} ${x.terrain || ''} ${x.piste || ''} · <b>${rg}</b> · dot. ${c.e.ratio != null ? Math.round(c.e.ratio * 100) + ' %' : '?'} · poids ${c.e.dp == null ? '?' : (c.e.dp > 0 ? '+' : '') + c.e.dp + ' kg'} → <span style="color:var(--text-mid)">${c.l} ${c.lab}</span>`;
+        }).join('<br>')}</td></tr>` : '');
     }).join('');
     html += `<div id="${id}" class="no-swipe" style="display:none;overflow-x:auto"><table class="pp-tab"><tr><th>Cheval</th><th>Filtres</th><th>Ligne / dotation</th><th>Poids</th><th>Marqueurs</th><th>Verdict</th></tr>${rows}</table></div>`;
   }
@@ -3544,7 +3560,7 @@ async function chargerPlatPlus() {
       <span><input type="date" id="pp-date" value="${dateIso}" onchange="platPlusCharge=false;chargerPlatPlus()" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px 4px;font-size:10px">
       <button onclick="platPlusCharge=false;chargerPlatPlus()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button></span></div>
       <div style="padding:10px 14px;font-family:'Space Mono',monospace;font-size:11px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2);line-height:1.7">
-        Filtres : dernière course &lt; ${PP.REPOS_MAX_J / 30} mois · ≥ ${PP.NB_COURSES_MIN} courses/12 mois. « Bonne perf » = top ${PP.BONNE_RANG}.<br>
+        Filtre : dernière course &lt; ${PP.REPOS_MAX_J / 30} mois${PP.NB_COURSES_MIN > 0 ? ` · ≥ ${PP.NB_COURSES_MIN} courses/12 mois` : ''}. « Bonne perf » = top ${PP.BONNE_RANG}.<br>
         <span class="pp-ok">[jockey]</span> jockey/entraîneur dans les 25 % meilleurs · <span class="pp-ko">[terrain] [hippo] [corde] [distance]</span> signaux défavorables (un Outsider reste Outsider) · Outsider (léger) : dotation 60-85 % · (fort) : &lt; 60 %.<br>
         <span style="font-size:9px;word-break:break-all">Diagnostic PMU : HTTP ${dbg ? JSON.stringify(dbg.statuts_http) : '?'} · chevaux avec perfs ${dbg ? dbg.nb_chevaux_avec_perfs : '?'} · perfs datées ${dbg ? dbg.nb_perfs_avec_date : '?'}<br>Champs d'une perf : ${cles}<br>Champs d'un cheval : ${dbg && dbg.cles_cheval && dbg.cles_cheval.length ? dbg.cles_cheval.join(', ') : '—'}<br>Exemple : ${dbg && dbg.echantillon_perf ? JSON.stringify(dbg.echantillon_perf) : '—'}</span>
       </div>` + body;

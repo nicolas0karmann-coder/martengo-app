@@ -3404,7 +3404,10 @@ const PP = {
 const _ppNorm = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 function _ppTerrain(t) { const n = _ppNorm(t); if (!n) return ''; if (/lourd|collant/.test(n)) return 'lourd'; if (/souple/.test(n)) return 'souple'; if (/bon|leger|sec|ferme/.test(n)) return 'bon'; return n; }
 function _ppPiste(t) { const n = _ppNorm(t); if (!n) return ''; if (/psf|sable|fibre|piste en sable/.test(n)) return 'psf'; if (/herbe|gazon/.test(n)) return 'herbe'; return n; }
-function _ppHippo(a, b) { const x = _ppNorm(a).replace(/[^a-z]/g, ''), y = _ppNorm(b).replace(/[^a-z]/g, ''); return !!x && !!y && (x.includes(y) || y.includes(x)); }
+// Hippodromes connus sous plusieurs noms (ville / nom de l'hippodrome) : tous les noms d'un groupe désignent le même endroit
+const _PP_ALIAS = [['toulouse', 'cepiere'], ['marseille', 'borely'], ['bordeaux', 'lebouscat'], ['strasbourg', 'hoerdt']];  // Lyon Parilly et Lyon La Soie sont deux hippodromes distincts : pas d'alias
+function _ppCanon(t) { const n = _ppNorm(t).replace(/[^a-z]/g, ''); if (!n) return ''; for (const g of _PP_ALIAS) if (g.some(a => n.includes(a))) return g[0]; return n; }
+function _ppHippo(a, b) { const x = _ppCanon(a), y = _ppCanon(b); return !!x && !!y && (x === y || x.includes(y) || y.includes(x)); }
 const _PP_ORDRE = ['BASE', 'ASSOCIÉ', 'OUTSIDER', 'PASSE'];
 
 function platPlusEvaluer(data) {
@@ -3502,7 +3505,7 @@ function _ppRenderCourse(co, data, evals) {
   let html = `<div class="safe-row" style="cursor:default">
     <div class="safe-top" style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
       <div class="safe-course">R${co.r}C${co.c} <span class="safe-heure">${co.heure || ''}</span></div>
-      <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);text-align:right">${c.distance || ''} m · ${c.terrain || 'terrain ?'} · ${c.piste || 'piste ?'} · ${c.dotation ? Number(c.dotation).toLocaleString('fr-FR') + ' €' : ''}</div>
+      <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);text-align:right">${c.hippodrome || 'hippodrome ?'} · ${c.distance || ''} m · ${c.terrain || 'terrain ?'} · ${c.piste || 'piste ?'} · ${c.dotation ? Number(c.dotation).toLocaleString('fr-FR') + ' €' : ''}</div>
     </div>`;
   if (sansData) html += `<div class="safe-chevaux" style="color:var(--text-dim);font-weight:400">Performances détaillées indisponibles pour cette course</div>`;
   else {

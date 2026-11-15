@@ -333,6 +333,16 @@ input[readonly]{opacity:.5;cursor:default}
 .grecap-cheval{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .grecap-badge{font-size:9px;font-weight:700;letter-spacing:.3px;padding:3px 7px;border-radius:5px;white-space:nowrap;text-align:center;border:1px solid}
 .grecap-badge small{display:block;font-size:8px;font-weight:600;opacity:.85;margin-top:1px}
+.pp-box{display:flex;gap:8px;align-items:baseline;margin-top:7px;font-size:13px;line-height:1.5}
+.pp-tag{flex-shrink:0;min-width:74px;text-align:center;border-radius:4px;padding:2px 6px;font-family:'Space Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.5px}
+.pp-base{background:rgba(58,145,98,.18);border:1px solid #3a9162;color:#5fc58c}
+.pp-assoc{background:rgba(200,148,42,.15);border:1px solid var(--gold);color:var(--gold-lite)}
+.pp-out{background:rgba(181,96,58,.15);border:1px solid var(--copper);color:#e08a60}
+.pp-passe{background:rgba(106,98,85,.12);border:1px solid var(--border2);color:var(--text-dim)}
+.pp-tab{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}
+.pp-tab th{font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);text-align:left;padding:4px 6px;border-bottom:1px solid var(--border);white-space:nowrap}
+.pp-tab td{padding:5px 6px;border-bottom:1px solid var(--border);vertical-align:top}
+.pp-ok{color:#5fc58c}.pp-ko{color:#e05c5c}.pp-q{color:var(--text-dim)}
 </style>
 </head>
 <body>
@@ -376,6 +386,7 @@ input[readonly]{opacity:.5;cursor:default}
     <button class="nav-btn" onclick="goTo('trotconfiance')" id="tab-trotconfiance"><span class="nav-icon">🎯</span>Trot Confiance</button>
     <button class="nav-btn" onclick="goTo('ajouer')" id="tab-ajouer"><span class="nav-icon">💰</span>À jouer</button>
     <button class="nav-btn" onclick="goTo('ajouersafe')" id="tab-ajouersafe"><span class="nav-icon">🛡️</span>À jouer Safe</button>
+    <button class="nav-btn" onclick="goTo('platplus')" id="tab-platplus"><span class="nav-icon">🏇</span>Plat+++</button>
   </nav>
 
   <div id="screens-wrapper">
@@ -502,6 +513,20 @@ input[readonly]{opacity:.5;cursor:default}
             SG e12≥3 conf🔥/〜 · SP e14≥3 conf🔥/〜 · ⛔ conf❄️ = PASSER
           </small>
           <button class="btn full" onclick="safeCharge=false;chargerSafe()" style="margin-top:16px;font-size:11px">Charger Safe →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PLAT+++ -->
+    <div class="screen" id="screen-platplus">
+      <div id="platplus-content">
+        <div class="empty">
+          <div class="empty-icon">🏇</div>
+          Grille de sélection · Plat handicap<br>
+          <small style="font-size:9px;color:var(--text-dim);font-family:'Space Mono',monospace;line-height:2">
+            Filtres → catégorie (Base / Associé / Outsider) → marqueurs
+          </small>
+          <button class="btn full" onclick="platPlusCharge=false;chargerPlatPlus()" style="margin-top:16px;font-size:11px">Charger Plat+++ →</button>
         </div>
       </div>
     </div>
@@ -722,6 +747,7 @@ input[readonly]{opacity:.5;cursor:default}
       </div>
     </div>
 
+
   </div>
 </div>
 <div id="toast"></div>
@@ -737,7 +763,7 @@ async function fetchAPI(path, options = {}) {
   return r;
 }
 const LS_SAISIE = 'martengo_v3', LS_HIST = 'martengo_hist';
-const SCREENS = ['saisie','selections','analyse','conseil','grille','grillerecap','top2','bestsimple','safe','safeplat','safeplus','offensif','trio','trioall','pro','prosa','couple','gagnantplat','gagnanttrot','stats','placetrot','platconfiance','trotconfiance','ajouer','ajouersafe'];
+const SCREENS = ['saisie','selections','analyse','conseil','grille','grillerecap','top2','bestsimple','safe','safeplat','safeplus','offensif','trio','trioall','pro','prosa','couple','gagnantplat','gagnanttrot','stats','placetrot','platconfiance','trotconfiance','ajouer','ajouersafe','platplus'];
 
 let chevaux = [], predictions = null, notesPMU = {}, notesPMUData = null;
 let currentDate = '', horseCounter = 0, apiPrete = false, currentScreen = 'saisie';
@@ -790,6 +816,7 @@ function goTo(screen) {
   if (screen === 'couple') { chargerCouple(); }
   if (screen === 'grillerecap') { chargerGrilleRecap(); }
   if (screen === 'top2') { chargerTop2(); }
+  if (screen === 'platplus') { chargerPlatPlus(); }
 }
 function setBadge(show) { document.getElementById('badge-stats').classList.toggle('show', show && currentScreen !== 'stats'); }
 
@@ -3344,6 +3371,187 @@ async function chargerSafe() {
 }
 
 let safePlatCharge = false;
+
+// ============================================================
+// PLAT+++ — grille de sélection « Plat handicap » (document : Grille de sélection – Plat handicap)
+// Étape 0 : filtres d'exclusion · Étape 1 : catégorie (lignes 1 à 6) · Marqueurs : terrain/piste, corde, jockey/entraîneur
+// Les seuils marqués « à préciser » dans le document sont fixés ici (objet PP) : à ajuster après test sur courses passées.
+// ============================================================
+let platPlusCharge = false;
+const PP = {
+  REPOS_MAX_J: 60,        // dernière course < 2 mois
+  NB_COURSES_MIN: 4,      // au moins 4 courses sur les 12 derniers mois (seuil à ajuster)
+  BONNE_RANG: 3,          // « bonne perf » = classé dans les 3 premiers (à préciser dans le document)
+  DOT_SUP: 1.15,          // dotation de la perf ≥ 115 % de celle du jour = supérieure
+  DOT_FORT: 0.60,         // ligne 4 : dotation entre 60 et 85 % = Outsider (léger) ; < 60 % = Outsider (fort)
+  DOT_INF: 0.85,          // < 85 % = inférieure (légèrement ou beaucoup : même traitement, à préciser)
+  POIDS_EGAL: 0.5,        // |écart de poids| ≤ 0,5 kg = à peu près égal
+  POIDS_HAUSSE_TOL: 2.0,  // +1 à 2 kg : pénalité à tolérer ; plus : outsider (les deux cas = outsider, avec mention)
+  DIST_TOL: 200,          // même distance ± 200 m
+  CORDE_DIST_MAX: 1400,   // corde défavorable surtout sur 1000 à 1400 m
+  CORDE_EXT_RATIO: 0.6    // corde « extérieure » = numéro de corde > 60 % du lot (approximation : à vérifier selon l'hippodrome et le jour)
+};
+const _ppNorm = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+function _ppTerrain(t) { const n = _ppNorm(t); if (!n) return ''; if (/lourd|collant/.test(n)) return 'lourd'; if (/souple/.test(n)) return 'souple'; if (/bon|leger|sec|ferme/.test(n)) return 'bon'; return n; }
+function _ppPiste(t) { const n = _ppNorm(t); if (!n) return ''; if (/psf|sable|fibre|piste en sable/.test(n)) return 'psf'; if (/herbe|gazon/.test(n)) return 'herbe'; return n; }
+function _ppHippo(a, b) { const x = _ppNorm(a).replace(/[^a-z]/g, ''), y = _ppNorm(b).replace(/[^a-z]/g, ''); return !!x && !!y && (x.includes(y) || y.includes(x)); }
+const _PP_ORDRE = ['BASE', 'ASSOCIÉ', 'OUTSIDER', 'PASSE'];
+
+function platPlusEvaluer(data) {
+  const co = data.course || {}, dot = Number(co.dotation) || 0, nPart = (data.chevaux || []).length || co.partants || 0;
+  const tJour = _ppTerrain(co.terrain), pJour = _ppPiste(co.piste);
+  return (data.chevaux || []).map(h => {
+    const r = { numero: h.numero, nom: h.nom, h, filtres: {}, exclu: null, ligne: 6, cat: 'PASSE', catBase: 'PASSE', note: [], marq: [] };
+    const perfs = (h.perfs || []).filter(x => x.date);
+    // ── Étape 0 : filtres d'exclusion ──
+    r.filtres.derniere = h.jours_derniere; r.filtres.nb12 = h.nb_courses_12m;
+    if (!perfs.length) { r.exclu = 'Aucune performance disponible'; r.cat = 'EXCLU'; return r; }
+    if (h.jours_derniere == null || h.jours_derniere > PP.REPOS_MAX_J) { r.exclu = `Rentrée (dernière course il y a ${h.jours_derniere ?? '?'} j)`; r.cat = 'EXCLU'; return r; }
+    if ((h.nb_courses_12m ?? 0) < PP.NB_COURSES_MIN) { r.exclu = `Pas assez de courses (${h.nb_courses_12m ?? 0} sur 12 mois)`; r.cat = 'EXCLU'; return r; }
+    // ── Étape 1 : catégorie ──
+    const ev = perfs.map(x => {
+      const ratio = (x.allocation && dot > 0) ? x.allocation / dot : null;
+      const dp = (x.poids != null && h.poids_jour != null) ? Math.round((h.poids_jour - x.poids) * 10) / 10 : null;
+      const bonne = x.rang != null && x.rang <= PP.BONNE_RANG;
+      const moy = x.rang != null && !bonne && x.nb_partants && x.rang <= Math.ceil(x.nb_partants / 2);
+      return { x, ratio, dp, bonne, moy, niveau: ratio == null ? null : (ratio >= PP.DOT_SUP ? 'sup' : ratio >= PP.DOT_INF ? 'sim' : 'inf') };
+    });
+    const egal = e => e.dp == null || Math.abs(e.dp) <= PP.POIDS_EGAL;
+    const cands = [];
+    for (const e of ev.filter(e => e.bonne && e.niveau)) {
+      if (e.niveau === 'sup' && egal(e)) cands.push({ ligne: 1, e });
+      if (e.niveau === 'sim' && egal(e)) cands.push({ ligne: 2, e });
+      if (e.niveau === 'inf' && (e.dp == null || e.dp <= PP.POIDS_EGAL)) cands.push({ ligne: 4, e });
+      if (e.niveau === 'sim' && e.x.rang === 1 && e.dp != null && e.dp > PP.POIDS_EGAL) cands.push({ ligne: 5, e });
+    }
+    // ligne 3 : perfs moyennes dans des courses mieux dotées + bonne perf à ce niveau, poids du jour en baisse
+    const moySup = ev.some(e => e.moy && e.niveau === 'sup');
+    if (moySup) for (const e of ev.filter(e => e.bonne && e.niveau === 'sim' && e.dp != null && e.dp < -PP.POIDS_EGAL)) cands.push({ ligne: 3, e });
+    if (cands.length) {
+      cands.sort((a, b) => a.ligne - b.ligne); const c = cands[0];
+      r.ligne = c.ligne; r.ref = c.e;
+      if (c.ligne === 4) r.sous = (c.e.ratio != null && c.e.ratio < PP.DOT_FORT) ? 'fort' : 'léger';
+      r.catBase = ({ 1: 'BASE', 2: 'ASSOCIÉ', 3: 'ASSOCIÉ', 4: 'OUTSIDER', 5: 'OUTSIDER' })[c.ligne];
+      if (c.ligne === 5) r.note.push(c.e.dp <= PP.POIDS_HAUSSE_TOL ? `+${c.e.dp} kg : pénalité à tolérer` : `+${c.e.dp} kg : hausse importante`);
+      if (c.e.dp == null) r.note.push('poids de la perf inconnu');
+    }
+    // ── Marqueurs ──
+    let cat = r.catBase;
+    if (r.ligne < 6) {
+      const bonnes = ev.filter(e => e.bonne);
+      const memeContexte = e => {
+        const x = e.x; const t = _ppTerrain(x.terrain), p = _ppPiste(x.piste);
+        return _ppHippo(x.hippodrome, co.hippodrome) && !!t && t === tJour && (!pJour || !p || p === pJour) && !!x.distance && Math.abs(x.distance - (co.distance || 0)) <= PP.DIST_TOL;
+      };
+      const autre = e => { const t = _ppTerrain(e.x.terrain), p = _ppPiste(e.x.piste); return (t && tJour && t !== tJour) || (p && pJour && p !== pJour); };
+      const i0 = _PP_ORDRE.indexOf(cat);
+      if (bonnes.some(memeContexte)) { cat = _PP_ORDRE[Math.max(0, i0 - 1)]; r.marq.push({ t: '＋ hippodrome/terrain/distance', court: 'contexte', cls: 'pp-ok' }); }
+      else if (bonnes.length && bonnes.every(autre)) {
+        if (cat !== 'OUTSIDER') cat = _PP_ORDRE[Math.min(2, i0 + 1)];      // un Outsider reste Outsider : étiquette rouge seulement
+        r.marq.push({ t: '− terrain/piste différent', court: 'terrain', cls: 'pp-ko' });
+      }
+      if (bonnes.length && co.hippodrome && bonnes.every(e => e.x.hippodrome && !_ppHippo(e.x.hippodrome, co.hippodrome))) r.marq.push({ t: '− hippodrome différent', court: 'hippo', cls: 'pp-ko' });
+    }
+    r.cat = cat;
+    // distance : aucune des 5 dernières courses à la distance du jour (± DIST_TOL) → étiquette rouge (sans changer la catégorie)
+    const dJour = Number(co.distance) || 0, dists = perfs.map(x => x.distance).filter(Boolean);
+    if (dJour && dists.length && !dists.some(d => Math.abs(d - dJour) <= PP.DIST_TOL)) r.marq.push({ t: '− aucune des 5 dernières courses à cette distance', court: 'distance', cls: 'pp-ko' });
+    // départage dans la catégorie (n'a pas d'effet sur la catégorie)
+    const dist = Number(co.distance) || 0;
+    r.cordeMauvaise = !!(h.corde && nPart && dist && dist <= PP.CORDE_DIST_MAX && h.corde > PP.CORDE_EXT_RATIO * nPart);
+    if (r.cordeMauvaise) r.marq.push({ t: '− corde extérieure', court: 'corde', cls: 'pp-ko' });
+    r.jeBon = !!(h.jockey_pos || h.entr_pos);
+    if (r.jeBon) r.marq.push({ t: '＋ ' + [h.jockey_pos ? 'jockey' : '', h.entr_pos ? 'entraîneur' : ''].filter(Boolean).join(' + '), court: [h.jockey_pos ? 'jockey' : '', h.entr_pos ? 'entr.' : ''].filter(Boolean).join('+'), cls: 'pp-ok' });
+    return r;
+  });
+}
+
+function _ppTri(a, b) { return ((b.jeBon ? 1 : 0) - (a.jeBon ? 1 : 0)) || ((a.cordeMauvaise ? 1 : 0) - (b.cordeMauvaise ? 1 : 0)) || (a.numero - b.numero); }
+
+function _ppRenderCourse(co, data, evals) {
+  const c = data.course || {};
+  const par = cat => evals.filter(e => e.cat === cat).sort(_ppTri);
+  const fmt = e => `<b>#${e.numero}</b> ${(e.nom || '').split(' ')[0]}${e.sous ? ` <span class="pp-q">(${e.sous})</span>` : ''}${e.marq.map(m => ` <span class="${m.cls}" style="font-size:10px">[${m.court}]</span>`).join('')}`;
+  const ligne = (cls, lab, lst) => `<div class="pp-box"><span class="pp-tag ${cls}">${lab}</span><span>${lst.length ? lst.map(fmt).join(' · ') : '<span class="pp-q">—</span>'}</span></div>`;
+  const base = par('BASE'), assoc = par('ASSOCIÉ'), out = par('OUTSIDER'), excl = evals.filter(e => e.cat === 'EXCLU'), passe = par('PASSE');
+  const sansData = evals.length && evals.every(e => e.exclu === 'Aucune performance disponible');
+  const id = `pp-${co.r}-${co.c}`;
+  let html = `<div class="safe-row" style="cursor:default">
+    <div class="safe-top" style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
+      <div class="safe-course">R${co.r}C${co.c} <span class="safe-heure">${co.heure || ''}</span></div>
+      <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);text-align:right">${c.distance || ''} m · ${c.terrain || 'terrain ?'} · ${c.piste || 'piste ?'} · ${c.dotation ? Number(c.dotation).toLocaleString('fr-FR') + ' €' : ''}</div>
+    </div>`;
+  if (sansData) html += `<div class="safe-chevaux" style="color:var(--text-dim);font-weight:400">Performances détaillées indisponibles pour cette course</div>`;
+  else {
+    html += ligne('pp-base', 'BASE', base) + ligne('pp-assoc', 'ASSOCIÉ', assoc) + ligne('pp-out', 'OUTSIDER', out);
+    html += `<div style="margin-top:7px;font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim)">${passe.length} on passe · ${excl.length} exclus (filtres) · <a href="#" onclick="event.preventDefault();const t=document.getElementById('${id}');t.style.display=t.style.display==='none'?'block':'none'" style="color:var(--gold-lite)">détail ▾</a></div>`;
+    const rows = evals.slice().sort((a, b) => (_PP_ORDRE.indexOf(a.cat) < 0 ? 9 : _PP_ORDRE.indexOf(a.cat)) - (_PP_ORDRE.indexOf(b.cat) < 0 ? 9 : _PP_ORDRE.indexOf(b.cat)) || _ppTri(a, b)).map(e => {
+      const h = e.h, ref = e.ref;
+      const f0 = e.exclu ? `<span class="pp-ko">${e.exclu}</span>` : `<span class="pp-ok">✓</span> ${h.jours_derniere ?? '?'} j · ${h.nb_courses_12m} c.`;
+      const dotTxt = ref && ref.ratio != null ? `${Math.round(ref.ratio * 100)} % (${ref.niveau === 'sup' ? 'sup.' : ref.niveau === 'sim' ? 'sim.' : 'inf.'})` : '<span class="pp-q">?</span>';
+      const pTxt = ref ? (ref.dp == null ? '<span class="pp-q">?</span>' : (ref.dp > 0 ? '+' : '') + ref.dp + ' kg') : '';
+      const cl = ({ 'BASE': 'pp-base', 'ASSOCIÉ': 'pp-assoc', 'OUTSIDER': 'pp-out' })[e.cat] || 'pp-passe';
+      return `<tr><td><b>#${e.numero}</b> ${(e.nom || '')}</td><td>${f0}</td><td>${e.exclu ? '' : (e.ligne < 6 ? 'L' + e.ligne : '—')}<br><span style="color:var(--text-dim)">${dotTxt}</span></td><td>${pTxt}</td>
+        <td>${e.marq.map(m => `<span class="${m.cls}">${m.t}</span>`).join('<br>') || ''}${e.note.length ? '<br><span class="pp-q">' + e.note.join(' · ') + '</span>' : ''}</td>
+        <td><span class="pp-tag ${cl}">${e.exclu ? 'EXCLU' : e.cat}${e.sous && e.cat === 'OUTSIDER' ? '<br>(' + e.sous + ')' : ''}</span></td></tr>`;
+    }).join('');
+    html += `<div id="${id}" class="no-swipe" style="display:none;overflow-x:auto"><table class="pp-tab"><tr><th>Cheval</th><th>Filtres</th><th>Ligne / dotation</th><th>Poids</th><th>Marqueurs</th><th>Verdict</th></tr>${rows}</table></div>`;
+  }
+  return html + '</div>';
+}
+
+async function chargerPlatPlus() {
+  if (platPlusCharge) return;
+  const el = document.getElementById('platplus-content');
+  el.innerHTML = '<div class="loading-block"><div class="spinner spinner-gold"></div><span>Chargement Plat+++…</span></div>';
+  const inp = document.getElementById('pp-date');
+  const d0 = inp && inp.value ? new Date(inp.value + 'T12:00:00') : new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const dateStr = pad(d0.getDate()) + pad(d0.getMonth() + 1) + d0.getFullYear();
+  const dateIso = d0.getFullYear() + '-' + pad(d0.getMonth() + 1) + '-' + pad(d0.getDate());
+  try {
+    const resp = await fetch(`${API_URL_PRIMARY}/programme?date=${dateStr}`, { signal: AbortSignal.timeout(30000) });
+    if (!resp.ok) throw new Error('Programme indisponible');
+    const prog = await resp.json();
+    const courses = (prog.courses || []).filter(c => c.disc === 'PLAT').map(c => ({ r: c.r_num, c: c.c_num, lieu: c.lieu, heure: c.heure }));
+    if (!courses.length) { el.innerHTML = `<div class="empty"><div class="empty-icon">🏇</div>Aucune course PLAT le ${pad(d0.getDate())}/${pad(d0.getMonth() + 1)}<br><button class="btn secondary" onclick="platPlusCharge=false;chargerPlatPlus()" style="margin-top:12px;font-size:10px">↺ Recharger</button></div>`; return; }
+    const res = {}; let loaded = 0;
+    const upd = () => { const pct = Math.round(loaded / courses.length * 100); el.innerHTML = `<div class="dash-progress">Chargement Plat+++… ${loaded}/${courses.length} (${pct}%)<div class="dash-progress-bar"><div class="dash-progress-fill" style="width:${pct}%"></div></div></div>`; };
+    upd();
+    for (let i = 0; i < courses.length; i += 4) {
+      await Promise.all(courses.slice(i, i + 4).map(async co => {
+        try { const r = await fetch(`${API_URL_PRIMARY}/plat_plus?date=${dateStr}&reunion=${co.r}&course=${co.c}`, { signal: AbortSignal.timeout(30000) }); if (r.ok) res[`${co.r}-${co.c}`] = await r.json(); } catch (e) {}
+        loaded++; upd();
+      }));
+    }
+    platPlusCharge = true;
+    const byR = {}; for (const co of courses) (byR[co.r] = byR[co.r] || { lieu: co.lieu, courses: [] }).courses.push(co);
+    let nBase = 0, dbg = null;
+    let body = '';
+    for (const [rNum, rd] of Object.entries(byR)) {
+      body += `<div class="dash-reunion" style="font-size:16px;padding:10px 14px 6px">R${rNum} · ${rd.lieu}</div>`;
+      for (const co of rd.courses) {
+        const data = res[`${co.r}-${co.c}`];
+        if (!data || !data.chevaux) { body += `<div class="safe-row" style="cursor:default"><div class="safe-course">R${co.r}C${co.c} <span class="safe-heure">${co.heure || ''}</span></div><div class="safe-chevaux" style="color:var(--text-dim);font-weight:400">Non disponible</div></div>`; continue; }
+        if (!dbg) dbg = data.debug;
+        const ev = platPlusEvaluer(data); nBase += ev.filter(e => e.cat === 'BASE').length;
+        body += _ppRenderCourse(co, data, ev);
+      }
+    }
+    const cles = dbg && dbg.cles_perf && dbg.cles_perf.length ? dbg.cles_perf.join(', ') : 'aucune (performances non reçues)';
+    el.innerHTML = `<div class="dash-refresh"><span>🏇 Plat+++ · ${courses.length} courses · ${nBase} base(s)</span>
+      <span><input type="date" id="pp-date" value="${dateIso}" onchange="platPlusCharge=false;chargerPlatPlus()" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px 4px;font-size:10px">
+      <button onclick="platPlusCharge=false;chargerPlatPlus()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button></span></div>
+      <div style="padding:10px 14px;font-family:'Space Mono',monospace;font-size:11px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2);line-height:1.7">
+        Filtres : dernière course &lt; ${PP.REPOS_MAX_J / 30} mois · ≥ ${PP.NB_COURSES_MIN} courses/12 mois. « Bonne perf » = top ${PP.BONNE_RANG}.<br>
+        <span class="pp-ok">[jockey]</span> jockey/entraîneur dans les 25 % meilleurs · <span class="pp-ko">[terrain] [hippo] [corde] [distance]</span> signaux défavorables (un Outsider reste Outsider) · Outsider (léger) : dotation 60-85 % · (fort) : &lt; 60 %.<br>
+        <span style="font-size:9px">Champs PMU lus (perf) : ${cles}</span>
+      </div>` + body;
+  } catch (e) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>${e.message}<br><button class="btn secondary" onclick="platPlusCharge=false;chargerPlatPlus()" style="margin-top:12px;font-size:10px">↺ Réessayer</button></div>`;
+  }
+}
+
 async function chargerSafePlat() {
   if (safePlatCharge) return;
   const el = document.getElementById('safeplat-content');

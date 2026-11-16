@@ -3407,7 +3407,7 @@ const _ppNorm = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').to
 function _ppTerrain(t) { const n = _ppNorm(t); if (!n) return ''; if (/lourd|collant/.test(n)) return 'lourd'; if (/souple/.test(n)) return 'souple'; if (/bon|leger|sec|ferme/.test(n)) return 'bon'; return n; }
 function _ppPiste(t) { const n = _ppNorm(t); if (!n) return ''; if (/psf|sable|fibre|piste en sable/.test(n)) return 'psf'; if (/herbe|gazon/.test(n)) return 'herbe'; return n; }
 // Hippodromes connus sous plusieurs noms (ville / nom de l'hippodrome) : tous les noms d'un groupe désignent le même endroit
-const _PP_ALIAS = [['toulouse', 'cepiere'], ['marseille', 'borely'], ['bordeaux', 'lebouscat'], ['strasbourg', 'hoerdt']];  // Lyon Parilly et Lyon La Soie sont deux hippodromes distincts : pas d'alias
+const _PP_ALIAS = [['vivaux', 'pontdevivaux'], ['toulouse', 'cepiere'], ['marseille', 'borely'], ['bordeaux', 'lebouscat'], ['strasbourg', 'hoerdt']];  // Marseille Vivaux (Pont de Vivaux) ≠ Marseille Borély : le groupe vivaux est testé en premier. Lyon Parilly et Lyon La Soie sont deux hippodromes distincts : pas d'alias
 function _ppCanon(t) { const n = _ppNorm(t).replace(/[^a-z]/g, ''); if (!n) return ''; for (const g of _PP_ALIAS) if (g.some(a => n.includes(a))) return g[0]; return n; }
 function _ppHippo(a, b) { const x = _ppCanon(a), y = _ppCanon(b); return !!x && !!y && (x === y || x.includes(y) || y.includes(x)); }
 const _PP_ORDRE = ['BASE', 'ASSOCIÉ', 'OUTSIDER', 'PASSE'];

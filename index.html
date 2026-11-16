@@ -3413,9 +3413,9 @@ function _ppHippo(a, b) { const x = _ppCanon(a), y = _ppCanon(b); return !!x && 
 const _PP_ORDRE = ['BASE', 'ASSOCIÉ', 'OUTSIDER', 'PASSE'];
 
 // historique brut (sans classement) pour les chevaux exclus : date, place, dotation, poids, sans verdict de ligne
-function _ppCoursesBrutes(h, dot) {
+function _ppCoursesBrutes(h, dot, fac) {
   return (h.perfs || []).map(x => {
-    const ratio = (x.allocation && dot > 0) ? x.allocation / dot : null;
+    const ratio = (x.allocation && dot > 0) ? x.allocation / dot / (fac || 1) : null;
     const dp = (x.poids != null && h.poids_jour != null) ? Math.round((h.poids_jour - x.poids) * 10) / 10 : null;
     const bonne = x.rang != null && x.rang <= PP.BONNE_RANG;
     const e = { x, ratio, dp, bonne, niveau: ratio == null ? null : (ratio >= PP.DOT_SUP ? 'sup' : ratio >= PP.DOT_INF ? 'sim' : 'inf') };
@@ -3426,18 +3426,23 @@ function _ppCoursesBrutes(h, dot) {
 function platPlusEvaluer(data) {
   const co = data.course || {}, dot = Number(co.dotation) || 0, nPart = (data.chevaux || []).length || co.partants || 0;
   const tJour = _ppTerrain(co.terrain), pJour = _ppPiste(co.piste);
+  // devise locale (courses étrangères) : si la médiane des dotations passées est très éloignée de la dotation du jour, on recale (approximation)
+  const _al = []; (data.chevaux || []).forEach(h => (h.perfs || []).forEach(x => { if (x.allocation > 0) _al.push(x.allocation); }));
+  let facDev = 1;
+  if (_al.length && dot > 0) { _al.sort((a, b) => a - b); const rm = _al[Math.floor(_al.length / 2)] / dot; if (rm > 4 || rm < 0.25) facDev = rm; }
+  data._facDev = facDev;
   return (data.chevaux || []).map(h => {
     const r = { numero: h.numero, nom: h.nom, h, filtres: {}, exclu: null, ligne: 6, cat: 'PASSE', catBase: 'PASSE', note: [], marq: [] };
     const perfs = (h.perfs || []);
     // ── Étape 0 : filtres d'exclusion ──
     r.filtres.derniere = h.jours_derniere; r.filtres.nb12 = h.nb_courses_12m;
     if (!perfs.length) { r.exclu = 'Aucune performance disponible'; r.cat = 'EXCLU'; return r; }
-    r.courses = _ppCoursesBrutes(h, dot);
+    r.courses = _ppCoursesBrutes(h, dot, facDev);
     if (h.jours_derniere == null) { r.exclu = 'Date de la dernière course inconnue'; r.cat = 'EXCLU'; return r; }
     if (PP.NB_COURSES_MIN > 0 && (h.nb_courses_12m ?? 0) < PP.NB_COURSES_MIN) { r.exclu = `Pas assez de courses (${h.nb_courses_12m ?? 0} sur 12 mois)`; r.cat = 'EXCLU'; return r; }
     // ── Étape 1 : catégorie ──
     const ev = perfs.map(x => {
-      const ratio = (x.allocation && dot > 0) ? x.allocation / dot : null;
+      const ratio = (x.allocation && dot > 0) ? x.allocation / dot / facDev : null;
       const dp = (x.poids != null && h.poids_jour != null) ? Math.round((h.poids_jour - x.poids) * 10) / 10 : null;
       const bonne = x.rang != null && x.rang <= PP.BONNE_RANG;
       const moy = x.rang != null && !bonne && x.nb_partants && x.rang <= Math.ceil(x.nb_partants / 2);
@@ -3542,7 +3547,7 @@ function _ppRenderCourse(co, data, evals) {
   let html = `<div class="safe-row" style="cursor:default">
     <div class="safe-top" style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
       <div class="safe-course">R${co.r}C${co.c} <span class="safe-heure">${co.heure || ''}</span></div>
-      <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);text-align:right">${c.hippodrome || 'hippodrome ?'} · ${c.distance || ''} m · ${c.terrain || 'terrain ?'} · ${c.piste || 'piste ?'} · ${c.dotation ? Number(c.dotation).toLocaleString('fr-FR') + ((data.debug && data.debug.devise_approx) ? ' (unité PMU, ≠ €)' : ' €') : ''}${(data.debug && data.debug.devise_approx) ? ' · <span style="color:var(--gold,#e0a030)">devise locale : dotations recalées sur la médiane du lot (approx.)</span>' : ''}</div>
+      <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);text-align:right">${c.hippodrome || 'hippodrome ?'} · ${c.distance || ''} m · ${c.terrain || 'terrain ?'} · ${c.piste || 'piste ?'} · ${c.dotation ? Number(c.dotation).toLocaleString('fr-FR') + (((data.debug && data.debug.devise_approx) || (data._facDev && data._facDev !== 1)) ? ' (unité PMU, ≠ €)' : ' €') : ''}${((data.debug && data.debug.devise_approx) || (data._facDev && data._facDev !== 1)) ? ' · <span style="color:var(--gold,#e0a030)">devise locale : dotations recalées sur la médiane du lot (approx.)</span>' : ''}</div>
     </div>`;
   if (sansData) html += `<div class="safe-chevaux" style="color:var(--text-dim);font-weight:400">Performances détaillées indisponibles pour cette course</div>`;
   else {

@@ -3432,11 +3432,13 @@ function platPlusEvaluer(data) {
       return { x, ratio, dp, bonne, moy, niveau: ratio == null ? null : (ratio >= PP.DOT_SUP ? 'sup' : ratio >= PP.DOT_INF ? 'sim' : 'inf') };
     });
     const egal = e => e.dp == null || (e.dp <= PP.POIDS_TOL_HAUSSE && e.dp >= -PP.POIDS_EGAL);
+    // L1 : dotation supérieure ET poids du jour ≤ poids de la perf (même nettement plus léger aujourd'hui) ou égal à +1 kg près
+    const egalSup = e => e.dp == null || e.dp <= PP.POIDS_TOL_HAUSSE;
     // lecture course par course (affichée dans le détail) : que donne CHAQUE course passée ?
     r.courses = ev.map(e => {
       let l = '—', lab = 'pas dans le top ' + PP.BONNE_RANG;
       if (e.bonne && e.niveau) {
-        if (e.niveau === 'sup' && egal(e)) { l = 'L1'; lab = 'Base'; }
+        if (e.niveau === 'sup' && egalSup(e)) { l = 'L1'; lab = 'Base'; }
         else if (e.niveau === 'sim' && egal(e)) { l = 'L2'; lab = 'Associé'; }
         else if (e.niveau === 'inf' && (e.dp == null || e.dp <= PP.POIDS_TOL_HAUSSE)) { l = 'L4'; lab = 'Outsider'; }
         else if (e.niveau === 'sim' && e.x.rang === 1 && e.dp != null && e.dp > PP.POIDS_EGAL) { l = 'L5'; lab = 'Outsider'; }
@@ -3446,7 +3448,7 @@ function platPlusEvaluer(data) {
     });
     const cands = [];
     for (const e of ev.filter(e => e.bonne && e.niveau)) {
-      if (e.niveau === 'sup' && egal(e)) cands.push({ ligne: 1, e });
+      if (e.niveau === 'sup' && egalSup(e)) cands.push({ ligne: 1, e });
       if (e.niveau === 'sim' && egal(e)) cands.push({ ligne: 2, e });
       if (e.niveau === 'inf' && (e.dp == null || e.dp <= PP.POIDS_TOL_HAUSSE)) cands.push({ ligne: 4, e });
       if (e.niveau === 'sim' && e.x.rang === 1 && e.dp != null && e.dp > PP.POIDS_EGAL) cands.push({ ligne: 5, e });

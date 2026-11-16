@@ -3398,6 +3398,7 @@ const PP = {
   POIDS_TOL_HAUSSE: 1.0,  // lignes 1, 2 et 4 : une hausse de poids jusqu'à +1 kg par rapport à la bonne perf est tolérée (pénalité mentionnée)
   POIDS_EGAL: 0.5,        // |écart de poids| ≤ 0,5 kg = à peu près égal
   POIDS_HAUSSE_TOL: 2.0,  // +1 à 2 kg : pénalité à tolérer ; plus : outsider (les deux cas = outsider, avec mention)
+  MAUV_APRES: 2,          // la perf retenue est suivie d'au moins N courses hors top 3 → la catégorie descend d'un cran
   DIST_TOL: 200,          // même distance ± 200 m
   CORDE_DIST_MAX: 1400,   // corde défavorable surtout sur 1000 à 1400 m
   CORDE_EXT_RATIO: 0.6    // corde « extérieure » = numéro de corde > 60 % du lot (approximation : à vérifier selon l'hippodrome et le jour)
@@ -3411,6 +3412,17 @@ function _ppCanon(t) { const n = _ppNorm(t).replace(/[^a-z]/g, ''); if (!n) retu
 function _ppHippo(a, b) { const x = _ppCanon(a), y = _ppCanon(b); return !!x && !!y && (x === y || x.includes(y) || y.includes(x)); }
 const _PP_ORDRE = ['BASE', 'ASSOCIÉ', 'OUTSIDER', 'PASSE'];
 
+// historique brut (sans classement) pour les chevaux exclus : date, place, dotation, poids, sans verdict de ligne
+function _ppCoursesBrutes(h, dot) {
+  return (h.perfs || []).map(x => {
+    const ratio = (x.allocation && dot > 0) ? x.allocation / dot : null;
+    const dp = (x.poids != null && h.poids_jour != null) ? Math.round((h.poids_jour - x.poids) * 10) / 10 : null;
+    const bonne = x.rang != null && x.rang <= PP.BONNE_RANG;
+    const e = { x, ratio, dp, bonne, niveau: ratio == null ? null : (ratio >= PP.DOT_SUP ? 'sup' : ratio >= PP.DOT_INF ? 'sim' : 'inf') };
+    return { e, l: '—', lab: bonne ? 'top ' + PP.BONNE_RANG : 'pas dans le top ' + PP.BONNE_RANG };
+  });
+}
+
 function platPlusEvaluer(data) {
   const co = data.course || {}, dot = Number(co.dotation) || 0, nPart = (data.chevaux || []).length || co.partants || 0;
   const tJour = _ppTerrain(co.terrain), pJour = _ppPiste(co.piste);
@@ -3420,8 +3432,8 @@ function platPlusEvaluer(data) {
     // ── Étape 0 : filtres d'exclusion ──
     r.filtres.derniere = h.jours_derniere; r.filtres.nb12 = h.nb_courses_12m;
     if (!perfs.length) { r.exclu = 'Aucune performance disponible'; r.cat = 'EXCLU'; return r; }
+    r.courses = _ppCoursesBrutes(h, dot);
     if (h.jours_derniere == null) { r.exclu = 'Date de la dernière course inconnue'; r.cat = 'EXCLU'; return r; }
-    if (h.jours_derniere > PP.REPOS_MAX_J) { r.exclu = `Rentrée (dernière course il y a ${h.jours_derniere ?? '?'} j)`; r.cat = 'EXCLU'; return r; }
     if (PP.NB_COURSES_MIN > 0 && (h.nb_courses_12m ?? 0) < PP.NB_COURSES_MIN) { r.exclu = `Pas assez de courses (${h.nb_courses_12m ?? 0} sur 12 mois)`; r.cat = 'EXCLU'; return r; }
     // ── Étape 1 : catégorie ──
     const ev = perfs.map(x => {
@@ -3432,11 +3444,13 @@ function platPlusEvaluer(data) {
       return { x, ratio, dp, bonne, moy, niveau: ratio == null ? null : (ratio >= PP.DOT_SUP ? 'sup' : ratio >= PP.DOT_INF ? 'sim' : 'inf') };
     });
     const egal = e => e.dp == null || (e.dp <= PP.POIDS_TOL_HAUSSE && e.dp >= -PP.POIDS_EGAL);
+    // L1 : dotation supérieure ET poids du jour ≤ poids de la perf (même nettement plus léger aujourd'hui) ou égal à +1 kg près
+    const egalSup = e => e.dp == null || e.dp <= PP.POIDS_TOL_HAUSSE;
     // lecture course par course (affichée dans le détail) : que donne CHAQUE course passée ?
     r.courses = ev.map(e => {
       let l = '—', lab = 'pas dans le top ' + PP.BONNE_RANG;
       if (e.bonne && e.niveau) {
-        if (e.niveau === 'sup' && egal(e)) { l = 'L1'; lab = 'Base'; }
+        if (e.niveau === 'sup' && egalSup(e)) { l = 'L1'; lab = 'Base'; }
         else if (e.niveau === 'sim' && egal(e)) { l = 'L2'; lab = 'Associé'; }
         else if (e.niveau === 'inf' && (e.dp == null || e.dp <= PP.POIDS_TOL_HAUSSE)) { l = 'L4'; lab = 'Outsider'; }
         else if (e.niveau === 'sim' && e.x.rang === 1 && e.dp != null && e.dp > PP.POIDS_EGAL) { l = 'L5'; lab = 'Outsider'; }
@@ -3446,7 +3460,7 @@ function platPlusEvaluer(data) {
     });
     const cands = [];
     for (const e of ev.filter(e => e.bonne && e.niveau)) {
-      if (e.niveau === 'sup' && egal(e)) cands.push({ ligne: 1, e });
+      if (e.niveau === 'sup' && egalSup(e)) cands.push({ ligne: 1, e });
       if (e.niveau === 'sim' && egal(e)) cands.push({ ligne: 2, e });
       if (e.niveau === 'inf' && (e.dp == null || e.dp <= PP.POIDS_TOL_HAUSSE)) cands.push({ ligne: 4, e });
       if (e.niveau === 'sim' && e.x.rang === 1 && e.dp != null && e.dp > PP.POIDS_EGAL) cands.push({ ligne: 5, e });
@@ -3479,6 +3493,17 @@ function platPlusEvaluer(data) {
         r.marq.push({ t: '− terrain/piste différent', court: 'terrain', cls: 'pp-ko' });
       }
     }
+    // forme depuis la perf retenue : si le cheval a fait ≥ MAUV_APRES courses hors top 3 APRÈS elle, la catégorie descend d'un cran
+    // (Base → Associé, Associé → On passe ; un Outsider reste Outsider avec l'étiquette rouge)
+    if (r.ligne < 6 && r.ref) {
+      const iRef = ev.indexOf(r.ref);
+      const apres = ev.slice(0, Math.max(0, iRef)).filter(e => e.x.rang == null || !e.bonne).length;
+      if (iRef > 0 && apres >= PP.MAUV_APRES) {
+        if (cat === 'BASE') cat = 'ASSOCIÉ'; else if (cat === 'ASSOCIÉ') cat = 'PASSE';
+        r.marq.push({ t: `− ${apres} courses hors top 3 depuis la perf retenue`, court: 'forme', cls: 'pp-ko' });
+        r.note.push(`${apres} mauvaises courses depuis la perf retenue : catégorie abaissée d'un cran`);
+      }
+    }
     r.cat = cat;
     // hippodrome (étiquette seule, sans effet sur la catégorie) : vert = une bonne perf (top 3) sur cet hippodrome ; rouge = bonnes perfs seulement ailleurs
     {
@@ -3491,6 +3516,8 @@ function platPlusEvaluer(data) {
     // distance : aucune des 5 dernières courses à la distance du jour (± DIST_TOL) → étiquette rouge (sans changer la catégorie)
     const dJour = Number(co.distance) || 0, dists = perfs.map(x => x.distance).filter(Boolean);
     if (dJour && dists.length && !dists.some(d => Math.abs(d - dJour) <= PP.DIST_TOL)) r.marq.push({ t: '− aucune des 5 dernières courses à cette distance', court: 'distance', cls: 'pp-ko' });
+    // rentrée : plus de REPOS_MAX_J jours depuis la dernière course → simple badge rouge (le cheval reste classé)
+    if (h.jours_derniere > PP.REPOS_MAX_J) r.marq.push({ t: `− rentrée (${h.jours_derniere} j sans courir)`, court: 'rentrée', cls: 'pp-ko' });
     // départage dans la catégorie (n'a pas d'effet sur la catégorie)
     const dist = Number(co.distance) || 0;
     r.cordeMauvaise = !!(h.corde && nPart && dist && dist <= PP.CORDE_DIST_MAX && h.corde > PP.CORDE_EXT_RATIO * nPart);
@@ -3529,7 +3556,6 @@ function _ppRenderCourse(co, data, evals) {
       const cl = ({ 'BASE': 'pp-base', 'ASSOCIÉ': 'pp-assoc', 'OUTSIDER': 'pp-out' })[e.cat] || 'pp-passe';
       const verdict = `<span class="pp-tag ${cl}">${e.exclu ? 'EXCLU' : e.cat}${e.sous && e.cat === 'OUTSIDER' ? ' (' + e.sous + ')' : ''}</span>`;
       const tete = `<div class="pp-h-top"><span><b>#${e.numero}</b> ${e.nom || ''}</span>${verdict}</div>`;
-      if (e.exclu) return `<div class="pp-h">${tete}<div class="pp-h-sub pp-ko">${e.exclu}</div></div>`;
       const marq = e.marq.map(m => `<span class="${m.cls} pp-m">${m.court}</span>`).join('');
       const infos = `<b>Poids du jour : ${e.h.poids_jour != null ? String(e.h.poids_jour).replace('.', ',') + ' kg' : '?'}</b>${autresPoids(e.h.poids_jour_src, e.h.poids_jour).replace('<br>', ' ')} · dernière course il y a ${e.h.jours_derniere ?? '?'} j` + (e.ligne < 6 ? ` · <b>ligne ${e.ligne}</b>` : ' · aucune ligne') + (e.catBase !== e.cat && e.ligne < 6 ? ` · catégorie de départ ${e.catBase.toLowerCase()}` : '');
       const lignes = (e.courses || []).map(c => {
@@ -3540,6 +3566,7 @@ function _ppRenderCourse(co, data, evals) {
         const res = c.l === '—' ? `<span class="pp-q">${c.lab}</span>` : `<b>${c.l}</b> ${c.lab}`;
         return `<tr class="${util ? 'pp-util' : ''}"><td>${jj(x.date)}</td><td>${lieu || '?'}</td><td>${rg}</td><td>${dot}</td><td>${x.poids != null ? '<b>' + String(x.poids).replace('.', ',') + ' kg</b>' : '?'}${autresPoids(x.poids_src, x.poids)}<br><span style="font-size:10px">${fmtKg(c.e.dp)}</span></td><td>${res}</td></tr>`;
       }).join('');
+      if (e.exclu) return `<div class="pp-h">${tete}<div class="pp-h-sub pp-ko">${e.exclu}</div>${lignes ? `<div class="pp-h-sub"><b>Poids du jour : ${e.h.poids_jour != null ? String(e.h.poids_jour).replace('.', ',') + ' kg' : '?'}</b> · dernière course il y a ${e.h.jours_derniere ?? '?'} j</div><table class="pp-c"><tr><th>Date</th><th>Course</th><th>Place</th><th>Dotation</th><th>Poids porté</th><th>Résultat</th></tr>${lignes}</table>` : ''}</div>`;
       return `<div class="pp-h">${tete}<div class="pp-h-sub">${infos}${marq ? ' · ' + marq : ''}</div>${e.note.length ? `<div class="pp-h-sub pp-q">${e.note.join(' · ')}</div>` : ''}
         <table class="pp-c"><tr><th>Date</th><th>Course</th><th>Place</th><th>Dotation</th><th>Poids porté</th><th>Donne</th></tr>${lignes}</table></div>`;
     }).join('');
@@ -3591,7 +3618,7 @@ async function chargerPlatPlus() {
       <span><input type="date" id="pp-date" value="${dateIso}" onchange="platPlusCharge=false;chargerPlatPlus()" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px 4px;font-size:10px">
       <button onclick="platPlusCharge=false;chargerPlatPlus()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button></span></div>
       <div style="padding:10px 14px;font-family:'Space Mono',monospace;font-size:11px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2);line-height:1.7">
-        Filtre : dernière course &lt; ${PP.REPOS_MAX_J / 30} mois${PP.NB_COURSES_MIN > 0 ? ` · ≥ ${PP.NB_COURSES_MIN} courses/12 mois` : ''}. « Bonne perf » = top ${PP.BONNE_RANG}.<br>
+        <span class="pp-ko">[rentrée]</span> plus de ${PP.REPOS_MAX_J / 30} mois sans courir (badge seul, le cheval reste classé).${PP.NB_COURSES_MIN > 0 ? ` Filtre : ≥ ${PP.NB_COURSES_MIN} courses/12 mois.` : ''} « Bonne perf » = top ${PP.BONNE_RANG}.<br>
         <span class="pp-ok">[jockey]</span> jockey/entraîneur dans les 25 % meilleurs · <span class="pp-ok">[hippo]</span> bonne perf sur cet hippodrome · <span class="pp-ko">[terrain] [hippo] [corde] [distance]</span> signaux défavorables (un Outsider reste Outsider) · Outsider (léger) : dotation 60-85 % · (fort) : &lt; 60 %.<br>
         <span style="font-size:9px;word-break:break-all">Diagnostic PMU : HTTP ${dbg ? JSON.stringify(dbg.statuts_http) : '?'} · chevaux avec perfs ${dbg ? dbg.nb_chevaux_avec_perfs : '?'} · perfs datées ${dbg ? dbg.nb_perfs_avec_date : '?'}<br>Champs d'une perf : ${cles}<br>Champs d'un cheval : ${dbg && dbg.cles_cheval && dbg.cles_cheval.length ? dbg.cles_cheval.join(', ') : '—'}<br>Exemple : ${dbg && dbg.echantillon_perf ? JSON.stringify(dbg.echantillon_perf) : '—'}</span>
       </div>` + body;

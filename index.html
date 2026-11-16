@@ -3453,7 +3453,7 @@ function platPlusEvaluer(data) {
         if (e.niveau === 'sup' && egalSup(e)) { l = 'L1'; lab = 'Base'; }
         else if (e.niveau === 'sim' && egalSup(e)) { l = 'L2'; lab = 'Associé'; }
         else if (e.niveau === 'inf' && (e.dp == null || e.dp <= PP.POIDS_TOL_HAUSSE)) { l = 'L4'; lab = 'Outsider'; }
-        else if (e.niveau === 'sim' && e.x.rang === 1 && e.dp != null && e.dp > PP.POIDS_EGAL) { l = 'L5'; lab = 'Outsider'; }
+        else if ((e.niveau === 'sim' || e.niveau === 'inf') && e.x.rang === 1 && e.dp != null && e.dp > PP.POIDS_EGAL) { l = 'L5'; lab = 'Outsider'; }
         else { l = '—'; lab = 'top ' + PP.BONNE_RANG + ', aucune ligne'; }
       } else if (e.bonne) { lab = 'top ' + PP.BONNE_RANG + ' (dotation inconnue)'; }
       return { e, l, lab };
@@ -3463,7 +3463,7 @@ function platPlusEvaluer(data) {
       if (e.niveau === 'sup' && egalSup(e)) cands.push({ ligne: 1, e });
       if (e.niveau === 'sim' && egalSup(e)) cands.push({ ligne: 2, e });
       if (e.niveau === 'inf' && (e.dp == null || e.dp <= PP.POIDS_TOL_HAUSSE)) cands.push({ ligne: 4, e });
-      if (e.niveau === 'sim' && e.x.rang === 1 && e.dp != null && e.dp > PP.POIDS_EGAL) cands.push({ ligne: 5, e });
+      if ((e.niveau === 'sim' || e.niveau === 'inf') && e.x.rang === 1 && e.dp != null && e.dp > PP.POIDS_EGAL) cands.push({ ligne: 5, e });
     }
     // ligne 3 : perfs moyennes dans des courses mieux dotées + bonne perf à ce niveau, poids du jour en baisse
     const moySup = ev.some(e => e.moy && e.niveau === 'sup');
@@ -3471,6 +3471,7 @@ function platPlusEvaluer(data) {
     if (cands.length) {
       cands.sort((a, b) => a.ligne - b.ligne); const c = cands[0];
       r.ligne = c.ligne; r.ref = c.e;
+      if (c.ligne === 5 && c.e.niveau === 'inf') r.sous = (c.e.ratio != null && c.e.ratio < PP.DOT_FORT) ? 'fort' : 'léger';   // victoire à dotation inférieure avec poids en hausse
       if (c.ligne === 4) r.sous = (c.e.ratio != null && c.e.ratio < PP.DOT_FORT) ? 'fort' : 'léger';
       r.catBase = ({ 1: 'BASE', 2: 'ASSOCIÉ', 3: 'ASSOCIÉ', 4: 'OUTSIDER', 5: 'OUTSIDER' })[c.ligne];
       if (c.ligne === 5) r.note.push(c.e.dp <= PP.POIDS_HAUSSE_TOL ? `+${c.e.dp} kg : pénalité à tolérer` : `+${c.e.dp} kg : hausse importante`);

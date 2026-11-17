@@ -3398,6 +3398,7 @@ const PP = {
   POIDS_TOL_HAUSSE: 1.0,  // lignes 1, 2 et 4 : une hausse de poids jusqu'à +1 kg par rapport à la bonne perf est tolérée (pénalité mentionnée)
   POIDS_EGAL: 0.5,        // |écart de poids| ≤ 0,5 kg = à peu près égal
   POIDS_HAUSSE_TOL: 2.0,  // +1 à 2 kg : pénalité à tolérer ; plus : outsider (les deux cas = outsider, avec mention)
+  DOT_DESC: 1.5, DESC_RANG: 4, DESC_PCT: 0.3,   // descente de classe : place dans les 4 premiers (ou 30 % du lot) d'une course dotée ≥ 150 % de celle du jour
   MAUV_APRES: 2,          // la perf retenue est suivie d'au moins N courses hors top 3 → la catégorie descend d'un cran
   DIST_TOL: 200,          // même distance ± 200 m
   CORDE_DIST_MAX: 1400,   // corde défavorable surtout sur 1000 à 1400 m
@@ -3446,7 +3447,8 @@ function platPlusEvaluer(data) {
       const dp = (x.poids != null && h.poids_jour != null) ? Math.round((h.poids_jour - x.poids) * 10) / 10 : null;
       const bonne = x.rang != null && x.rang <= PP.BONNE_RANG;
       const moy = x.rang != null && !bonne && x.nb_partants && x.rang <= Math.ceil(x.nb_partants / 2);
-      return { x, ratio, dp, bonne, moy, niveau: ratio == null ? null : (ratio >= PP.DOT_SUP ? 'sup' : ratio >= PP.DOT_INF ? 'sim' : 'inf') };
+      const desc = !bonne && x.rang != null && ratio != null && ratio >= PP.DOT_DESC && (x.rang <= PP.DESC_RANG || (x.nb_partants && x.rang <= Math.ceil(PP.DESC_PCT * x.nb_partants))) && (dp == null || dp <= PP.POIDS_TOL_HAUSSE);
+      return { x, ratio, dp, bonne, moy, desc, niveau: ratio == null ? null : (ratio >= PP.DOT_SUP ? 'sup' : ratio >= PP.DOT_INF ? 'sim' : 'inf') };
     });
     const egal = e => e.dp == null || (e.dp <= PP.POIDS_TOL_HAUSSE && e.dp >= -PP.POIDS_EGAL);
     // L1/L2 : dotation supérieure (L1) ou similaire (L2) ET poids du jour ≤ poids de la perf (même nettement plus léger aujourd'hui) ou +1 kg au plus
@@ -3460,7 +3462,8 @@ function platPlusEvaluer(data) {
         else if (e.niveau === 'inf' && (e.dp == null || e.dp <= PP.POIDS_TOL_HAUSSE)) { l = 'L4'; lab = 'Outsider'; }
         else if ((e.niveau === 'sim' || e.niveau === 'inf') && e.x.rang === 1 && e.dp != null && e.dp > PP.POIDS_EGAL) { l = 'L5'; lab = 'Outsider'; }
         else { l = '—'; lab = 'top ' + PP.BONNE_RANG + ', aucune ligne'; }
-      } else if (e.bonne) { lab = 'top ' + PP.BONNE_RANG + ' (dotation inconnue)'; }
+      } else if (e.desc) { l = 'L5'; lab = 'Outsider (descente)'; }
+      else if (e.bonne) { lab = 'top ' + PP.BONNE_RANG + ' (dotation inconnue)'; }
       return { e, l, lab };
     });
     const cands = [];
@@ -3470,16 +3473,19 @@ function platPlusEvaluer(data) {
       if (e.niveau === 'inf' && (e.dp == null || e.dp <= PP.POIDS_TOL_HAUSSE)) cands.push({ ligne: 4, e });
       if ((e.niveau === 'sim' || e.niveau === 'inf') && e.x.rang === 1 && e.dp != null && e.dp > PP.POIDS_EGAL) cands.push({ ligne: 5, e });
     }
+    // descente de classe (Outsider) : bon résultat hors podium dans une course nettement mieux dotée, poids du jour ≤ celui de la perf +1 kg
+    for (const e of ev.filter(e => e.desc)) cands.push({ ligne: 5, e });
     // ligne 3 : perfs moyennes dans des courses mieux dotées + bonne perf à ce niveau, poids du jour en baisse
     const moySup = ev.some(e => e.moy && e.niveau === 'sup');
     if (moySup) for (const e of ev.filter(e => e.bonne && e.niveau === 'sim' && e.dp != null && e.dp < -PP.POIDS_EGAL)) cands.push({ ligne: 3, e });
     if (cands.length) {
       cands.sort((a, b) => a.ligne - b.ligne); const c = cands[0];
       r.ligne = c.ligne; r.ref = c.e;
-      if (c.ligne === 5 && c.e.niveau === 'inf') r.sous = (c.e.ratio != null && c.e.ratio < PP.DOT_FORT) ? 'fort' : 'léger';   // victoire à dotation inférieure avec poids en hausse
+      if (c.ligne === 5 && c.e.desc) { r.sous = 'descente'; r.note.push(`descente de classe : ${c.e.x.rang}${c.e.x.nb_partants ? '/' + Math.round(c.e.x.nb_partants) : ''} dans une course à ${Math.round(c.e.ratio * 100)} % de la dotation du jour`); }
+      else if (c.ligne === 5 && c.e.niveau === 'inf') r.sous = (c.e.ratio != null && c.e.ratio < PP.DOT_FORT) ? 'fort' : 'léger';   // victoire à dotation inférieure avec poids en hausse
       if (c.ligne === 4) r.sous = (c.e.ratio != null && c.e.ratio < PP.DOT_FORT) ? 'fort' : 'léger';
       r.catBase = ({ 1: 'BASE', 2: 'ASSOCIÉ', 3: 'ASSOCIÉ', 4: 'OUTSIDER', 5: 'OUTSIDER' })[c.ligne];
-      if (c.ligne === 5) r.note.push(c.e.dp <= PP.POIDS_HAUSSE_TOL ? `+${c.e.dp} kg : pénalité à tolérer` : `+${c.e.dp} kg : hausse importante`);
+      if (c.ligne === 5 && !c.e.desc) r.note.push(c.e.dp <= PP.POIDS_HAUSSE_TOL ? `+${c.e.dp} kg : pénalité à tolérer` : `+${c.e.dp} kg : hausse importante`);
       if (c.e.dp == null) r.note.push('poids de la perf inconnu');
       if (c.ligne !== 5 && c.e.dp != null && c.e.dp > PP.POIDS_EGAL) r.note.push(`+${String(c.e.dp).replace('.', ',')} kg par rapport à la bonne perf : pénalité tolérée`);
     }

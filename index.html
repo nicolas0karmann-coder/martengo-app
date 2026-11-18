@@ -3479,20 +3479,22 @@ function platPlusEvaluer(data) {
       if ((e.niveau === 'sim' || e.niveau === 'inf') && e.x.rang === 1 && e.dp != null && e.dp > PP.POIDS_EGAL) cands.push({ ligne: 5, e });
     }
     // descente de classe (Outsider) : bon résultat hors podium dans une course nettement mieux dotée, poids du jour ≤ celui de la perf +1 kg
-    for (const e of ev.filter(e => e.desc)) cands.push({ ligne: 5, e });
+    for (const e of ev.filter(e => e.desc)) cands.push({ ligne: 5, e, desc: true });
     { const rg = ev.find(e => e.reg); if (rg) cands.push({ ligne: 5, e: rg, reg: true }); }
     // ligne 3 : perfs moyennes dans des courses mieux dotées + bonne perf à ce niveau, poids du jour en baisse
     const moySup = ev.some(e => e.moy && e.niveau === 'sup');
     if (moySup) for (const e of ev.filter(e => e.bonne && e.niveau === 'sim' && e.dp != null && e.dp < -PP.POIDS_EGAL)) cands.push({ ligne: 3, e });
     if (cands.length) {
-      cands.sort((a, b) => a.ligne - b.ligne); const c = cands[0];
-      r.ligne = c.ligne; r.ref = c.e;
+      // ordre de priorité : Base > Associé > Outsider [victoire > régulier > descente > léger > fort]
+      cands.forEach(k => { k.prio = k.ligne === 1 ? 1 : k.ligne === 2 ? 2 : k.ligne === 3 ? 3 : k.reg ? 5 : k.desc ? 6 : k.ligne === 5 ? 4 : ((k.e.ratio != null && k.e.ratio < PP.DOT_FORT) ? 8 : 7); });
+      cands.sort((a, b) => a.prio - b.prio); const c = cands[0];
+      r.ligne = c.ligne; r.ref = c.e; r.prio = c.prio;
       if (c.ligne === 5 && c.reg) { r.sous = 'régulier'; r.note.push(`régularité : ${ev.filter(e => e.reg).length} top 3 à dotation similaire parmi les ${ev.length} dernières courses (poids +${PP.REG_POIDS} kg au plus)`); }
-      else if (c.ligne === 5 && c.e.desc && !c.reg) { r.sous = 'descente'; r.note.push(`descente de classe : ${c.e.x.rang}${c.e.x.nb_partants ? '/' + Math.round(c.e.x.nb_partants) : ''} dans une course à ${Math.round(c.e.ratio * 100)} % de la dotation du jour`); }
+      else if (c.ligne === 5 && c.desc) { r.sous = 'descente'; r.note.push(`descente de classe : ${c.e.x.rang}${c.e.x.nb_partants ? '/' + Math.round(c.e.x.nb_partants) : ''} dans une course à ${Math.round(c.e.ratio * 100)} % de la dotation du jour`); }
       else if (c.ligne === 5 && c.e.niveau === 'inf') r.sous = (c.e.ratio != null && c.e.ratio < PP.DOT_FORT) ? 'fort' : 'léger';   // victoire à dotation inférieure avec poids en hausse
       if (c.ligne === 4) r.sous = (c.e.ratio != null && c.e.ratio < PP.DOT_FORT) ? 'fort' : 'léger';
       r.catBase = ({ 1: 'BASE', 2: 'ASSOCIÉ', 3: 'ASSOCIÉ', 4: 'OUTSIDER', 5: 'OUTSIDER' })[c.ligne];
-      if (c.ligne === 5 && !c.e.desc && !c.reg) r.note.push(c.e.dp <= PP.POIDS_HAUSSE_TOL ? `+${c.e.dp} kg : pénalité à tolérer` : `+${c.e.dp} kg : hausse importante`);
+      if (c.ligne === 5 && !c.desc && !c.reg) r.note.push(c.e.dp <= PP.POIDS_HAUSSE_TOL ? `+${c.e.dp} kg : pénalité à tolérer` : `+${c.e.dp} kg : hausse importante`);
       if (c.e.dp == null) r.note.push('poids de la perf inconnu');
       if (c.ligne !== 5 && c.e.dp != null && c.e.dp > PP.POIDS_EGAL) r.note.push(`+${String(c.e.dp).replace('.', ',')} kg par rapport à la bonne perf : pénalité tolérée`);
     }
@@ -3547,7 +3549,7 @@ function platPlusEvaluer(data) {
   });
 }
 
-function _ppTri(a, b) { return ((b.jeBon ? 1 : 0) - (a.jeBon ? 1 : 0)) || ((a.cordeMauvaise ? 1 : 0) - (b.cordeMauvaise ? 1 : 0)) || (a.numero - b.numero); }
+function _ppTri(a, b) { return ((a.cat === 'OUTSIDER' && b.cat === 'OUTSIDER') ? ((a.prio || 9) - (b.prio || 9)) : 0) || ((b.jeBon ? 1 : 0) - (a.jeBon ? 1 : 0)) || ((a.cordeMauvaise ? 1 : 0) - (b.cordeMauvaise ? 1 : 0)) || (a.numero - b.numero); }
 
 function _ppRenderCourse(co, data, evals) {
   const c = data.course || {};

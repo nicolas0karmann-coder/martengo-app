@@ -3562,7 +3562,7 @@ function _ppRenderCourse(co, data, evals) {
   let html = `<div class="safe-row" style="cursor:default">
     <div class="safe-top" style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
       <div class="safe-course">R${co.r}C${co.c} <span class="safe-heure">${co.heure || ''}</span></div>
-      <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);text-align:right">${c.hippodrome || 'hippodrome ?'} · ${c.distance || ''} m · ${c.terrain || 'terrain ?'} · ${c.piste || 'piste ?'} · ${c.dotation ? Number(c.dotation).toLocaleString('fr-FR') + (((data.debug && data.debug.devise_approx) || (data._facDev && data._facDev !== 1)) ? ' (unité PMU, ≠ €)' : ' €') : ''}${((data.debug && data.debug.devise_approx) || (data._facDev && data._facDev !== 1)) ? ' · <span style="color:var(--gold,#e0a030)">devise locale : dotations recalées sur la médiane du lot (approx.)</span>' : ''}</div>
+      <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);text-align:right">${c.hippodrome || 'hippodrome ?'} · ${c.distance || ''} m · ${c.terrain || 'terrain ?'} · ${c.piste || 'piste ?'}${c.age_cond ? ' · <b>' + c.age_cond + '</b>' : ''} · ${c.dotation ? Number(c.dotation).toLocaleString('fr-FR') + (((data.debug && data.debug.devise_approx) || (data._facDev && data._facDev !== 1)) ? ' (unité PMU, ≠ €)' : ' €') : ''}${((data.debug && data.debug.devise_approx) || (data._facDev && data._facDev !== 1)) ? ' · <span style="color:var(--gold,#e0a030)">devise locale : dotations recalées sur la médiane du lot (approx.)</span>' : ''}</div>
     </div>`;
   if (sansData) html += `<div class="safe-chevaux" style="color:var(--text-dim);font-weight:400">Performances détaillées indisponibles pour cette course</div>`;
   else {
@@ -3591,7 +3591,7 @@ function _ppRenderCourse(co, data, evals) {
       return `<div class="pp-h">${tete}<div class="pp-h-sub">${infos}${marq ? ' · ' + marq : ''}</div>${e.note.length ? `<div class="pp-h-sub pp-q">${e.note.join(' · ')}</div>` : ''}
         <table class="pp-c"><tr><th>Date</th><th>Course</th><th>Place</th><th>Dotation</th><th>Poids porté</th><th>Donne</th></tr>${lignes}</table></div>`;
     }).join('');
-    html += `<div id="${id}" style="display:none">${cartes}</div>`;
+    html += `<div id="${id}" style="display:none">${c.conditions ? `<div class="pp-h-sub pp-q" style="padding:6px 2px">Conditions : ${String(c.conditions).replace(/</g, '&lt;')}</div>` : ''}${cartes}</div>`;
   }
   return html + '</div>';
 }

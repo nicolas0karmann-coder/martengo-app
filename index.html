@@ -388,6 +388,20 @@ input[readonly]{opacity:.5;cursor:default}
 .pp-c tr.pp-util td{color:var(--text);background:var(--gold-dim)}
 .pp-c tr.pp-util td:first-child{border-left:2px solid var(--gold)}
 @media(max-width:520px){.pp-c th:nth-child(2),.pp-c td:nth-child(2){max-width:110px}}
+.pp-sc{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px}
+@media(max-width:520px){
+.pp-card{margin:8px 6px 0;padding:10px 8px}
+.pp-grp{margin-top:8px}
+.pp-hd .pp-body{padding:2px 4px 8px}
+.pp-hd>summary{padding:8px 8px}
+.pp-c{font-size:10px;margin-top:6px}
+.pp-c th{font-size:8px;padding:3px 2px}
+.pp-c td{padding:4px 2px}
+.pp-c th:nth-child(2),.pp-c td:nth-child(2){max-width:84px}
+.pp-c td:nth-child(1){white-space:nowrap}
+.pp-c td b{font-size:10px}
+}
+
 </style>
 </head>
 <body>
@@ -3634,7 +3648,7 @@ function _ppRenderCourse(co, data, evals) {
         const res = c.l === '—' ? `<span class="pp-q">${c.lab}</span>` : `<b>${c.l}</b> ${c.lab}`;
         return `<tr class="${util ? 'pp-util' : ''}"><td>${jj(x.date)}</td><td>${lieu || '?'}</td><td>${rg}</td><td>${dot}</td><td>${x.poids != null ? '<b>' + String(x.poids).replace('.', ',') + ' kg</b>' : '?'}${autresPoids(x.poids_src, x.poids)}<br><span style="font-size:10px">${fmtKg(c.e.dp)}</span></td><td>${res}</td></tr>`;
       }).join('');
-      const tab = lignes ? `<table class="pp-c"><tr><th>Date</th><th>Course</th><th>Place</th><th>Dotation</th><th>Poids porté</th><th>${e.exclu ? 'Résultat' : 'Donne'}</th></tr>${lignes}</table>` : '';
+      const tab = lignes ? `<div class="pp-sc"><table class="pp-c"><tr><th>Date</th><th>Course</th><th>Place</th><th>Dotation</th><th>Poids porté</th><th>${e.exclu ? 'Résultat' : 'Donne'}</th></tr>${lignes}</table></div>` : '';
       const poidsJ = `<b>Poids du jour : ${e.h.poids_jour != null ? String(e.h.poids_jour).replace('.', ',') + ' kg' : '?'}</b>`;
       if (e.exclu) return `<details class="pp-hd">${resume}<div class="pp-body"><div class="pp-h"><div class="pp-h-sub pp-ko">${e.exclu}</div><div class="pp-h-sub">${poidsJ} · dernière course il y a ${e.h.jours_derniere ?? '?'} j</div>${tab}</div></div></details>`;
       const infos = `${poidsJ}${autresPoids(e.h.poids_jour_src, e.h.poids_jour).replace('<br>', ' ')} · dernière course il y a ${e.h.jours_derniere ?? '?'} j` + (e.ligne < 6 ? ` · <b>ligne ${e.ligne}</b>` : ' · aucune ligne') + (e.catBase !== e.cat && e.ligne < 6 ? ` · catégorie de départ ${e.catBase.toLowerCase()}` : '');

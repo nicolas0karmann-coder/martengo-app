@@ -3450,6 +3450,7 @@ const PP = {
   POIDS_HAUSSE_TOL: 2.0,  // +1 à 2 kg : pénalité à tolérer ; plus : outsider (les deux cas = outsider, avec mention)
   POIDS_TOL_DESC: 2.0, DOT_DESC: 1.5, DESC_RANG: 4, DESC_PCT: 0.3,   // descente de classe : place dans les 4 premiers (ou 30 % du lot) d'une course dotée ≥ 150 % de celle du jour
   REG_MIN: 3, REG_POIDS: 3, REG2_MIN: 4, REG2_POIDS: 6,   // Outsider (régulier) : ≥ 3 top 3 à dotation similaire parmi les 5 dernières, poids du jour ≤ celui de chaque perf + 3 kg
+  MAUV_RANG: 4,           // une course est « mauvaise » si le cheval finit au-delà de cette place (4e = pas mauvaise)
   MAUV_APRES: 2,          // la perf retenue est suivie d'au moins N courses hors top 3 → la catégorie descend d'un cran
   DIST_TOL: 200,          // même distance ± 200 m
   CORDE_DIST_MAX: 1400,   // corde défavorable surtout sur 1000 à 1400 m
@@ -3565,13 +3566,13 @@ function platPlusEvaluer(data) {
         o.marq.push({ t: '− terrain/piste différent', court: 'terrain', cls: 'pp-ko' });
       }
       // forme depuis la perf retenue : si le cheval a fait ≥ MAUV_APRES courses hors top 3 APRÈS elle, la catégorie descend d'un cran
-      // (Base → Associé, Associé → On passe ; un Outsider reste Outsider avec l'étiquette rouge)
+      // (Base → Associé, Associé → Outsider (forme) ; un Outsider reste Outsider avec l'étiquette rouge)
       const iRef = ev.indexOf(c.e);
-      const apres = ev.slice(0, Math.max(0, iRef)).filter(e => e.x.rang == null || !e.bonne).length;
+      const apres = ev.slice(0, Math.max(0, iRef)).filter(e => e.x.rang == null || e.x.rang > PP.MAUV_RANG).length;
       if (iRef > 0 && apres >= PP.MAUV_APRES) {
-        if (cat === 'BASE') cat = 'ASSOCIÉ'; else if (cat === 'ASSOCIÉ') cat = 'PASSE';
-        o.marq.push({ t: `− ${apres} courses hors top 3 depuis la perf retenue`, court: 'forme', cls: 'pp-ko' });
-        o.note.push(`${apres} mauvaises courses depuis la perf retenue : catégorie abaissée d'un cran`);
+        if (cat === 'BASE') cat = 'ASSOCIÉ'; else if (cat === 'ASSOCIÉ') { cat = 'OUTSIDER'; o.sous = 'forme'; o.prio = 9; }
+        o.marq.push({ t: `− ${apres} courses au-delà de la ${PP.MAUV_RANG}e place depuis la perf retenue`, court: 'forme', cls: 'pp-ko' });
+        o.note.push(`${apres} courses au-delà de la ${PP.MAUV_RANG}e place depuis la perf retenue : catégorie abaissée d'un cran`);
       }
       o.cat = cat; return o;
     };

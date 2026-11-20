@@ -3696,11 +3696,12 @@ async function chargerPlatPlus() {
     el.innerHTML = `<div class="dash-refresh"><span>🏇 Plat+++ · ${courses.length} courses · ${nBase} base(s)</span>
       <span><input type="date" id="pp-date" value="${dateIso}" onchange="platPlusCharge=false;chargerPlatPlus()" style="background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px 4px;font-size:10px">
       <button onclick="platPlusCharge=false;chargerPlatPlus()" style="background:none;border:1px solid var(--border);color:var(--text-dim);border-radius:4px;padding:3px 8px;font-family:'Space Mono',monospace;font-size:8px;cursor:pointer">↺</button></span></div>
-      <div style="padding:10px 14px;font-family:'Space Mono',monospace;font-size:11px;color:var(--text-dim);border-bottom:1px solid var(--border);background:var(--bg2);line-height:1.7">
+      <details style="border-bottom:1px solid var(--border);background:var(--bg2)"><summary style="cursor:pointer;padding:9px 14px;font-family:'Space Mono',monospace;font-size:10px;color:var(--gold-lite)">ℹ️ Règles et légende</summary>
+      <div style="padding:6px 14px 10px;font-family:'Space Mono',monospace;font-size:11px;color:var(--text-dim);line-height:1.7">
         <span class="pp-ko">[rentrée]</span> plus de ${PP.REPOS_MAX_J / 30} mois sans courir (badge seul, le cheval reste classé).${PP.NB_COURSES_MIN > 0 ? ` Filtre : ≥ ${PP.NB_COURSES_MIN} courses/12 mois.` : ''} « Bonne perf » = top ${PP.BONNE_RANG}.<br>
         <span class="pp-ok">[jockey]</span> jockey/entraîneur dans les 25 % meilleurs · <span class="pp-ok">[hippo]</span> bonne perf sur cet hippodrome · <span class="pp-ko">[terrain] [hippo] [corde] [distance]</span> signaux défavorables (un Outsider reste Outsider) · Outsider (léger) : dotation 60-85 % · (fort) : &lt; 60 %.<br>
         <span style="font-size:9px;word-break:break-all">Diagnostic PMU : HTTP ${dbg ? JSON.stringify(dbg.statuts_http) : '?'} · chevaux avec perfs ${dbg ? dbg.nb_chevaux_avec_perfs : '?'} · perfs datées ${dbg ? dbg.nb_perfs_avec_date : '?'}<br>Champs d'une perf : ${cles}<br>Champs d'un cheval : ${dbg && dbg.cles_cheval && dbg.cles_cheval.length ? dbg.cles_cheval.join(', ') : '—'}<br>Exemple : ${dbg && dbg.echantillon_perf ? JSON.stringify(dbg.echantillon_perf) : '—'}</span>
-      </div><div class="pp-nav">${nav}</div>` + body;
+      </div></details><div class="pp-nav">${nav}</div>` + body;
   } catch (e) {
     el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>${e.message}<br><button class="btn secondary" onclick="platPlusCharge=false;chargerPlatPlus()" style="margin-top:12px;font-size:10px">↺ Réessayer</button></div>`;
   }

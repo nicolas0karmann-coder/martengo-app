@@ -3395,11 +3395,12 @@ const PP = {
   DOT_SUP: 1.15,          // dotation de la perf ≥ 115 % de celle du jour = supérieure
   DOT_FORT: 0.60,         // ligne 4 : dotation entre 60 et 85 % = Outsider (léger) ; < 60 % = Outsider (fort)
   DOT_INF: 0.85,          // < 85 % = inférieure (légèrement ou beaucoup : même traitement, à préciser)
+  POIDS_TOL_ASSOCIE: 2.0,   // ligne 2 (Associé) : hausse de poids tolérée jusqu'à +2 kg
   POIDS_TOL_HAUSSE: 1.0,  // lignes 1, 2 et 4 : une hausse de poids jusqu'à +1 kg par rapport à la bonne perf est tolérée (pénalité mentionnée)
   POIDS_EGAL: 0.5,        // |écart de poids| ≤ 0,5 kg = à peu près égal
   POIDS_HAUSSE_TOL: 2.0,  // +1 à 2 kg : pénalité à tolérer ; plus : outsider (les deux cas = outsider, avec mention)
   DOT_DESC: 1.5, DESC_RANG: 4, DESC_PCT: 0.3,   // descente de classe : place dans les 4 premiers (ou 30 % du lot) d'une course dotée ≥ 150 % de celle du jour
-  REG_MIN: 3, REG_POIDS: 3,   // Outsider (régulier) : ≥ 3 top 3 à dotation similaire parmi les 5 dernières, poids du jour ≤ celui de chaque perf + 3 kg
+  REG_MIN: 3, REG_POIDS: 3, REG2_MIN: 4, REG2_POIDS: 6,   // Outsider (régulier) : ≥ 3 top 3 à dotation similaire parmi les 5 dernières, poids du jour ≤ celui de chaque perf + 3 kg
   MAUV_APRES: 2,          // la perf retenue est suivie d'au moins N courses hors top 3 → la catégorie descend d'un cran
   DIST_TOL: 200,          // même distance ± 200 m
   CORDE_DIST_MAX: 1400,   // corde défavorable surtout sur 1000 à 1400 m
@@ -3454,15 +3455,19 @@ function platPlusEvaluer(data) {
     // régularité : ≥ REG_MIN top 3 à dotation similaire, chacun avec poids du jour ≤ poids de la perf + REG_POIDS kg
     const regListe = ev.filter(e => e.bonne && e.niveau === 'sim' && (e.dp == null || e.dp <= PP.REG_POIDS));
     if (regListe.length >= PP.REG_MIN) regListe.forEach(e => { e.reg = true; });
+    // régularité élargie : ≥ REG2_MIN top 3 à dotation similaire OU supérieure, poids du jour ≤ celui de chaque perf + REG2_POIDS kg
+    const regListe2 = ev.filter(e => e.bonne && (e.niveau === 'sim' || e.niveau === 'sup') && (e.dp == null || e.dp <= PP.REG2_POIDS));
+    if (regListe2.length >= PP.REG2_MIN) regListe2.forEach(e => { e.reg = true; });
     const egal = e => e.dp == null || (e.dp <= PP.POIDS_TOL_HAUSSE && e.dp >= -PP.POIDS_EGAL);
     // L1/L2 : dotation supérieure (L1) ou similaire (L2) ET poids du jour ≤ poids de la perf (même nettement plus léger aujourd'hui) ou +1 kg au plus
     const egalSup = e => e.dp == null || e.dp <= PP.POIDS_TOL_HAUSSE;
+    const egalAssoc = e => e.dp == null || e.dp <= PP.POIDS_TOL_ASSOCIE;
     // lecture course par course (affichée dans le détail) : que donne CHAQUE course passée ?
     r.courses = ev.map(e => {
       let l = '—', lab = 'pas dans le top ' + PP.BONNE_RANG;
       if (e.bonne && e.niveau) {
         if (e.niveau === 'sup' && egalSup(e)) { l = 'L1'; lab = 'Base'; }
-        else if (e.niveau === 'sim' && egalSup(e)) { l = 'L2'; lab = 'Associé'; }
+        else if (e.niveau === 'sim' && egalAssoc(e)) { l = 'L2'; lab = 'Associé'; }
         else if (e.niveau === 'inf' && (e.dp == null || e.dp <= PP.POIDS_TOL_HAUSSE)) { l = 'L4'; lab = 'Outsider'; }
         else if ((e.niveau === 'sim' || e.niveau === 'inf') && e.x.rang === 1 && e.dp != null && e.dp > PP.POIDS_EGAL) { l = 'L5'; lab = 'Outsider'; }
         else if (e.reg) { l = 'L5'; lab = 'Outsider (régulier)'; }
@@ -3474,7 +3479,7 @@ function platPlusEvaluer(data) {
     const cands = [];
     for (const e of ev.filter(e => e.bonne && e.niveau)) {
       if (e.niveau === 'sup' && egalSup(e)) cands.push({ ligne: 1, e });
-      if (e.niveau === 'sim' && egalSup(e)) cands.push({ ligne: 2, e });
+      if (e.niveau === 'sim' && egalAssoc(e)) cands.push({ ligne: 2, e });
       if (e.niveau === 'inf' && (e.dp == null || e.dp <= PP.POIDS_TOL_HAUSSE)) cands.push({ ligne: 4, e });
       if ((e.niveau === 'sim' || e.niveau === 'inf') && e.x.rang === 1 && e.dp != null && e.dp > PP.POIDS_EGAL) cands.push({ ligne: 5, e });
     }
@@ -3488,7 +3493,7 @@ function platPlusEvaluer(data) {
     // (une vieille perf Base suivie de mauvaises courses ne masque plus une perf plus récente qui donne encore une catégorie)
     const resoudre = c => {
       const o = { ligne: c.ligne, ref: c.e, prio: c.prio, sous: null, note: [], marq: [] };
-      if (c.ligne === 5 && c.reg) { o.sous = 'régulier'; o.note.push(`régularité : ${ev.filter(e => e.reg).length} top 3 à dotation similaire parmi les ${ev.length} dernières courses (poids +${PP.REG_POIDS} kg au plus)`); }
+      if (c.ligne === 5 && c.reg) { o.sous = 'régulier'; o.note.push(`régularité : ${ev.filter(e => e.reg).length} top 3 à dotation similaire ou supérieure parmi les ${ev.length} dernières courses`); }
       else if (c.ligne === 5 && c.desc) { o.sous = 'descente'; o.note.push(`descente de classe : ${c.e.x.rang}${c.e.x.nb_partants ? '/' + Math.round(c.e.x.nb_partants) : ''} dans une course à ${Math.round(c.e.ratio * 100)} % de la dotation du jour`); }
       else if (c.ligne === 5 && c.e.niveau === 'inf') o.sous = (c.e.ratio != null && c.e.ratio < PP.DOT_FORT) ? 'fort' : 'léger';   // victoire à dotation inférieure avec poids en hausse
       if (c.ligne === 4) o.sous = (c.e.ratio != null && c.e.ratio < PP.DOT_FORT) ? 'fort' : 'léger';

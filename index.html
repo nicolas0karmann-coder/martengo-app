@@ -3450,6 +3450,7 @@ const PP = {
   POIDS_HAUSSE_TOL: 2.0,  // +1 à 2 kg : pénalité à tolérer ; plus : outsider (les deux cas = outsider, avec mention)
   POIDS_TOL_DESC: 2.0, DOT_DESC: 1.5, DESC_RANG: 4, DESC_PCT: 0.3,   // descente de classe : place dans les 4 premiers (ou 30 % du lot) d'une course dotée ≥ 150 % de celle du jour
   REG_MIN: 3, REG_POIDS: 3, REG2_MIN: 4, REG2_POIDS: 6,   // Outsider (régulier) : ≥ 3 top 3 à dotation similaire parmi les 5 dernières, poids du jour ≤ celui de chaque perf + 3 kg
+  PERF_AGE_MAX_J: 183,    // une perf de plus de ~6 mois ne peut plus faire entrer le cheval dans une catégorie
   MAUV_RANG: 4,           // une course est « mauvaise » si le cheval finit au-delà de cette place (4e = pas mauvaise)
   MAUV_APRES: 2,          // la perf retenue est suivie d'au moins N courses hors top 3 → la catégorie descend d'un cran
   DIST_TOL: 200,          // même distance ± 200 m
@@ -3484,6 +3485,7 @@ function platPlusEvaluer(data) {
   let facDev = 1;
   if (_al.length && dot > 0) { _al.sort((a, b) => a - b); const rm = _al[Math.floor(_al.length / 2)] / dot; if (rm > 4 || rm < 0.25) facDev = rm; }
   data._facDev = facDev;
+  const dRef = data._dateRef ? new Date(data._dateRef + 'T12:00:00') : new Date();
   return (data.chevaux || []).map(h => {
     const r = { numero: h.numero, nom: h.nom, h, filtres: {}, exclu: null, ligne: 6, cat: 'PASSE', catBase: 'PASSE', note: [], marq: [] };
     const perfs = (h.perfs || []);
@@ -3500,13 +3502,16 @@ function platPlusEvaluer(data) {
       const bonne = x.rang != null && x.rang <= PP.BONNE_RANG;
       const moy = x.rang != null && !bonne && x.nb_partants && x.rang <= Math.ceil(x.nb_partants / 2);
       const desc = !bonne && x.rang != null && ratio != null && ratio >= PP.DOT_DESC && (x.rang <= PP.DESC_RANG || (x.nb_partants && x.rang <= Math.ceil(PP.DESC_PCT * x.nb_partants))) && (dp == null || dp <= PP.POIDS_TOL_DESC);
-      return { x, ratio, dp, bonne, moy, desc, niveau: ratio == null ? null : (ratio >= PP.DOT_SUP ? 'sup' : ratio >= PP.DOT_INF ? 'sim' : 'inf') };
+      const _dj = (x.date && /^\d{4}-\d{2}-\d{2}/.test(x.date)) ? (dRef - new Date(x.date.slice(0, 10) + 'T12:00:00')) / 864e5 : null;
+      const vieille = _dj != null && _dj > PP.PERF_AGE_MAX_J;
+      return { vieille, x, ratio, dp, bonne, moy, desc, niveau: ratio == null ? null : (ratio >= PP.DOT_SUP ? 'sup' : ratio >= PP.DOT_INF ? 'sim' : 'inf') };
     });
     // régularité : ≥ REG_MIN top 3 à dotation similaire, chacun avec poids du jour ≤ poids de la perf + REG_POIDS kg
-    const regListe = ev.filter(e => e.bonne && e.niveau === 'sim' && (e.dp == null || e.dp <= PP.REG_POIDS));
+    const evF = ev.filter(e => !e.vieille);   // perfs récentes seules : les perfs > 6 mois ne servent à aucune catégorie
+    const regListe = evF.filter(e => e.bonne && e.niveau === 'sim' && (e.dp == null || e.dp <= PP.REG_POIDS));
     if (regListe.length >= PP.REG_MIN) regListe.forEach(e => { e.reg = true; });
     // régularité élargie : ≥ REG2_MIN top 3 à dotation similaire OU supérieure, poids du jour ≤ celui de chaque perf + REG2_POIDS kg
-    const regListe2 = ev.filter(e => e.bonne && (e.niveau === 'sim' || e.niveau === 'sup') && (e.dp == null || e.dp <= PP.REG2_POIDS));
+    const regListe2 = evF.filter(e => e.bonne && (e.niveau === 'sim' || e.niveau === 'sup') && (e.dp == null || e.dp <= PP.REG2_POIDS));
     if (regListe2.length >= PP.REG2_MIN) regListe2.forEach(e => { e.reg = true; });
     const egal = e => e.dp == null || (e.dp <= PP.POIDS_TOL_HAUSSE && e.dp >= -PP.POIDS_EGAL);
     // L1/L2 : dotation supérieure (L1) ou similaire (L2) ET poids du jour ≤ poids de la perf (même nettement plus léger aujourd'hui) ou +1 kg au plus
@@ -3515,6 +3520,7 @@ function platPlusEvaluer(data) {
     // lecture course par course (affichée dans le détail) : que donne CHAQUE course passée ?
     r.courses = ev.map(e => {
       let l = '—', lab = 'pas dans le top ' + PP.BONNE_RANG;
+      if (e.vieille) return { e, l, lab: 'trop ancienne (> 6 mois)' };
       if (e.bonne && e.niveau) {
         if (e.niveau === 'sup' && egalAssoc(e)) { l = 'L1'; lab = 'Base'; }
         else if (e.niveau === 'sim' && egalAssoc(e)) { l = 'L2'; lab = 'Associé'; }
@@ -3527,18 +3533,18 @@ function platPlusEvaluer(data) {
       return { e, l, lab };
     });
     const cands = [];
-    for (const e of ev.filter(e => e.bonne && e.niveau)) {
+    for (const e of evF.filter(e => e.bonne && e.niveau)) {
       if (e.niveau === 'sup' && egalAssoc(e)) cands.push({ ligne: 1, e });
       if (e.niveau === 'sim' && egalAssoc(e)) cands.push({ ligne: 2, e });
       if (e.niveau === 'inf' && (e.dp == null || e.dp <= PP.POIDS_TOL_HAUSSE)) cands.push({ ligne: 4, e });
       if ((e.niveau === 'sim' || e.niveau === 'inf') && e.x.rang === 1 && e.dp != null && e.dp > PP.POIDS_EGAL) cands.push({ ligne: 5, e });
     }
     // descente de classe (Outsider) : bon résultat hors podium dans une course nettement mieux dotée, poids du jour ≤ celui de la perf +1 kg
-    for (const e of ev.filter(e => e.desc)) cands.push({ ligne: 5, e, desc: true });
-    { const rg = ev.find(e => e.reg); if (rg) cands.push({ ligne: 5, e: rg, reg: true }); }
+    for (const e of evF.filter(e => e.desc)) cands.push({ ligne: 5, e, desc: true });
+    { const rg = evF.find(e => e.reg); if (rg) cands.push({ ligne: 5, e: rg, reg: true }); }
     // ligne 3 : perfs moyennes dans des courses mieux dotées + bonne perf à ce niveau, poids du jour en baisse
-    const moySup = ev.some(e => e.moy && e.niveau === 'sup');
-    if (moySup) for (const e of ev.filter(e => e.bonne && e.niveau === 'sim' && e.dp != null && e.dp < -PP.POIDS_EGAL)) cands.push({ ligne: 3, e });
+    const moySup = evF.some(e => e.moy && e.niveau === 'sup');
+    if (moySup) for (const e of evF.filter(e => e.bonne && e.niveau === 'sim' && e.dp != null && e.dp < -PP.POIDS_EGAL)) cands.push({ ligne: 3, e });
     // Chaque candidat (perf retenue possible) est évalué avec SES propres marqueurs et SA propre forme récente ; on garde le meilleur résultat final.
     // (une vieille perf Base suivie de mauvaises courses ne masque plus une perf plus récente qui donne encore une catégorie)
     const resoudre = c => {
@@ -3699,6 +3705,7 @@ async function chargerPlatPlus() {
         const data = res[`${co.r}-${co.c}`];
         if (!data || !data.chevaux) { htmlR += `<div class="safe-row" style="cursor:default"><div class="safe-course">R${co.r}C${co.c} <span class="safe-heure">${co.heure || ''}</span></div><div class="safe-chevaux" style="color:var(--text-dim);font-weight:400">Non disponible</div></div>`; continue; }
         if (!dbg || (data.debug && data.debug.nb_chevaux_avec_perfs > 0 && !(dbg.nb_chevaux_avec_perfs > 0))) dbg = data.debug;
+        data._dateRef = dateIso;
         const ev = platPlusEvaluer(data);
         cB += ev.filter(e => e.cat === 'BASE').length; cA += ev.filter(e => e.cat === 'ASSOCIÉ').length; cO += ev.filter(e => e.cat === 'OUTSIDER').length;
         htmlR += _ppRenderCourse(co, data, ev);

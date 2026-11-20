@@ -3395,7 +3395,7 @@ const PP = {
   DOT_SUP: 1.15,          // dotation de la perf ≥ 115 % de celle du jour = supérieure
   DOT_FORT: 0.60,         // ligne 4 : dotation entre 60 et 85 % = Outsider (léger) ; < 60 % = Outsider (fort)
   DOT_INF: 0.85,          // < 85 % = inférieure (légèrement ou beaucoup : même traitement, à préciser)
-  POIDS_TOL_ASSOCIE: 2.0,   // ligne 2 (Associé) : hausse de poids tolérée jusqu'à +2 kg
+  POIDS_TOL_ASSOCIE: 2.0,   // lignes 1 (Base) et 2 (Associé) : hausse de poids tolérée jusqu'à +2 kg
   POIDS_TOL_HAUSSE: 1.0,  // lignes 1, 2 et 4 : une hausse de poids jusqu'à +1 kg par rapport à la bonne perf est tolérée (pénalité mentionnée)
   POIDS_EGAL: 0.5,        // |écart de poids| ≤ 0,5 kg = à peu près égal
   POIDS_HAUSSE_TOL: 2.0,  // +1 à 2 kg : pénalité à tolérer ; plus : outsider (les deux cas = outsider, avec mention)
@@ -3466,7 +3466,7 @@ function platPlusEvaluer(data) {
     r.courses = ev.map(e => {
       let l = '—', lab = 'pas dans le top ' + PP.BONNE_RANG;
       if (e.bonne && e.niveau) {
-        if (e.niveau === 'sup' && egalSup(e)) { l = 'L1'; lab = 'Base'; }
+        if (e.niveau === 'sup' && egalAssoc(e)) { l = 'L1'; lab = 'Base'; }
         else if (e.niveau === 'sim' && egalAssoc(e)) { l = 'L2'; lab = 'Associé'; }
         else if (e.niveau === 'inf' && (e.dp == null || e.dp <= PP.POIDS_TOL_HAUSSE)) { l = 'L4'; lab = 'Outsider'; }
         else if ((e.niveau === 'sim' || e.niveau === 'inf') && e.x.rang === 1 && e.dp != null && e.dp > PP.POIDS_EGAL) { l = 'L5'; lab = 'Outsider'; }
@@ -3478,7 +3478,7 @@ function platPlusEvaluer(data) {
     });
     const cands = [];
     for (const e of ev.filter(e => e.bonne && e.niveau)) {
-      if (e.niveau === 'sup' && egalSup(e)) cands.push({ ligne: 1, e });
+      if (e.niveau === 'sup' && egalAssoc(e)) cands.push({ ligne: 1, e });
       if (e.niveau === 'sim' && egalAssoc(e)) cands.push({ ligne: 2, e });
       if (e.niveau === 'inf' && (e.dp == null || e.dp <= PP.POIDS_TOL_HAUSSE)) cands.push({ ligne: 4, e });
       if ((e.niveau === 'sim' || e.niveau === 'inf') && e.x.rang === 1 && e.dp != null && e.dp > PP.POIDS_EGAL) cands.push({ ligne: 5, e });

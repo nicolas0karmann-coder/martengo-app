@@ -3484,23 +3484,20 @@ function platPlusEvaluer(data) {
     // ligne 3 : perfs moyennes dans des courses mieux dotées + bonne perf à ce niveau, poids du jour en baisse
     const moySup = ev.some(e => e.moy && e.niveau === 'sup');
     if (moySup) for (const e of ev.filter(e => e.bonne && e.niveau === 'sim' && e.dp != null && e.dp < -PP.POIDS_EGAL)) cands.push({ ligne: 3, e });
-    if (cands.length) {
-      // ordre de priorité : Base > Associé > Outsider [victoire > régulier > descente > léger > fort]
-      cands.forEach(k => { k.prio = k.ligne === 1 ? 1 : k.ligne === 2 ? 2 : k.ligne === 3 ? 3 : k.reg ? 5 : k.desc ? 6 : k.ligne === 5 ? 4 : ((k.e.ratio != null && k.e.ratio < PP.DOT_FORT) ? 8 : 7); });
-      cands.sort((a, b) => a.prio - b.prio); const c = cands[0];
-      r.ligne = c.ligne; r.ref = c.e; r.prio = c.prio;
-      if (c.ligne === 5 && c.reg) { r.sous = 'régulier'; r.note.push(`régularité : ${ev.filter(e => e.reg).length} top 3 à dotation similaire parmi les ${ev.length} dernières courses (poids +${PP.REG_POIDS} kg au plus)`); }
-      else if (c.ligne === 5 && c.desc) { r.sous = 'descente'; r.note.push(`descente de classe : ${c.e.x.rang}${c.e.x.nb_partants ? '/' + Math.round(c.e.x.nb_partants) : ''} dans une course à ${Math.round(c.e.ratio * 100)} % de la dotation du jour`); }
-      else if (c.ligne === 5 && c.e.niveau === 'inf') r.sous = (c.e.ratio != null && c.e.ratio < PP.DOT_FORT) ? 'fort' : 'léger';   // victoire à dotation inférieure avec poids en hausse
-      if (c.ligne === 4) r.sous = (c.e.ratio != null && c.e.ratio < PP.DOT_FORT) ? 'fort' : 'léger';
-      r.catBase = ({ 1: 'BASE', 2: 'ASSOCIÉ', 3: 'ASSOCIÉ', 4: 'OUTSIDER', 5: 'OUTSIDER' })[c.ligne];
-      if (c.ligne === 5 && !c.desc && !c.reg) r.note.push(c.e.dp <= PP.POIDS_HAUSSE_TOL ? `+${c.e.dp} kg : pénalité à tolérer` : `+${c.e.dp} kg : hausse importante`);
-      if (c.e.dp == null) r.note.push('poids de la perf inconnu');
-      if (c.ligne !== 5 && c.e.dp != null && c.e.dp > PP.POIDS_EGAL) r.note.push(`+${String(c.e.dp).replace('.', ',')} kg par rapport à la bonne perf : pénalité tolérée`);
-    }
-    // ── Marqueurs ──
-    let cat = r.catBase;
-    if (r.ligne < 6) {
+    // Chaque candidat (perf retenue possible) est évalué avec SES propres marqueurs et SA propre forme récente ; on garde le meilleur résultat final.
+    // (une vieille perf Base suivie de mauvaises courses ne masque plus une perf plus récente qui donne encore une catégorie)
+    const resoudre = c => {
+      const o = { ligne: c.ligne, ref: c.e, prio: c.prio, sous: null, note: [], marq: [] };
+      if (c.ligne === 5 && c.reg) { o.sous = 'régulier'; o.note.push(`régularité : ${ev.filter(e => e.reg).length} top 3 à dotation similaire parmi les ${ev.length} dernières courses (poids +${PP.REG_POIDS} kg au plus)`); }
+      else if (c.ligne === 5 && c.desc) { o.sous = 'descente'; o.note.push(`descente de classe : ${c.e.x.rang}${c.e.x.nb_partants ? '/' + Math.round(c.e.x.nb_partants) : ''} dans une course à ${Math.round(c.e.ratio * 100)} % de la dotation du jour`); }
+      else if (c.ligne === 5 && c.e.niveau === 'inf') o.sous = (c.e.ratio != null && c.e.ratio < PP.DOT_FORT) ? 'fort' : 'léger';   // victoire à dotation inférieure avec poids en hausse
+      if (c.ligne === 4) o.sous = (c.e.ratio != null && c.e.ratio < PP.DOT_FORT) ? 'fort' : 'léger';
+      o.catBase = ({ 1: 'BASE', 2: 'ASSOCIÉ', 3: 'ASSOCIÉ', 4: 'OUTSIDER', 5: 'OUTSIDER' })[c.ligne];
+      if (c.ligne === 5 && !c.desc && !c.reg) o.note.push(c.e.dp <= PP.POIDS_HAUSSE_TOL ? `+${c.e.dp} kg : pénalité à tolérer` : `+${c.e.dp} kg : hausse importante`);
+      if (c.e.dp == null) o.note.push('poids de la perf inconnu');
+      if (c.ligne !== 5 && c.e.dp != null && c.e.dp > PP.POIDS_EGAL) o.note.push(`+${String(c.e.dp).replace('.', ',')} kg par rapport à la bonne perf : pénalité tolérée`);
+      // ── Marqueurs ──
+      let cat = o.catBase;
       const bonnes = ev.filter(e => e.bonne);
       const memeContexte = e => {
         const x = e.x; const t = _ppTerrain(x.terrain), p = _ppPiste(x.piste);
@@ -3508,24 +3505,32 @@ function platPlusEvaluer(data) {
       };
       const autre = e => { const t = _ppTerrain(e.x.terrain), p = _ppPiste(e.x.piste); return (t && tJour && t !== tJour) || (p && pJour && p !== pJour); };
       const i0 = _PP_ORDRE.indexOf(cat);
-      if (bonnes.some(memeContexte)) { cat = _PP_ORDRE[Math.max(0, i0 - 1)]; r.marq.push({ t: '＋ hippodrome/terrain/distance', court: 'contexte', cls: 'pp-ok' }); }
+      if (bonnes.some(memeContexte)) { cat = _PP_ORDRE[Math.max(0, i0 - 1)]; o.marq.push({ t: '＋ hippodrome/terrain/distance', court: 'contexte', cls: 'pp-ok' }); }
       else if (bonnes.length && bonnes.every(autre)) {
         if (cat !== 'OUTSIDER') cat = _PP_ORDRE[Math.min(2, i0 + 1)];      // un Outsider reste Outsider : étiquette rouge seulement
-        r.marq.push({ t: '− terrain/piste différent', court: 'terrain', cls: 'pp-ko' });
+        o.marq.push({ t: '− terrain/piste différent', court: 'terrain', cls: 'pp-ko' });
       }
-    }
-    // forme depuis la perf retenue : si le cheval a fait ≥ MAUV_APRES courses hors top 3 APRÈS elle, la catégorie descend d'un cran
-    // (Base → Associé, Associé → On passe ; un Outsider reste Outsider avec l'étiquette rouge)
-    if (r.ligne < 6 && r.ref) {
-      const iRef = ev.indexOf(r.ref);
+      // forme depuis la perf retenue : si le cheval a fait ≥ MAUV_APRES courses hors top 3 APRÈS elle, la catégorie descend d'un cran
+      // (Base → Associé, Associé → On passe ; un Outsider reste Outsider avec l'étiquette rouge)
+      const iRef = ev.indexOf(c.e);
       const apres = ev.slice(0, Math.max(0, iRef)).filter(e => e.x.rang == null || !e.bonne).length;
       if (iRef > 0 && apres >= PP.MAUV_APRES) {
         if (cat === 'BASE') cat = 'ASSOCIÉ'; else if (cat === 'ASSOCIÉ') cat = 'PASSE';
-        r.marq.push({ t: `− ${apres} courses hors top 3 depuis la perf retenue`, court: 'forme', cls: 'pp-ko' });
-        r.note.push(`${apres} mauvaises courses depuis la perf retenue : catégorie abaissée d'un cran`);
+        o.marq.push({ t: `− ${apres} courses hors top 3 depuis la perf retenue`, court: 'forme', cls: 'pp-ko' });
+        o.note.push(`${apres} mauvaises courses depuis la perf retenue : catégorie abaissée d'un cran`);
       }
+      o.cat = cat; return o;
+    };
+    if (cands.length) {
+      // ordre de priorité : Base > Associé > Outsider [victoire > régulier > descente > léger > fort]
+      cands.forEach(k => { k.prio = k.ligne === 1 ? 1 : k.ligne === 2 ? 2 : k.ligne === 3 ? 3 : k.reg ? 5 : k.desc ? 6 : k.ligne === 5 ? 4 : ((k.e.ratio != null && k.e.ratio < PP.DOT_FORT) ? 8 : 7); });
+      cands.sort((a, b) => a.prio - b.prio);
+      let best = null;
+      for (const c of cands) { const o = resoudre(c); if (!best || _PP_ORDRE.indexOf(o.cat) < _PP_ORDRE.indexOf(best.cat)) best = o; }
+      r.ligne = best.ligne; r.ref = best.ref; r.prio = best.prio; r.sous = best.sous || undefined; r.catBase = best.catBase;
+      r.note.push(...best.note); r.marq.push(...best.marq); r.cat = best.cat;
     }
-    r.cat = cat;
+    let cat = r.cat;
     // hippodrome (étiquette seule, sans effet sur la catégorie) : vert = une bonne perf (top 3) sur cet hippodrome ; rouge = bonnes perfs seulement ailleurs
     {
       const bh = ev.filter(e => e.bonne);

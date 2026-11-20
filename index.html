@@ -3399,7 +3399,7 @@ const PP = {
   POIDS_TOL_HAUSSE: 1.0,  // lignes 1, 2 et 4 : une hausse de poids jusqu'à +1 kg par rapport à la bonne perf est tolérée (pénalité mentionnée)
   POIDS_EGAL: 0.5,        // |écart de poids| ≤ 0,5 kg = à peu près égal
   POIDS_HAUSSE_TOL: 2.0,  // +1 à 2 kg : pénalité à tolérer ; plus : outsider (les deux cas = outsider, avec mention)
-  DOT_DESC: 1.5, DESC_RANG: 4, DESC_PCT: 0.3,   // descente de classe : place dans les 4 premiers (ou 30 % du lot) d'une course dotée ≥ 150 % de celle du jour
+  POIDS_TOL_DESC: 2.0, DOT_DESC: 1.5, DESC_RANG: 4, DESC_PCT: 0.3,   // descente de classe : place dans les 4 premiers (ou 30 % du lot) d'une course dotée ≥ 150 % de celle du jour
   REG_MIN: 3, REG_POIDS: 3, REG2_MIN: 4, REG2_POIDS: 6,   // Outsider (régulier) : ≥ 3 top 3 à dotation similaire parmi les 5 dernières, poids du jour ≤ celui de chaque perf + 3 kg
   MAUV_APRES: 2,          // la perf retenue est suivie d'au moins N courses hors top 3 → la catégorie descend d'un cran
   DIST_TOL: 200,          // même distance ± 200 m
@@ -3449,7 +3449,7 @@ function platPlusEvaluer(data) {
       const dp = (x.poids != null && h.poids_jour != null) ? Math.round((h.poids_jour - x.poids) * 10) / 10 : null;
       const bonne = x.rang != null && x.rang <= PP.BONNE_RANG;
       const moy = x.rang != null && !bonne && x.nb_partants && x.rang <= Math.ceil(x.nb_partants / 2);
-      const desc = !bonne && x.rang != null && ratio != null && ratio >= PP.DOT_DESC && (x.rang <= PP.DESC_RANG || (x.nb_partants && x.rang <= Math.ceil(PP.DESC_PCT * x.nb_partants))) && (dp == null || dp <= PP.POIDS_TOL_HAUSSE);
+      const desc = !bonne && x.rang != null && ratio != null && ratio >= PP.DOT_DESC && (x.rang <= PP.DESC_RANG || (x.nb_partants && x.rang <= Math.ceil(PP.DESC_PCT * x.nb_partants))) && (dp == null || dp <= PP.POIDS_TOL_DESC);
       return { x, ratio, dp, bonne, moy, desc, niveau: ratio == null ? null : (ratio >= PP.DOT_SUP ? 'sup' : ratio >= PP.DOT_INF ? 'sim' : 'inf') };
     });
     // régularité : ≥ REG_MIN top 3 à dotation similaire, chacun avec poids du jour ≤ poids de la perf + REG_POIDS kg

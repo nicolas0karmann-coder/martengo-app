@@ -343,6 +343,41 @@ input[readonly]{opacity:.5;cursor:default}
 .pp-tab th{font-family:'Space Mono',monospace;font-size:9px;color:var(--text-dim);text-align:left;padding:4px 6px;border-bottom:1px solid var(--border);white-space:nowrap}
 .pp-tab td{padding:5px 6px;border-bottom:1px solid var(--border);vertical-align:top}
 .pp-ok{color:#5fc58c}.pp-ko{color:#e05c5c}.pp-q{color:var(--text-dim)}
+/* ── Plat+++ : lisibilité (réunions, courses, détails repliables) ── */
+.pp-nav{position:sticky;top:0;z-index:20;display:flex;gap:6px;overflow-x:auto;padding:8px 10px;background:var(--bg);border-bottom:1px solid var(--border2);-webkit-overflow-scrolling:touch}
+.pp-chip{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;min-width:54px;padding:4px 10px;border:1px solid var(--border2);border-radius:8px;background:var(--bg2);color:var(--text);text-decoration:none;font-family:'Bebas Neue',sans-serif;font-size:17px;letter-spacing:1px;line-height:1.1}
+.pp-chip span{font-family:'Space Mono',monospace;font-size:8px;color:var(--text-dim);letter-spacing:0}
+.pp-reu{margin-top:22px;scroll-margin-top:62px}
+.pp-reu-h{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 12px;padding:12px 14px;background:linear-gradient(90deg,rgba(200,148,42,.22),rgba(200,148,42,.04));border-top:2px solid var(--gold);border-bottom:1px solid var(--border2)}
+.pp-reu-n{font-family:'Bebas Neue',sans-serif;font-size:30px;letter-spacing:2px;color:var(--gold-lite);line-height:1}
+.pp-reu-l{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:var(--text)}
+.pp-reu-c{font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim)}
+.pp-reu-k{flex-basis:100%;font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim)}
+.pp-card{margin:10px 10px 0;padding:12px;background:var(--bg2);border:1px solid var(--border2);border-left:3px solid var(--border2);border-radius:10px;scroll-margin-top:62px}
+.pp-card.has-base{border-left-color:#3a9162}.pp-card.has-assoc{border-left-color:var(--gold)}
+.pp-card-top{display:flex;align-items:baseline;gap:8px}
+.pp-card-c{font-family:'Bebas Neue',sans-serif;font-size:26px;letter-spacing:1px;color:var(--text);line-height:1}
+.pp-card-h{font-family:'Space Mono',monospace;font-size:12px;color:var(--gold-lite)}
+.pp-cond{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0 2px}
+.pp-cond span{padding:1px 7px;border:1px solid var(--border2);border-radius:10px;font-family:'Space Mono',monospace;font-size:10px;color:var(--text-mid)}
+.pp-cond span.age{border-color:var(--gold);color:var(--gold-lite)}
+.pp-more{display:inline-block;margin-top:9px;padding:5px 11px;border:1px solid var(--gold);border-radius:6px;color:var(--gold-lite);font-family:'Space Mono',monospace;font-size:10px;text-decoration:none}
+.pp-grp{margin-top:10px;border-radius:8px;border:1px solid var(--border2);overflow:hidden}
+.pp-grp>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:8px 10px;font-family:'Space Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.5px}
+.pp-grp>summary::-webkit-details-marker{display:none}
+.pp-grp>summary::after{content:'▾';color:var(--text-dim)}.pp-grp[open]>summary::after{content:'▴'}
+.pp-grp.g-base>summary{background:rgba(58,145,98,.16);color:#5fc58c}.pp-grp.g-assoc>summary{background:rgba(200,148,42,.14);color:var(--gold-lite)}
+.pp-grp.g-out>summary{background:rgba(181,96,58,.14);color:#e08a60}.pp-grp.g-passe>summary{background:var(--bg3);color:var(--text-dim)}
+.pp-hd{margin:0;border-top:1px solid var(--border);background:var(--bg)}
+.pp-hd>summary{list-style:none;cursor:pointer;padding:9px 10px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:13px}
+.pp-hd>summary::-webkit-details-marker{display:none}
+.pp-hd>summary::before{content:'▸';color:var(--text-dim);font-size:11px}.pp-hd[open]>summary::before{content:'▾'}
+.pp-hd[open]>summary{background:var(--bg3);border-bottom:1px solid var(--border2)}
+.pp-hd .pp-body{padding:4px 10px 10px}
+.pp-hd .pp-h{margin:6px 0 0;padding:0;background:none;border:none}
+.pp-tools{display:flex;gap:8px;margin-top:10px}
+.pp-tools a{padding:4px 9px;border:1px solid var(--border2);border-radius:6px;color:var(--text-mid);font-family:'Space Mono',monospace;font-size:10px;text-decoration:none}
+
 .pp-h{margin:10px 0;padding:10px 10px 6px;background:var(--bg2);border:1px solid var(--border);border-radius:8px}
 .pp-h-top{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14px}
 .pp-h-sub{font-size:11px;color:var(--text-mid);margin-top:4px;line-height:1.6}
@@ -3566,29 +3601,31 @@ function _ppRenderCourse(co, data, evals) {
   const par = cat => evals.filter(e => e.cat === cat).sort(_ppTri);
   const fmt = e => `<b>#${e.numero}</b> ${(e.nom || '').split(' ')[0]}${e.sous ? ` <span class="pp-q">(${e.sous})</span>` : ''}${e.marq.map(m => ` <span class="${m.cls}" style="font-size:10px">[${m.court}]</span>`).join('')}`;
   const ligne = (cls, lab, lst) => `<div class="pp-box"><span class="pp-tag ${cls}">${lab}</span><span>${lst.length ? lst.map(fmt).join(' · ') : '<span class="pp-q">—</span>'}</span></div>`;
-  const base = par('BASE'), assoc = par('ASSOCIÉ'), out = par('OUTSIDER'), excl = evals.filter(e => e.cat === 'EXCLU'), passe = par('PASSE');
+  const base = par('BASE'), assoc = par('ASSOCIÉ'), out = par('OUTSIDER'), excl = par('EXCLU'), passe = par('PASSE');
   const sansData = evals.length && evals.every(e => e.exclu === 'Aucune performance disponible');
   const id = `pp-${co.r}-${co.c}`;
-  let html = `<div class="safe-row" style="cursor:default">
-    <div class="safe-top" style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">
-      <div class="safe-course">R${co.r}C${co.c} <span class="safe-heure">${co.heure || ''}</span></div>
-      <div style="font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);text-align:right">${c.hippodrome || 'hippodrome ?'} · ${c.distance || ''} m · ${c.terrain || 'terrain ?'} · ${c.piste || 'piste ?'}${c.age_cond ? ' · <b>' + c.age_cond + '</b>' : ''} · ${c.dotation ? Number(c.dotation).toLocaleString('fr-FR') + (((data.debug && data.debug.devise_approx) || (data._facDev && data._facDev !== 1)) ? ' (unité PMU, ≠ €)' : ' €') : ''}${((data.debug && data.debug.devise_approx) || (data._facDev && data._facDev !== 1)) ? ' · <span style="color:var(--gold,#e0a030)">devise locale : dotations recalées sur la médiane du lot (approx.)</span>' : ''}</div>
-    </div>`;
+  const devise = (data.debug && data.debug.devise_approx) || (data._facDev && data._facDev !== 1);
+  const chips = [c.hippodrome, c.distance ? c.distance + ' m' : '', c.terrain, c.piste].filter(Boolean).map(t => `<span>${t}</span>`).join('')
+    + (c.age_cond ? `<span class="age">${c.age_cond}</span>` : '')
+    + (c.dotation ? `<span>${Number(c.dotation).toLocaleString('fr-FR')}${devise ? ' (unité PMU, ≠ €)' : ' €'}</span>` : '')
+    + (devise ? '<span class="pp-ko">devise locale : dotations recalées (approx.)</span>' : '');
+  let html = `<div class="pp-card ${base.length ? 'has-base' : (assoc.length ? 'has-assoc' : '')}" id="${id}-card">
+    <div class="pp-card-top"><span class="pp-card-c">C${co.c}</span><span class="pp-card-h">${co.heure || ''}</span><span class="pp-q" style="font-size:10px;margin-left:auto">${evals.length} partants</span></div>
+    <div class="pp-cond">${chips}</div>`;
   if (sansData) html += `<div class="safe-chevaux" style="color:var(--text-dim);font-weight:400">Performances détaillées indisponibles pour cette course</div>`;
   else {
     html += ligne('pp-base', 'BASE', base) + ligne('pp-assoc', 'ASSOCIÉ', assoc) + ligne('pp-out', 'OUTSIDER', out);
-    html += `<div style="margin-top:7px;font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim)">${passe.length} on passe · ${excl.length} exclus (filtres) · <a href="#" onclick="event.preventDefault();const t=document.getElementById('${id}');t.style.display=t.style.display==='none'?'block':'none'" style="color:var(--gold-lite)">détail ▾</a></div>`;
+    html += `<div style="margin-top:7px;font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim)">${passe.length} on passe · ${excl.length} exclus</div>`;
+    html += `<a href="#" class="pp-more" onclick="event.preventDefault();const t=document.getElementById('${id}');const o=t.style.display==='none';t.style.display=o?'block':'none';this.textContent=o?'▴ Masquer le détail':'▾ Détail des chevaux'">▾ Détail des chevaux</a>`;
     const jj = d => { if (!d) return '?'; const q = d.split('-'); return q.length === 3 ? `${q[2]}/${q[1]}` : d; };
     const kg = v => String(Math.abs(v)).replace('.', ',') + ' kg';
-    // autres valeurs de poids reçues de PMU pour la même ligne (pour vérifier le bon champ)
     const autresPoids = (src, retenu) => { if (!src) return ''; const a = Object.entries(src).filter(([k, v]) => v !== retenu); return a.length ? `<br><span class="pp-q" style="font-size:9px">${a.map(([k, v]) => k.replace('poidsConditionMonte', 'monté').replace('handicapPoids', 'handicap').replace('poidsJockey', 'jockey') + ' ' + String(v).replace('.', ',')).join(' · ')}</span>` : ''; };
     const fmtKg = dp => dp == null ? '<span class="pp-q">poids ?</span>' : (Math.abs(dp) <= PP.POIDS_EGAL ? '= poids du jour' : dp > 0 ? `<span class="pp-ko">aujourd'hui +${kg(dp)}</span>` : `<span class="pp-ok">aujourd'hui −${kg(dp)}</span>`);
-    const cartes = evals.slice().sort((a, b) => (_PP_ORDRE.indexOf(a.cat) < 0 ? 9 : _PP_ORDRE.indexOf(a.cat)) - (_PP_ORDRE.indexOf(b.cat) < 0 ? 9 : _PP_ORDRE.indexOf(b.cat)) || _ppTri(a, b)).map(e => {
+    const carte = e => {
       const cl = ({ 'BASE': 'pp-base', 'ASSOCIÉ': 'pp-assoc', 'OUTSIDER': 'pp-out' })[e.cat] || 'pp-passe';
-      const verdict = `<span class="pp-tag ${cl}">${e.exclu ? 'EXCLU' : e.cat}${e.sous && e.cat === 'OUTSIDER' ? ' (' + e.sous + ')' : ''}</span>`;
-      const tete = `<div class="pp-h-top"><span><b>#${e.numero}</b> ${e.nom || ''}</span>${verdict}</div>`;
+      const verdict = `<span class="pp-tag ${cl}" style="min-width:0">${e.exclu ? 'EXCLU' : e.cat}${e.sous && e.cat === 'OUTSIDER' ? ' (' + e.sous + ')' : ''}</span>`;
       const marq = e.marq.map(m => `<span class="${m.cls} pp-m">${m.court}</span>`).join('');
-      const infos = `<b>Poids du jour : ${e.h.poids_jour != null ? String(e.h.poids_jour).replace('.', ',') + ' kg' : '?'}</b>${autresPoids(e.h.poids_jour_src, e.h.poids_jour).replace('<br>', ' ')} · dernière course il y a ${e.h.jours_derniere ?? '?'} j` + (e.ligne < 6 ? ` · <b>ligne ${e.ligne}</b>` : ' · aucune ligne') + (e.catBase !== e.cat && e.ligne < 6 ? ` · catégorie de départ ${e.catBase.toLowerCase()}` : '');
+      const resume = `<summary><span><b>#${e.numero}</b> ${e.nom || ''}</span>${verdict}${marq ? `<span>${marq}</span>` : ''}</summary>`;
       const lignes = (e.courses || []).map(c => {
         const x = c.e.x, rg = x.rang ? x.rang + (x.nb_partants ? '<span class="pp-q">/' + Math.round(x.nb_partants) + '</span>' : '') : '?';
         const dot = c.e.ratio == null ? '<span class="pp-q">?</span>' : `${Math.round(c.e.ratio * 100)} % <span class="pp-q">${c.e.niveau === 'sup' ? '▲' : c.e.niveau === 'inf' ? '▼' : '≈'}</span>`;
@@ -3597,11 +3634,18 @@ function _ppRenderCourse(co, data, evals) {
         const res = c.l === '—' ? `<span class="pp-q">${c.lab}</span>` : `<b>${c.l}</b> ${c.lab}`;
         return `<tr class="${util ? 'pp-util' : ''}"><td>${jj(x.date)}</td><td>${lieu || '?'}</td><td>${rg}</td><td>${dot}</td><td>${x.poids != null ? '<b>' + String(x.poids).replace('.', ',') + ' kg</b>' : '?'}${autresPoids(x.poids_src, x.poids)}<br><span style="font-size:10px">${fmtKg(c.e.dp)}</span></td><td>${res}</td></tr>`;
       }).join('');
-      if (e.exclu) return `<div class="pp-h">${tete}<div class="pp-h-sub pp-ko">${e.exclu}</div>${lignes ? `<div class="pp-h-sub"><b>Poids du jour : ${e.h.poids_jour != null ? String(e.h.poids_jour).replace('.', ',') + ' kg' : '?'}</b> · dernière course il y a ${e.h.jours_derniere ?? '?'} j</div><table class="pp-c"><tr><th>Date</th><th>Course</th><th>Place</th><th>Dotation</th><th>Poids porté</th><th>Résultat</th></tr>${lignes}</table>` : ''}</div>`;
-      return `<div class="pp-h">${tete}<div class="pp-h-sub">${infos}${marq ? ' · ' + marq : ''}</div>${e.note.length ? `<div class="pp-h-sub pp-q">${e.note.join(' · ')}</div>` : ''}
-        <table class="pp-c"><tr><th>Date</th><th>Course</th><th>Place</th><th>Dotation</th><th>Poids porté</th><th>Donne</th></tr>${lignes}</table></div>`;
-    }).join('');
-    html += `<div id="${id}" style="display:none">${c.conditions ? `<div class="pp-h-sub pp-q" style="padding:6px 2px">Conditions : ${String(c.conditions).replace(/</g, '&lt;')}</div>` : ''}${cartes}</div>`;
+      const tab = lignes ? `<table class="pp-c"><tr><th>Date</th><th>Course</th><th>Place</th><th>Dotation</th><th>Poids porté</th><th>${e.exclu ? 'Résultat' : 'Donne'}</th></tr>${lignes}</table>` : '';
+      const poidsJ = `<b>Poids du jour : ${e.h.poids_jour != null ? String(e.h.poids_jour).replace('.', ',') + ' kg' : '?'}</b>`;
+      if (e.exclu) return `<details class="pp-hd">${resume}<div class="pp-body"><div class="pp-h"><div class="pp-h-sub pp-ko">${e.exclu}</div><div class="pp-h-sub">${poidsJ} · dernière course il y a ${e.h.jours_derniere ?? '?'} j</div>${tab}</div></div></details>`;
+      const infos = `${poidsJ}${autresPoids(e.h.poids_jour_src, e.h.poids_jour).replace('<br>', ' ')} · dernière course il y a ${e.h.jours_derniere ?? '?'} j` + (e.ligne < 6 ? ` · <b>ligne ${e.ligne}</b>` : ' · aucune ligne') + (e.catBase !== e.cat && e.ligne < 6 ? ` · catégorie de départ ${e.catBase.toLowerCase()}` : '');
+      return `<details class="pp-hd">${resume}<div class="pp-body"><div class="pp-h"><div class="pp-h-sub">${infos}</div>${e.note.length ? `<div class="pp-h-sub pp-q">${e.note.join(' · ')}</div>` : ''}${tab}</div></div></details>`;
+    };
+    const groupe = (cls, titre, lst, ouvert) => lst.length ? `<details class="pp-grp ${cls}"${ouvert ? ' open' : ''}><summary><span>${titre} · ${lst.length}</span></summary>${lst.map(carte).join('')}</details>` : '';
+    const tout = (o) => `onclick="event.preventDefault();document.querySelectorAll('#${id} details.pp-hd').forEach(d=>d.open=${o})"`;
+    html += `<div id="${id}" style="display:none">${c.conditions ? `<div class="pp-h-sub pp-q" style="padding:8px 2px 0">Conditions : ${String(c.conditions).replace(/</g, '&lt;')}</div>` : ''}
+      <div class="pp-tools"><a href="#" ${tout('true')}>Tout déplier</a><a href="#" ${tout('false')}>Tout replier</a></div>
+      ${groupe('g-base', 'BASE', base, true)}${groupe('g-assoc', 'ASSOCIÉ', assoc, true)}${groupe('g-out', 'OUTSIDER', out, true)}${groupe('g-passe', 'ON PASSE', passe, false)}${groupe('g-passe', 'EXCLUS', excl, false)}
+      <a href="#" class="pp-more" onclick="event.preventDefault();document.getElementById('${id}').style.display='none';const k=document.getElementById('${id}-card');k.querySelector('.pp-more').textContent='▾ Détail des chevaux';k.scrollIntoView({behavior:'smooth',block:'start'})">▴ Replier et remonter à la course</a></div>`;
   }
   return html + '</div>';
 }
@@ -3633,16 +3677,20 @@ async function chargerPlatPlus() {
     platPlusCharge = true;
     const byR = {}; for (const co of courses) (byR[co.r] = byR[co.r] || { lieu: co.lieu, courses: [] }).courses.push(co);
     let nBase = 0, dbg = null;
-    let body = '';
+    let body = '', nav = '';
     for (const [rNum, rd] of Object.entries(byR)) {
-      body += `<div class="dash-reunion" style="font-size:16px;padding:10px 14px 6px">R${rNum} · ${rd.lieu}</div>`;
+      let htmlR = '', cB = 0, cA = 0, cO = 0;
       for (const co of rd.courses) {
         const data = res[`${co.r}-${co.c}`];
-        if (!data || !data.chevaux) { body += `<div class="safe-row" style="cursor:default"><div class="safe-course">R${co.r}C${co.c} <span class="safe-heure">${co.heure || ''}</span></div><div class="safe-chevaux" style="color:var(--text-dim);font-weight:400">Non disponible</div></div>`; continue; }
+        if (!data || !data.chevaux) { htmlR += `<div class="safe-row" style="cursor:default"><div class="safe-course">R${co.r}C${co.c} <span class="safe-heure">${co.heure || ''}</span></div><div class="safe-chevaux" style="color:var(--text-dim);font-weight:400">Non disponible</div></div>`; continue; }
         if (!dbg || (data.debug && data.debug.nb_chevaux_avec_perfs > 0 && !(dbg.nb_chevaux_avec_perfs > 0))) dbg = data.debug;
-        const ev = platPlusEvaluer(data); nBase += ev.filter(e => e.cat === 'BASE').length;
-        body += _ppRenderCourse(co, data, ev);
+        const ev = platPlusEvaluer(data);
+        cB += ev.filter(e => e.cat === 'BASE').length; cA += ev.filter(e => e.cat === 'ASSOCIÉ').length; cO += ev.filter(e => e.cat === 'OUTSIDER').length;
+        htmlR += _ppRenderCourse(co, data, ev);
       }
+      nBase += cB;
+      nav += `<a href="#" class="pp-chip" onclick="event.preventDefault();document.getElementById('pp-R${rNum}').scrollIntoView({behavior:'smooth',block:'start'})">R${rNum}<span>${cB}B · ${cA}A · ${cO}O</span></a>`;
+      body += `<section id="pp-R${rNum}" class="pp-reu"><div class="pp-reu-h"><span class="pp-reu-n">R${rNum}</span><span class="pp-reu-l">${rd.lieu}</span><span class="pp-reu-c">${rd.courses.length} course${rd.courses.length > 1 ? 's' : ''}</span><span class="pp-reu-k"><b class="pp-ok">${cB}</b> base · <b style="color:var(--gold-lite)">${cA}</b> associé · <b style="color:#e08a60">${cO}</b> outsider</span></div>${htmlR}</section>`;
     }
     const cles = dbg && dbg.cles_perf && dbg.cles_perf.length ? dbg.cles_perf.join(', ') : 'aucune (performances non reçues)';
     el.innerHTML = `<div class="dash-refresh"><span>🏇 Plat+++ · ${courses.length} courses · ${nBase} base(s)</span>
@@ -3652,7 +3700,7 @@ async function chargerPlatPlus() {
         <span class="pp-ko">[rentrée]</span> plus de ${PP.REPOS_MAX_J / 30} mois sans courir (badge seul, le cheval reste classé).${PP.NB_COURSES_MIN > 0 ? ` Filtre : ≥ ${PP.NB_COURSES_MIN} courses/12 mois.` : ''} « Bonne perf » = top ${PP.BONNE_RANG}.<br>
         <span class="pp-ok">[jockey]</span> jockey/entraîneur dans les 25 % meilleurs · <span class="pp-ok">[hippo]</span> bonne perf sur cet hippodrome · <span class="pp-ko">[terrain] [hippo] [corde] [distance]</span> signaux défavorables (un Outsider reste Outsider) · Outsider (léger) : dotation 60-85 % · (fort) : &lt; 60 %.<br>
         <span style="font-size:9px;word-break:break-all">Diagnostic PMU : HTTP ${dbg ? JSON.stringify(dbg.statuts_http) : '?'} · chevaux avec perfs ${dbg ? dbg.nb_chevaux_avec_perfs : '?'} · perfs datées ${dbg ? dbg.nb_perfs_avec_date : '?'}<br>Champs d'une perf : ${cles}<br>Champs d'un cheval : ${dbg && dbg.cles_cheval && dbg.cles_cheval.length ? dbg.cles_cheval.join(', ') : '—'}<br>Exemple : ${dbg && dbg.echantillon_perf ? JSON.stringify(dbg.echantillon_perf) : '—'}</span>
-      </div>` + body;
+      </div><div class="pp-nav">${nav}</div>` + body;
   } catch (e) {
     el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>${e.message}<br><button class="btn secondary" onclick="platPlusCharge=false;chargerPlatPlus()" style="margin-top:12px;font-size:10px">↺ Réessayer</button></div>`;
   }

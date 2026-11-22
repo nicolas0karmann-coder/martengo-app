@@ -375,6 +375,8 @@ input[readonly]{opacity:.5;cursor:default}
 .pp-hd[open]>summary{background:var(--bg3);border-bottom:1px solid var(--border2)}
 .pp-hd .pp-body{padding:4px 10px 10px}
 .pp-hd .pp-h{margin:6px 0 0;padding:0;background:none;border:none}
+.pp-val{font-family:'Space Mono',monospace;font-size:10px;color:var(--gold-lite);margin-left:5px;white-space:nowrap}
+.pp-valbox{margin-top:6px;padding:6px 8px;border:1px solid var(--gold);border-radius:6px;background:var(--gold-dim);font-size:11px;line-height:1.6}
 .pp-tools{display:flex;gap:8px;margin-top:10px}
 .pp-tools a{padding:4px 9px;border:1px solid var(--border2);border-radius:6px;color:var(--text-mid);font-family:'Space Mono',monospace;font-size:10px;text-decoration:none}
 
@@ -3617,10 +3619,53 @@ function platPlusEvaluer(data) {
 
 function _ppTri(a, b) { return ((a.cat === 'OUTSIDER' && b.cat === 'OUTSIDER') ? ((a.prio || 9) - (b.prio || 9)) : 0) || ((b.jeBon ? 1 : 0) - (a.jeBon ? 1 : 0)) || ((a.cordeMauvaise ? 1 : 0) - (b.cordeMauvaise ? 1 : 0)) || (a.numero - b.numero); }
 
+// ── Valeur du cheval : modèle appris sur TOUT l'historique (place corrigée du nombre de partants, niveau de la course, poids, force de type Elo = qualité des adversaires battus).
+// Calculée cheval par cheval (aucun lien avec les autres partants du jour) à partir de valeurs_plat.json, produit chaque jour par le script Colab valeurs_plat_quotidien.py.
+let PP_VAL;   // undefined = pas encore chargé · null = fichier absent
+async function chargerValeursPP() {
+  if (PP_VAL !== undefined) return PP_VAL;
+  try { const r = await fetch('valeurs_plat.json?v=' + Date.now(), { cache: 'no-store' }); PP_VAL = r.ok ? await r.json() : null; } catch (e) { PP_VAL = null; }
+  return PP_VAL;
+}
+const _ppCle = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+function _ppValeurCheval(V, st, lnD, Wj, T) {
+  const c = V.coefs, K = c.k_prior, kap = c.elo.kappa;
+  const R = st[1], last = st[2];
+  const f = Math.pow(0.5, (T - V.t0) / c.hl);
+  const sw = st[3] * f, Spl = st[4] * f, Sg = st[5] * f, SL = st[6] * f, SgL = st[7] * f, swp = st[8] * f, SP = st[9] * f, SgP = st[10] * f, Sgp = st[11] * f;
+  const Reff = (last > -1e8) ? R * Math.pow(0.5, Math.min((T - last) / c.elo.demi_vie, 1000)) : 0;
+  const core = dW => {
+    const w = Wj + dW, okL = isFinite(lnD), okW = isFinite(w), den = sw + K, X = new Array(8).fill(0);
+    X[0] = Spl / den; X[1] = Sg / den;
+    if (okL) { X[2] = (SL - lnD * sw) / den; X[3] = (SgL - lnD * Sg) / den; }
+    if (okW) { X[4] = (SP - w * swp) / (swp + K); X[5] = (SgP - w * Sgp) / (swp + K); }
+    X[6] = Math.log1p(sw);
+    X[7] = Reff - kap * (okW ? (w - 56) : 0);
+    return X.map((x, i) => (x - c.mu[i]) / c.sd[i] * c.coef[i]);
+  };
+  const a = core(0), sum = x => x.reduce((p, q) => p + q, 0);
+  return { v: sum(a), place: a[0] + a[1] + a[6], niveau: a[2] + a[3], poids: a[4] + a[5], force: a[7], p1: sum(core(1)), p3: sum(core(3)) };
+}
+function _ppAttacherValeurs(ev, data) {
+  const V = PP_VAL; if (!V || !V.chevaux) return;
+  const T = Date.parse(data._dateRef + 'T00:00:00Z') / 864e5;
+  if (!(T >= V.t0)) return;                                           // jamais de valeur « du futur » pour une date passée
+  const dot = Number((data.course || {}).dotation);
+  if (!(dot > 0) || (data._facDev && data._facDev !== 1)) return;     // dotation en devise locale : valeur non comparable
+  const lnD = Math.log(dot);
+  for (const e of ev) {
+    const st = V.chevaux[_ppCle(e.nom)]; if (!st) continue;
+    const Wj = (e.h && e.h.poids_jour != null) ? Number(e.h.poids_jour) : NaN;
+    e.val = _ppValeurCheval(V, st, lnD, Wj, T);
+  }
+}
+const _ppV = v => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(2).replace('.', ',');
+const _ppValLigne = e => !e.val ? '' : `<div class="pp-valbox">Valeur <b>${_ppV(e.val.v)}</b> · ×${Math.exp(e.val.v).toFixed(2).replace('.', ',')} les chances d'un cheval moyen<br><span class="pp-q">place ${_ppV(e.val.place)} · niveau de course ${_ppV(e.val.niveau)} · poids ${_ppV(e.val.poids)} · force (adversaires battus) ${_ppV(e.val.force)}</span><br>à +1 kg : <b>${_ppV(e.val.p1)}</b> · à +3 kg : <b>${_ppV(e.val.p3)}</b></div>`;
+
 function _ppRenderCourse(co, data, evals) {
   const c = data.course || {};
   const par = cat => evals.filter(e => e.cat === cat).sort(_ppTri);
-  const fmt = e => `<b>#${e.numero}</b> ${(e.nom || '').split(' ')[0]}${e.sous ? ` <span class="pp-q">(${e.sous})</span>` : ''}${e.marq.map(m => ` <span class="${m.cls}" style="font-size:10px">[${m.court}]</span>`).join('')}`;
+  const fmt = e => `<b>#${e.numero}</b> ${(e.nom || '').split(' ')[0]}${e.val ? `<span class="pp-val">V${_ppV(e.val.v)}</span>` : ''}${e.sous ? ` <span class="pp-q">(${e.sous})</span>` : ''}${e.marq.map(m => ` <span class="${m.cls}" style="font-size:10px">[${m.court}]</span>`).join('')}`;
   const ligne = (cls, lab, lst) => `<div class="pp-box"><span class="pp-tag ${cls}">${lab}</span><span>${lst.length ? lst.map(fmt).join(' · ') : '<span class="pp-q">—</span>'}</span></div>`;
   const base = par('BASE'), assoc = par('ASSOCIÉ'), out = par('OUTSIDER'), excl = par('EXCLU'), passe = par('PASSE');
   const sansData = evals.length && evals.every(e => e.exclu === 'Aucune performance disponible');
@@ -3646,7 +3691,7 @@ function _ppRenderCourse(co, data, evals) {
       const cl = ({ 'BASE': 'pp-base', 'ASSOCIÉ': 'pp-assoc', 'OUTSIDER': 'pp-out' })[e.cat] || 'pp-passe';
       const verdict = `<span class="pp-tag ${cl}" style="min-width:0">${e.exclu ? 'EXCLU' : e.cat}${e.sous && e.cat === 'OUTSIDER' ? ' (' + e.sous + ')' : ''}</span>`;
       const marq = e.marq.map(m => `<span class="${m.cls} pp-m">${m.court}</span>`).join('');
-      const resume = `<summary><span><b>#${e.numero}</b> ${e.nom || ''}</span>${verdict}${marq ? `<span>${marq}</span>` : ''}</summary>`;
+      const resume = `<summary><span><b>#${e.numero}</b> ${e.nom || ''}</span>${verdict}${e.val ? `<span class="pp-val">V ${_ppV(e.val.v)}</span>` : ''}${marq ? `<span>${marq}</span>` : ''}</summary>`;
       const lignes = (e.courses || []).map(c => {
         const x = c.e.x, rg = x.rang ? x.rang + (x.nb_partants ? '<span class="pp-q">/' + Math.round(x.nb_partants) + '</span>' : '') : '?';
         const dot = c.e.ratio == null ? '<span class="pp-q">?</span>' : `${Math.round(c.e.ratio * 100)} % <span class="pp-q">${c.e.niveau === 'sup' ? '▲' : c.e.niveau === 'inf' ? '▼' : '≈'}</span>`;
@@ -3657,9 +3702,9 @@ function _ppRenderCourse(co, data, evals) {
       }).join('');
       const tab = lignes ? `<div class="pp-sc"><table class="pp-c"><tr><th>Date</th><th>Course</th><th>Place</th><th>Dotation</th><th>Poids porté</th><th>${e.exclu ? 'Résultat' : 'Donne'}</th></tr>${lignes}</table></div>` : '';
       const poidsJ = `<b>Poids du jour : ${e.h.poids_jour != null ? String(e.h.poids_jour).replace('.', ',') + ' kg' : '?'}</b>`;
-      if (e.exclu) return `<details class="pp-hd">${resume}<div class="pp-body"><div class="pp-h"><div class="pp-h-sub pp-ko">${e.exclu}</div><div class="pp-h-sub">${poidsJ} · dernière course il y a ${e.h.jours_derniere ?? '?'} j</div>${tab}</div></div></details>`;
+      if (e.exclu) return `<details class="pp-hd">${resume}<div class="pp-body"><div class="pp-h"><div class="pp-h-sub pp-ko">${e.exclu}</div><div class="pp-h-sub">${poidsJ} · dernière course il y a ${e.h.jours_derniere ?? '?'} j</div>${_ppValLigne(e)}${tab}</div></div></details>`;
       const infos = `${poidsJ}${autresPoids(e.h.poids_jour_src, e.h.poids_jour).replace('<br>', ' ')} · dernière course il y a ${e.h.jours_derniere ?? '?'} j` + (e.ligne < 6 ? ` · <b>ligne ${e.ligne}</b>` : ' · aucune ligne') + (e.catBase !== e.cat && e.ligne < 6 ? ` · catégorie de départ ${e.catBase.toLowerCase()}` : '');
-      return `<details class="pp-hd">${resume}<div class="pp-body"><div class="pp-h"><div class="pp-h-sub">${infos}</div>${e.note.length ? `<div class="pp-h-sub pp-q">${e.note.join(' · ')}</div>` : ''}${tab}</div></div></details>`;
+      return `<details class="pp-hd">${resume}<div class="pp-body"><div class="pp-h"><div class="pp-h-sub">${infos}</div>${e.note.length ? `<div class="pp-h-sub pp-q">${e.note.join(' · ')}</div>` : ''}${_ppValLigne(e)}${tab}</div></div></details>`;
     };
     const groupe = (cls, titre, lst, ouvert) => lst.length ? `<details class="pp-grp ${cls}"${ouvert ? ' open' : ''}><summary><span>${titre} · ${lst.length}</span></summary>${lst.map(carte).join('')}</details>` : '';
     const tout = (o) => `onclick="event.preventDefault();document.querySelectorAll('#${id} details.pp-hd').forEach(d=>d.open=${o})"`;
@@ -3697,6 +3742,7 @@ async function chargerPlatPlus() {
     }
     platPlusCharge = true;
     const byR = {}; for (const co of courses) (byR[co.r] = byR[co.r] || { lieu: co.lieu, courses: [] }).courses.push(co);
+    await chargerValeursPP();
     let nBase = 0, dbg = null;
     let body = '', nav = '';
     for (const [rNum, rd] of Object.entries(byR)) {
@@ -3707,6 +3753,7 @@ async function chargerPlatPlus() {
         if (!dbg || (data.debug && data.debug.nb_chevaux_avec_perfs > 0 && !(dbg.nb_chevaux_avec_perfs > 0))) dbg = data.debug;
         data._dateRef = dateIso;
         const ev = platPlusEvaluer(data);
+        _ppAttacherValeurs(ev, data);
         cB += ev.filter(e => e.cat === 'BASE').length; cA += ev.filter(e => e.cat === 'ASSOCIÉ').length; cO += ev.filter(e => e.cat === 'OUTSIDER').length;
         htmlR += _ppRenderCourse(co, data, ev);
       }
@@ -3723,6 +3770,7 @@ async function chargerPlatPlus() {
         <span class="pp-ko">[rentrée]</span> plus de ${PP.REPOS_MAX_J / 30} mois sans courir (badge seul, le cheval reste classé).${PP.NB_COURSES_MIN > 0 ? ` Filtre : ≥ ${PP.NB_COURSES_MIN} courses/12 mois.` : ''} « Bonne perf » = top ${PP.BONNE_RANG}.<br>
         <span class="pp-ok">[jockey]</span> jockey/entraîneur dans les 25 % meilleurs · <span class="pp-ok">[hippo]</span> bonne perf sur cet hippodrome · <span class="pp-ko">[terrain] [hippo] [corde] [distance]</span> signaux défavorables (un Outsider reste Outsider) · Outsider (léger) : dotation 60-85 % · (fort) : &lt; 60 %.<br>
         <span style="font-size:9px;word-break:break-all">Diagnostic PMU : HTTP ${dbg ? JSON.stringify(dbg.statuts_http) : '?'} · chevaux avec perfs ${dbg ? dbg.nb_chevaux_avec_perfs : '?'} · perfs datées ${dbg ? dbg.nb_perfs_avec_date : '?'}<br>Champs d'une perf : ${cles}<br>Champs d'un cheval : ${dbg && dbg.cles_cheval && dbg.cles_cheval.length ? dbg.cles_cheval.join(', ') : '—'}<br>Exemple : ${dbg && dbg.echantillon_perf ? JSON.stringify(dbg.echantillon_perf) : '—'}</span>
+        <br><b style="color:var(--gold-lite)">Valeur</b> : ${PP_VAL && PP_VAL.chevaux ? `note de chaque cheval calculée sur tout son historique (arrêté au ${(PP_VAL.derniere_course || '').split('-').reverse().join('/')}, export du ${(PP_VAL.date_ref || '').split('-').reverse().join('/')}) : place corrigée du nombre de partants, niveau de la course, poids, force des adversaires battus. 0 = cheval moyen ; +0,7 ≈ 2 × plus de chances. Indépendante des autres partants. Elle classe bien mais n'apporte rien de plus que le marché (pas un signal de pari).` : 'indisponible (fichier valeurs_plat.json absent ou plus ancien que la date choisie).'}
       </div></details><div class="pp-nav">${nav}</div>` + body;
   } catch (e) {
     el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>${e.message}<br><button class="btn secondary" onclick="platPlusCharge=false;chargerPlatPlus()" style="margin-top:12px;font-size:10px">↺ Réessayer</button></div>`;

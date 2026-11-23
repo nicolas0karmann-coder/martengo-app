@@ -3455,7 +3455,7 @@ let safePlatCharge = false;
 
 // ============================================================
 // PLAT+++ — grille de sélection « Plat handicap » (document : Grille de sélection – Plat handicap)
-// Étape 0 : filtres d'exclusion · Étape 1 : catégorie (lignes 1 à 6) · Marqueurs : terrain/piste, corde, jockey/entraîneur
+// Étape 0 : filtres d'exclusion · Étape 1 : catégorie (lignes 1 à 6) · Étiquettes : contexte, forme, hippo, distance, rentrée, corde, jockey/entraîneur
 // Les seuils marqués « à préciser » dans le document sont fixés ici (objet PP) : à ajuster après test sur courses passées.
 // ============================================================
 let platPlusCharge = false;
@@ -3477,6 +3477,9 @@ const PP = {
   PERF_AGE_MAX_J: 183,    // une perf de plus de ~6 mois ne peut plus faire entrer le cheval dans une catégorie
   MAUV_RANG: 4,           // une course est « mauvaise » si le cheval finit au-delà de cette place (4e = pas mauvaise)
   MAUV_APRES: 2,          // la perf retenue est suivie d'au moins N courses hors top 3 → la catégorie descend d'un cran
+  CTX_DOT_MIN: 0.90,      // étiquette « contexte » : la bonne perf doit avoir une dotation ≥ 90 % de celle du jour (égale ou supérieure, −10 % toléré)
+  FORME_VERTE_RANG: 3,    // étiquette « forme » verte : la dernière course est dans le top 3…
+  FORME_VERTE_J: 60,      // …et date de 60 jours ou moins
   DIST_TOL: 200,          // même distance ± 200 m
   CORDE_DIST_MAX: 1400,   // corde défavorable surtout sur 1000 à 1400 m
   CORDE_EXT_RATIO: 0.6    // corde « extérieure » = numéro de corde > 60 % du lot (approximation : à vérifier selon l'hippodrome et le jour)
@@ -3509,7 +3512,7 @@ function platPlusEvaluer(data) {
   let facDev = 1;
   if (_al.length && dot > 0) { _al.sort((a, b) => a - b); const rm = _al[Math.floor(_al.length / 2)] / dot; if (rm > 4 || rm < 0.25) facDev = rm; }
   data._facDev = facDev;
-  const dRef = data._dateRef ? new Date(data._dateRef + 'T12:00:00') : new Date();
+  const dRef = data._dateRef ? new Date(data._dateRef + 'T12:00:00Z') : new Date();   // UTC : sinon le changement d'heure ajoute 1 h à l'écart et fausse la limite des 183 jours
   return (data.chevaux || []).map(h => {
     const r = { numero: h.numero, nom: h.nom, h, filtres: {}, exclu: null, ligne: 6, cat: 'PASSE', catBase: 'PASSE', note: [], marq: [] };
     const perfs = (h.perfs || []);
@@ -3526,7 +3529,7 @@ function platPlusEvaluer(data) {
       const bonne = x.rang != null && x.rang <= PP.BONNE_RANG;
       const moy = x.rang != null && !bonne && x.nb_partants && x.rang <= Math.ceil(x.nb_partants / 2);
       const desc = !bonne && x.rang != null && ratio != null && ratio >= PP.DOT_DESC && (x.rang <= PP.DESC_RANG || (x.nb_partants && x.rang <= Math.ceil(PP.DESC_PCT * x.nb_partants))) && (dp == null || dp <= PP.POIDS_TOL_DESC);
-      const _dj = (x.date && /^\d{4}-\d{2}-\d{2}/.test(x.date)) ? (dRef - new Date(x.date.slice(0, 10) + 'T12:00:00')) / 864e5 : null;
+      const _dj = (x.date && /^\d{4}-\d{2}-\d{2}/.test(x.date)) ? (dRef - new Date(x.date.slice(0, 10) + 'T12:00:00Z')) / 864e5 : null;
       const vieille = _dj != null && _dj > PP.PERF_AGE_MAX_J;
       return { vieille, x, ratio, dp, bonne, moy, desc, niveau: ratio == null ? null : (ratio >= PP.DOT_SUP ? 'sup' : ratio >= PP.DOT_INF ? 'sim' : 'inf') };
     });
@@ -3586,14 +3589,14 @@ function platPlusEvaluer(data) {
       const bonnes = ev.filter(e => e.bonne);
       const memeContexte = e => {
         const x = e.x; const t = _ppTerrain(x.terrain), p = _ppPiste(x.piste);
-        return _ppHippo(x.hippodrome, co.hippodrome) && !!t && t === tJour && (!pJour || !p || p === pJour) && !!x.distance && Math.abs(x.distance - (co.distance || 0)) <= PP.DIST_TOL;
+        return _ppHippo(x.hippodrome, co.hippodrome) && !!t && t === tJour && (!pJour || !p || p === pJour) && !!x.distance && Math.abs(x.distance - (co.distance || 0)) <= PP.DIST_TOL && e.ratio != null && e.ratio >= PP.CTX_DOT_MIN;
       };
       const autre = e => { const t = _ppTerrain(e.x.terrain), p = _ppPiste(e.x.piste); return (t && tJour && t !== tJour) || (p && pJour && p !== pJour); };
       const i0 = _PP_ORDRE.indexOf(cat);
-      if (bonnes.some(memeContexte)) { cat = _PP_ORDRE[Math.max(0, i0 - 1)]; o.marq.push({ t: '＋ hippodrome/terrain/distance', court: 'contexte', cls: 'pp-ok' }); }
+      if (bonnes.some(memeContexte)) { cat = _PP_ORDRE[Math.max(0, i0 - 1)]; o.marq.push({ t: '＋ hippodrome/terrain/distance, dotation ≥ 90 %', court: 'contexte', cls: 'pp-ok' }); o.note.push(`contexte : bonne perf sur le même hippodrome, terrain et distance, dotation ≥ ${Math.round(PP.CTX_DOT_MIN * 100)} % de celle du jour : catégorie relevée d'un cran`); }
       else if (bonnes.length && bonnes.every(autre)) {
-        if (cat !== 'OUTSIDER') cat = _PP_ORDRE[Math.min(2, i0 + 1)];      // un Outsider reste Outsider : étiquette rouge seulement
-        o.marq.push({ t: '− terrain/piste différent', court: 'terrain', cls: 'pp-ko' });
+        // terrain/piste différent : plus d'étiquette (doublon avec « hippo » rouge) ; la catégorie descend toujours d'un cran, expliqué dans le détail
+        if (cat !== 'OUTSIDER') { cat = _PP_ORDRE[Math.min(2, i0 + 1)]; o.note.push("toutes les bonnes perfs sur un autre terrain/piste : catégorie abaissée d'un cran"); }      // un Outsider reste Outsider
       }
       // forme depuis la perf retenue : si le cheval a fait ≥ MAUV_APRES courses hors top 3 APRÈS elle, la catégorie descend d'un cran
       // (Base → Associé, Associé → Outsider (forme) ; un Outsider reste Outsider avec l'étiquette rouge)
@@ -3616,6 +3619,10 @@ function platPlusEvaluer(data) {
       r.note.push(...best.note); r.marq.push(...best.marq); r.cat = best.cat;
     }
     let cat = r.cat;
+    // forme (vert) : dernière course dans le top FORME_VERTE_RANG et datant de FORME_VERTE_J jours ou moins (jamais en même temps que la forme rouge)
+    { const d0 = ev[0];
+      if (d0 && !d0.vieille && d0.x.rang != null && d0.x.rang <= PP.FORME_VERTE_RANG && h.jours_derniere <= PP.FORME_VERTE_J && !r.marq.some(m => m.court === 'forme'))
+        r.marq.push({ t: `＋ dernière course : ${d0.x.rang}e${d0.x.nb_partants ? '/' + Math.round(d0.x.nb_partants) : ''} il y a ${h.jours_derniere} j`, court: 'forme', cls: 'pp-ok' }); }
     // hippodrome (étiquette seule, sans effet sur la catégorie) : vert = une bonne perf (top 3) sur cet hippodrome ; rouge = bonnes perfs seulement ailleurs
     {
       const bh = ev.filter(e => e.bonne);
@@ -3791,7 +3798,9 @@ async function chargerPlatPlus() {
       <details style="border-bottom:1px solid var(--border);background:var(--bg2)"><summary style="cursor:pointer;padding:9px 14px;font-family:'Space Mono',monospace;font-size:10px;color:var(--gold-lite)">ℹ️ Règles et légende</summary>
       <div style="padding:6px 14px 10px;font-family:'Space Mono',monospace;font-size:11px;color:var(--text-dim);line-height:1.7">
         <span class="pp-ko">[rentrée]</span> plus de ${PP.REPOS_MAX_J / 30} mois sans courir (badge seul, le cheval reste classé).${PP.NB_COURSES_MIN > 0 ? ` Filtre : ≥ ${PP.NB_COURSES_MIN} courses/12 mois.` : ''} « Bonne perf » = top ${PP.BONNE_RANG}.<br>
-        <span class="pp-ok">[jockey]</span> jockey/entraîneur dans les 25 % meilleurs · <span class="pp-ok">[hippo]</span> bonne perf sur cet hippodrome · <span class="pp-ko">[terrain] [hippo] [corde] [distance]</span> signaux défavorables (un Outsider reste Outsider) · Outsider (léger) : dotation 60-85 % · (fort) : &lt; 60 %.<br>
+        <span class="pp-ok">[contexte]</span> bonne perf sur le même hippodrome, terrain et distance (± ${PP.DIST_TOL} m), dans une course dotée d'au moins ${Math.round(PP.CTX_DOT_MIN * 100)} % de celle du jour : le cheval monte d'une catégorie.<br>
+        <span class="pp-ok">[forme]</span> dernière course dans le top ${PP.FORME_VERTE_RANG}, il y a ${PP.FORME_VERTE_J} jours ou moins · <span class="pp-ko">[forme]</span> au moins ${PP.MAUV_APRES} courses au-delà de la ${PP.MAUV_RANG}e place depuis la perf retenue : le cheval descend d'une catégorie.<br>
+        <span class="pp-ok">[jockey]</span> jockey/entraîneur dans les 25 % meilleurs · <span class="pp-ok">[hippo]</span> bonne perf sur cet hippodrome · <span class="pp-ko">[hippo] [corde] [distance]</span> signaux défavorables, sans effet sur la catégorie (un Outsider reste Outsider) · Outsider (léger) : dotation 60-85 % · (fort) : &lt; 60 %. Des bonnes perfs toutes sur un autre terrain/piste abaissent aussi d'une catégorie, sans étiquette (voir le détail du cheval).<br>
         <span style="font-size:9px;word-break:break-all">Diagnostic PMU : HTTP ${dbg ? JSON.stringify(dbg.statuts_http) : '?'} · chevaux avec perfs ${dbg ? dbg.nb_chevaux_avec_perfs : '?'} · perfs datées ${dbg ? dbg.nb_perfs_avec_date : '?'}<br>Champs d'une perf : ${cles}<br>Champs d'un cheval : ${dbg && dbg.cles_cheval && dbg.cles_cheval.length ? dbg.cles_cheval.join(', ') : '—'}<br>Exemple : ${dbg && dbg.echantillon_perf ? JSON.stringify(dbg.echantillon_perf) : '—'}</span>
         <br><b style="color:var(--gold-lite)">Valeur</b> : ${PP_VAL && PP_VAL.chevaux ? `note de chaque cheval calculée sur tout son historique (arrêté au ${(PP_VAL.derniere_course || '').split('-').reverse().join('/')}, export du ${(PP_VAL.date_ref || '').split('-').reverse().join('/')}) : place corrigée du nombre de partants, niveau de la course, poids, force des adversaires battus. 0 = cheval moyen ; +0,7 ≈ 2 × plus de chances. Indépendante des autres partants. Elle classe bien mais n'apporte rien de plus que le marché (pas un signal de pari).` : 'indisponible (fichier valeurs_plat.json absent ou plus ancien que la date choisie).'}
       </div></details><div class="pp-nav">${nav}</div>` + body;

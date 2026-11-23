@@ -3860,10 +3860,10 @@ async function chargerEloPlat(force) {
         let lst = '';
         avec.forEach((e, i) => {
           const cat = e.exclu ? 'EXCLU' : e.cat;
-          const tag = `<span class="pp-tag ${catCls[e.cat] || 'pp-passe'}" style="min-width:0;font-size:9px">${cat === 'PASSE' ? 'ON PASSE' : cat}</span>`;
+          const tag = e.marq && e.marq.length ? `<span>${e.marq.map(m => `<span class="${m.cls} pp-m" title="${String(m.t).replace(/"/g, '&quot;')}">${m.court}</span>`).join('')}</span>` : '';      // étiquettes Plat+++ (contexte, forme, hippo, distance, rentrée, corde, jockey/entr.)
           const dj = e.h && e.h.jours_derniere != null ? ` · dernière course il y a ${e.h.jours_derniere} j` : '';
           const pj = e.h && e.h.poids_jour != null ? `Poids du jour : <b>${String(e.h.poids_jour).replace('.', ',')} kg</b>` : 'Poids du jour : ?';
-          lst += `<details class="pp-hd ${i < 3 ? 'el-top' : ''}"><summary><span class="el-r">${i + 1}</span><span><b>#${e.numero}</b> ${e.nom || ''}</span>${tag}<span class="el-v ${e.val.v >= 0 ? 'el-pos' : 'el-neg'}">${_ppV(e.val.v)}</span></summary><div class="pp-body"><div class="pp-h"><div class="pp-h-sub">${pj}${dj}</div>${_ppValLigne(e)}</div></div></details>`;
+          lst += `<details class="pp-hd ${i < 3 ? 'el-top' : ''}"><summary><span class="el-r">${i + 1}</span><span><b>#${e.numero}</b> ${e.nom || ''}</span>${tag}<span class="el-v ${e.val.v >= 0 ? 'el-pos' : 'el-neg'}">${_ppV(e.val.v)}</span></summary><div class="pp-body"><div class="pp-h"><div class="pp-h-sub">${pj}${dj} · Plat+++ : <b>${cat === 'PASSE' ? 'ON PASSE' : cat}${e.sous && e.cat === 'OUTSIDER' ? ' (' + e.sous + ')' : ''}</b></div>${_ppValLigne(e)}</div></div></details>`;
         });
         if (sans.length) lst += `<div class="pp-h-sub pp-q" style="padding:8px 10px;border-top:1px solid var(--border)">Sans valeur (pas d'historique) : ${sans.map(e => `#${e.numero} ${e.nom || ''}`).join(' · ')}</div>`;
         let note = '';

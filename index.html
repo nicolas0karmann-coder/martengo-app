@@ -409,6 +409,8 @@ input[readonly]{opacity:.5;cursor:default}
 .el-x{font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);white-space:nowrap}
 .el-v{margin-left:auto;font-family:'Space Mono',monospace;font-size:13px;font-weight:700;white-space:nowrap}
 .el-pos{color:#5fc58c}.el-neg{color:#e08a60}
+.el-fi{display:inline-block;width:11px;height:11px;border-radius:50%;margin-left:6px;vertical-align:middle;border:1px solid rgba(255,255,255,.25)}
+.el-fi-v{background:#3fb97a}.el-fi-o{background:#e0a030}.el-fi-r{background:#d9534f}
 .el-list{margin-top:8px;border:1px solid var(--border2);border-radius:8px;overflow:hidden}
 </style>
 </head>
@@ -3859,12 +3861,19 @@ async function chargerEloPlat(force) {
         const avec = ev.filter(e => e.val).sort((a, b) => b.val.v - a.val.v || a.numero - b.numero);
         const sans = ev.filter(e => !e.val).sort((a, b) => a.numero - b.numero);
         let lst = '';
+        // Fiabilité de la course (sans cote) : part du n°1 dans le total exp(valeur) du lot ; seulement à partir de 8 partants. ≥ 25 % vert · 15–25 % orange · < 15 % rouge (seuils fixés sur la validation, confirmés en test)
+        let fiab = null;
+        if (avec.length >= 3 && ev.length >= 8) {
+          const m1 = avec[0].val.v, tot = avec.reduce((t, e) => t + Math.exp(e.val.v - m1), 0), p1 = 1 / tot;
+          fiab = p1 >= 0.25 ? { cls: 'v', nom: 'fiable', top3: '≈ 70 %' } : p1 >= 0.15 ? { cls: 'o', nom: 'moyenne', top3: '≈ 50 %' } : { cls: 'r', nom: 'risquée', top3: '≈ 37 %' };
+          fiab.p = p1;
+        }
         avec.forEach((e, i) => {
           const cat = e.exclu ? 'EXCLU' : e.cat;
           const tag = e.marq && e.marq.length ? `<span>${e.marq.map(m => `<span class="${m.cls} pp-m" title="${String(m.t).replace(/"/g, '&quot;')}">${m.court}</span>`).join('')}</span>` : '';      // étiquettes Plat+++ (contexte, forme, hippo, distance, rentrée, corde, jockey/entr.)
           const dj = e.h && e.h.jours_derniere != null ? ` · dernière course il y a ${e.h.jours_derniere} j` : '';
           const pj = e.h && e.h.poids_jour != null ? `Poids du jour : <b>${String(e.h.poids_jour).replace('.', ',')} kg</b>` : 'Poids du jour : ?';
-          lst += `<details class="pp-hd ${i < 3 ? 'el-top' : ''}"><summary><span class="el-r">${i + 1}</span><span><b>#${e.numero}</b> ${e.nom || ''}</span>${tag}<span class="el-v ${e.val.v >= 0 ? 'el-pos' : 'el-neg'}">${_ppV(e.val.v)}</span></summary><div class="pp-body"><div class="pp-h"><div class="pp-h-sub">${pj}${dj} · Plat+++ : <b>${cat === 'PASSE' ? 'ON PASSE' : cat}${e.sous && e.cat === 'OUTSIDER' ? ' (' + e.sous + ')' : ''}</b></div>${_ppValLigne(e)}</div></div></details>`;
+          lst += `<details class="pp-hd ${i < 3 ? 'el-top' : ''}"><summary><span class="el-r">${i + 1}</span><span><b>#${e.numero}</b> ${e.nom || ''}${i === 0 && fiab ? `<span class="el-fi el-fi-${fiab.cls}" title="Fiabilité de la course : ${fiab.nom} · le n°1 pèse ${Math.round(fiab.p * 100)} % du lot · il finit dans le top 3 environ ${fiab.top3} du temps dans ce cas (mesuré sur courses de 8 partants et plus)"></span>` : ''}</span>${tag}<span class="el-v ${e.val.v >= 0 ? 'el-pos' : 'el-neg'}">${_ppV(e.val.v)}</span></summary><div class="pp-body"><div class="pp-h"><div class="pp-h-sub">${pj}${dj} · Plat+++ : <b>${cat === 'PASSE' ? 'ON PASSE' : cat}${e.sous && e.cat === 'OUTSIDER' ? ' (' + e.sous + ')' : ''}</b></div>${_ppValLigne(e)}</div></div></details>`;
         });
         if (sans.length) lst += `<div class="pp-h-sub pp-q" style="padding:8px 10px;border-top:1px solid var(--border)">Sans valeur (pas d'historique) : ${sans.map(e => `#${e.numero} ${e.nom || ''}`).join(' · ')}</div>`;
         let note = '';
@@ -3875,7 +3884,7 @@ async function chargerEloPlat(force) {
       body += `<section id="el-R${rNum}" class="pp-reu"><div class="pp-reu-h"><span class="pp-reu-n">R${rNum}</span><span class="pp-reu-l">${rd.lieu}</span><span class="pp-reu-c">${rd.courses.length} course${rd.courses.length > 1 ? 's' : ''}</span></div>${htmlR}</section>`;
     }
     const info = PP_VAL && PP_VAL.chevaux
-      ? `Valeur = celle de l'onglet Plat+++ (historique complet, niveau de la course, poids du jour, force des adversaires battus ; export du ${(PP_VAL.date_ref || '').split('-').reverse().join('/')}). 0 = cheval moyen ; +0,7 ≈ 2 × plus de chances. Elle classe bien mais n'apporte rien de plus que le marché. Touchez un cheval pour le détail.`
+      ? `Valeur = celle de l'onglet Plat+++ (historique complet, niveau de la course, poids du jour, force des adversaires battus ; export du ${(PP_VAL.date_ref || '').split('-').reverse().join('/')}). 0 = cheval moyen ; +0,7 ≈ 2 × plus de chances. Elle classe bien mais n'apporte rien de plus que le marché. Touchez un cheval pour le détail. Pastille après le n°1 (courses de 8 partants et plus) : fiabilité de la course d'après le poids du n°1 dans le lot — 🟢 ≥ 25 % (n°1 dans le top 3 ≈ 7 fois sur 10) · 🟠 15–25 % (≈ 5 sur 10) · 🔴 < 15 % (≈ 4 sur 10 seulement). Aucune cote n'entre en jeu.`
       : 'Valeurs indisponibles : fichier valeurs_plat.json absent ou plus ancien que la date choisie.';
     el.innerHTML = hdr + `<div class="pp-h-sub" style="padding:8px 14px;font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);background:var(--bg2);border-bottom:1px solid var(--border)">${info}</div><div class="pp-nav">${nav}</div>` + body;
   } catch (e) {

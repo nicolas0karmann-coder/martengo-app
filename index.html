@@ -3886,7 +3886,7 @@ async function chargerEloPlat(force) {
     const info = PP_VAL && PP_VAL.chevaux
       ? `Valeur = celle de l'onglet Plat+++ (historique complet, niveau de la course, poids du jour, force des adversaires battus ; export du ${(PP_VAL.date_ref || '').split('-').reverse().join('/')}). 0 = cheval moyen ; +0,7 ≈ 2 × plus de chances. Elle classe bien mais n'apporte rien de plus que le marché. Touchez un cheval pour le détail. Pastille après le n°1 (courses de 8 partants et plus) : fiabilité de la course d'après le poids du n°1 dans le lot — 🟢 ≥ 25 % (n°1 dans le top 3 ≈ 7 fois sur 10) · 🟠 15–25 % (≈ 5 sur 10) · 🔴 < 15 % (≈ 4 sur 10 seulement). Aucune cote n'entre en jeu.`
       : 'Valeurs indisponibles : fichier valeurs_plat.json absent ou plus ancien que la date choisie.';
-    el.innerHTML = hdr + `<div class="pp-h-sub" style="padding:8px 14px;font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);background:var(--bg2);border-bottom:1px solid var(--border)">${info}</div><div class="pp-nav">${nav}</div>` + body;
+    el.innerHTML = hdr + `<details style="border-bottom:1px solid var(--border);background:var(--bg2)"><summary style="cursor:pointer;padding:9px 14px;font-family:'Space Mono',monospace;font-size:10px;color:var(--gold-lite)">ℹ️ Règles et légende</summary><div class="pp-h-sub" style="padding:6px 14px 10px;font-family:'Space Mono',monospace;font-size:10px;line-height:1.7;color:var(--text-dim)">${info}</div></details><div class="pp-nav">${nav}</div>` + body;
   } catch (e) {
     el.innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div>${e.message}<br><button class="btn secondary" onclick="eloPlatCharge=false;chargerEloPlat(true)" style="margin-top:12px;font-size:10px">↺ Réessayer</button></div>`;
   }

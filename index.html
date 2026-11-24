@@ -3868,13 +3868,13 @@ async function chargerEloPlat(force) {
           const m1 = avec[0].val.v, tot = avec.reduce((t, e) => t + Math.exp(e.val.v - m1), 0), p1 = 1 / tot, p2 = Math.exp(avec[1].val.v - m1) / tot, s12 = p1 + p2;
           const niv = (x, lo, hi) => x >= hi ? 'v' : x < lo ? 'r' : 'o';
           const NOM = { v: 'verte', o: 'orange', r: 'rouge' }, pct = x => Math.round(x * 100);
-          const l1 = niv(p1, 0.144, 0.239), l2 = niv(p2, 0.117, 0.173), lc = niv(s12, 0.264, 0.413);
+          const l1 = niv(p1, 0.144, 0.239), l2 = niv(p2, 0.117, 0.173), lc0 = niv(s12, 0.264, 0.413), dom = lc0 === 'v' && l2 === 'r', lc = dom ? 'o' : lc0;   // n°1 très dominant mais n°2 faible : le couplé ne peut pas être vert
           const T1 = { v: '≈ 70 %', o: '≈ 51 %', r: '≈ 36 %' }, T2 = { v: '≈ 56 %', o: '≈ 44 %', r: '≈ 32 %' };
           const TC = { v: ['35–38 %', '15–16 %', '49–55 %', '75–82 %'], o: ['19–21 %', '7–9 %', '37 %', '59–61 %'], r: ['9 %', '3–4 %', '25 %', '44–45 %'] };
           fiab = {
             n1: { cls: l1, t: `Fiabilité du n°1 : ${NOM[l1]} · il pèse ${pct(p1)} % du lot · il finit dans le top 3 ${T1[l1]} du temps dans ce cas (moyenne tous cas : 50 %)` },
             n2: { cls: l2, t: `Fiabilité du n°2 : ${NOM[l2]} · il pèse ${pct(p2)} % du lot · il finit dans le top 3 ${T2[l2]} du temps dans ce cas (moyenne tous cas : 43 %)` },
-            cpl: { cls: lc, t: `Couplé n°1 + n°2 : ${NOM[lc]} · ils pèsent ${pct(s12)} % du lot. Dans ce cas : les deux dans le top 3 ${TC[lc][0]} (moy. 20 %) · les deux dans le top 2 ${TC[lc][1]} (moy. 8 %) · l'un des deux gagne ${TC[lc][2]} (moy. 37 %) · au moins l'un des deux dans le top 2 ${TC[lc][3]} (moy. 59 %)` }
+            cpl: dom ? { cls: 'o', t: `Couplé n°1 + n°2 : orange (n°1 très dominant, ${pct(p1)} % du lot, mais n°2 faible, ${pct(p2)} %). L'un des deux gagne ≈ 50 % (grâce au n°1) · mais les deux dans le top 3 seulement ≈ 20 % (moy. 20 %) · les deux dans le top 2 ≈ 7–8 % (moy. 8 %). Peu de courses concernées : estimation fragile` } : { cls: lc, t: `Couplé n°1 + n°2 : ${NOM[lc]} · ils pèsent ${pct(s12)} % du lot. Dans ce cas : les deux dans le top 3 ${TC[lc][0]} (moy. 20 %) · les deux dans le top 2 ${TC[lc][1]} (moy. 8 %) · l'un des deux gagne ${TC[lc][2]} (moy. 37 %) · au moins l'un des deux dans le top 2 ${TC[lc][3]} (moy. 59 %)` }
           };
         }
         const bulle = b => `<span class="el-fi el-fi-${b.cls}" title="${b.t}"></span>`;

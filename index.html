@@ -411,6 +411,7 @@ input[readonly]{opacity:.5;cursor:default}
 .el-pos{color:#5fc58c}.el-neg{color:#e08a60}
 .el-fi{display:inline-block;width:11px;height:11px;border-radius:50%;margin-left:6px;vertical-align:middle;border:1px solid rgba(255,255,255,.25)}
 .el-fi-v{background:#3fb97a}.el-fi-o{background:#e0a030}.el-fi-r{background:#d9534f}
+.el-cpl{margin-left:10px;font-family:'Space Mono',monospace;font-size:10px;color:var(--text-dim);white-space:nowrap}
 .el-list{margin-top:8px;border:1px solid var(--border2);border-radius:8px;overflow:hidden}
 </style>
 </head>
@@ -3861,30 +3862,39 @@ async function chargerEloPlat(force) {
         const avec = ev.filter(e => e.val).sort((a, b) => b.val.v - a.val.v || a.numero - b.numero);
         const sans = ev.filter(e => !e.val).sort((a, b) => a.numero - b.numero);
         let lst = '';
-        // Fiabilité de la course (sans cote) : part du n°1 dans le total exp(valeur) du lot ; seulement à partir de 8 partants. ≥ 25 % vert · 15–25 % orange · < 15 % rouge (seuils fixés sur la validation, confirmés en test)
+        // Fiabilité de la course (sans cote) : bulles n°1, n°2 et « couplé », à partir de la part de chaque cheval dans le total exp(valeur) du lot (8 partants et plus). Seuils = 30 % de courses les moins sûres (rouge) / 20 % les plus sûres (vert), fixés sur la validation, confirmés en test.
         let fiab = null;
         if (avec.length >= 3 && ev.length >= 8) {
-          const m1 = avec[0].val.v, tot = avec.reduce((t, e) => t + Math.exp(e.val.v - m1), 0), p1 = 1 / tot;
-          fiab = p1 >= 0.25 ? { cls: 'v', nom: 'fiable', top3: '≈ 70 %' } : p1 >= 0.15 ? { cls: 'o', nom: 'moyenne', top3: '≈ 50 %' } : { cls: 'r', nom: 'risquée', top3: '≈ 37 %' };
-          fiab.p = p1;
+          const m1 = avec[0].val.v, tot = avec.reduce((t, e) => t + Math.exp(e.val.v - m1), 0), p1 = 1 / tot, p2 = Math.exp(avec[1].val.v - m1) / tot, s12 = p1 + p2;
+          const niv = (x, lo, hi) => x >= hi ? 'v' : x < lo ? 'r' : 'o';
+          const NOM = { v: 'verte', o: 'orange', r: 'rouge' }, pct = x => Math.round(x * 100);
+          const l1 = niv(p1, 0.144, 0.239), l2 = niv(p2, 0.117, 0.173), lc = niv(s12, 0.264, 0.413);
+          const T1 = { v: '≈ 70 %', o: '≈ 51 %', r: '≈ 36 %' }, T2 = { v: '≈ 56 %', o: '≈ 44 %', r: '≈ 32 %' };
+          const TC = { v: ['35–38 %', '15–16 %', '49–55 %', '75–82 %'], o: ['19–21 %', '7–9 %', '37 %', '59–61 %'], r: ['9 %', '3–4 %', '25 %', '44–45 %'] };
+          fiab = {
+            n1: { cls: l1, t: `Fiabilité du n°1 : ${NOM[l1]} · il pèse ${pct(p1)} % du lot · il finit dans le top 3 ${T1[l1]} du temps dans ce cas (moyenne tous cas : 50 %)` },
+            n2: { cls: l2, t: `Fiabilité du n°2 : ${NOM[l2]} · il pèse ${pct(p2)} % du lot · il finit dans le top 3 ${T2[l2]} du temps dans ce cas (moyenne tous cas : 43 %)` },
+            cpl: { cls: lc, t: `Couplé n°1 + n°2 : ${NOM[lc]} · ils pèsent ${pct(s12)} % du lot. Dans ce cas : les deux dans le top 3 ${TC[lc][0]} (moy. 20 %) · les deux dans le top 2 ${TC[lc][1]} (moy. 8 %) · l'un des deux gagne ${TC[lc][2]} (moy. 37 %) · au moins l'un des deux dans le top 2 ${TC[lc][3]} (moy. 59 %)` }
+          };
         }
+        const bulle = b => `<span class="el-fi el-fi-${b.cls}" title="${b.t}"></span>`;
         avec.forEach((e, i) => {
           const cat = e.exclu ? 'EXCLU' : e.cat;
           const tag = e.marq && e.marq.length ? `<span>${e.marq.map(m => `<span class="${m.cls} pp-m" title="${String(m.t).replace(/"/g, '&quot;')}">${m.court}</span>`).join('')}</span>` : '';      // étiquettes Plat+++ (contexte, forme, hippo, distance, rentrée, corde, jockey/entr.)
           const dj = e.h && e.h.jours_derniere != null ? ` · dernière course il y a ${e.h.jours_derniere} j` : '';
           const pj = e.h && e.h.poids_jour != null ? `Poids du jour : <b>${String(e.h.poids_jour).replace('.', ',')} kg</b>` : 'Poids du jour : ?';
-          lst += `<details class="pp-hd ${i < 3 ? 'el-top' : ''}"><summary><span class="el-r">${i + 1}</span><span><b>#${e.numero}</b> ${e.nom || ''}${i === 0 && fiab ? `<span class="el-fi el-fi-${fiab.cls}" title="Fiabilité de la course : ${fiab.nom} · le n°1 pèse ${Math.round(fiab.p * 100)} % du lot · il finit dans le top 3 environ ${fiab.top3} du temps dans ce cas (mesuré sur courses de 8 partants et plus)"></span>` : ''}</span>${tag}<span class="el-v ${e.val.v >= 0 ? 'el-pos' : 'el-neg'}">${_ppV(e.val.v)}</span></summary><div class="pp-body"><div class="pp-h"><div class="pp-h-sub">${pj}${dj} · Plat+++ : <b>${cat === 'PASSE' ? 'ON PASSE' : cat}${e.sous && e.cat === 'OUTSIDER' ? ' (' + e.sous + ')' : ''}</b></div>${_ppValLigne(e)}</div></div></details>`;
+          lst += `<details class="pp-hd ${i < 3 ? 'el-top' : ''}"><summary><span class="el-r">${i + 1}</span><span><b>#${e.numero}</b> ${e.nom || ''}${i === 0 && fiab ? bulle(fiab.n1) : i === 1 && fiab ? bulle(fiab.n2) : ''}</span>${tag}<span class="el-v ${e.val.v >= 0 ? 'el-pos' : 'el-neg'}">${_ppV(e.val.v)}</span></summary><div class="pp-body"><div class="pp-h"><div class="pp-h-sub">${pj}${dj} · Plat+++ : <b>${cat === 'PASSE' ? 'ON PASSE' : cat}${e.sous && e.cat === 'OUTSIDER' ? ' (' + e.sous + ')' : ''}</b></div>${_ppValLigne(e)}</div></div></details>`;
         });
         if (sans.length) lst += `<div class="pp-h-sub pp-q" style="padding:8px 10px;border-top:1px solid var(--border)">Sans valeur (pas d'historique) : ${sans.map(e => `#${e.numero} ${e.nom || ''}`).join(' · ')}</div>`;
         let note = '';
         if (!avec.length) { sansVal++; note = `<div class="pp-h-sub pp-ko" style="margin-top:8px">Valeurs indisponibles pour cette course${devise ? ' (dotation en devise locale)' : ''}.</div>`; }
-        htmlR += `<div class="pp-card"><div class="pp-card-top"><span class="pp-card-c">C${co.c}</span><span class="pp-card-h">${co.heure || ''}</span><span class="pp-q" style="font-size:10px;margin-left:auto">${ev.length} partants</span></div><div class="pp-cond">${chips}</div>${note}${avec.length || sans.length ? `<div class="el-list">${lst}</div>` : ''}</div>`;
+        htmlR += `<div class="pp-card"><div class="pp-card-top"><span class="pp-card-c">C${co.c}</span><span class="pp-card-h">${co.heure || ''}</span>${fiab ? `<span class="el-cpl" title="${fiab.cpl.t}">couplé${bulle(fiab.cpl)}</span>` : ''}<span class="pp-q" style="font-size:10px;margin-left:auto">${ev.length} partants</span></div><div class="pp-cond">${chips}</div>${note}${avec.length || sans.length ? `<div class="el-list">${lst}</div>` : ''}</div>`;
       }
       nav += `<a href="#" class="pp-chip" onclick="event.preventDefault();document.getElementById('el-R${rNum}').scrollIntoView({behavior:'smooth',block:'start'})">R${rNum}<span>${rd.courses.length} c.</span></a>`;
       body += `<section id="el-R${rNum}" class="pp-reu"><div class="pp-reu-h"><span class="pp-reu-n">R${rNum}</span><span class="pp-reu-l">${rd.lieu}</span><span class="pp-reu-c">${rd.courses.length} course${rd.courses.length > 1 ? 's' : ''}</span></div>${htmlR}</section>`;
     }
     const info = PP_VAL && PP_VAL.chevaux
-      ? `Valeur = celle de l'onglet Plat+++ (historique complet, niveau de la course, poids du jour, force des adversaires battus ; export du ${(PP_VAL.date_ref || '').split('-').reverse().join('/')}). 0 = cheval moyen ; +0,7 ≈ 2 × plus de chances. Elle classe bien mais n'apporte rien de plus que le marché. Touchez un cheval pour le détail. Pastille après le n°1 (courses de 8 partants et plus) : fiabilité de la course d'après le poids du n°1 dans le lot — 🟢 ≥ 25 % (n°1 dans le top 3 ≈ 7 fois sur 10) · 🟠 15–25 % (≈ 5 sur 10) · 🔴 < 15 % (≈ 4 sur 10 seulement). Aucune cote n'entre en jeu.`
+      ? `Valeur = celle de l'onglet Plat+++ (historique complet, niveau de la course, poids du jour, force des adversaires battus ; export du ${(PP_VAL.date_ref || '').split('-').reverse().join('/')}). 0 = cheval moyen ; +0,7 ≈ 2 × plus de chances. Elle classe bien mais n'apporte rien de plus que le marché. Touchez un cheval pour le détail. Pastilles (courses de 8 partants et plus) : après le n°1 et après le n°2, fiabilité de chaque cheval d'après son poids dans le lot — 🟢 n°1 ≥ 24 % (n°1 dans le top 3 ≈ 7 fois sur 10) · 🔴 < 14 % (≈ 4 sur 10) ; 🟢 n°2 ≥ 17 % (n°2 dans le top 3 ≈ 56 %) · 🔴 < 12 % (≈ 32 %). « couplé » : fiabilité du couple n°1 + n°2 — 🟢 ≥ 41 % (les deux dans le top 3 ≈ 37 %, dans le top 2 ≈ 16 %, l'un des deux gagne ≈ 50 %) · 🔴 < 26 % (les deux dans le top 3 ≈ 9 %). Survolez ou touchez une pastille pour le détail. Aucune cote n'entre en jeu.`
       : 'Valeurs indisponibles : fichier valeurs_plat.json absent ou plus ancien que la date choisie.';
     el.innerHTML = hdr + `<details style="border-bottom:1px solid var(--border);background:var(--bg2)"><summary style="cursor:pointer;padding:9px 14px;font-family:'Space Mono',monospace;font-size:10px;color:var(--gold-lite)">ℹ️ Règles et légende</summary><div class="pp-h-sub" style="padding:6px 14px 10px;font-family:'Space Mono',monospace;font-size:10px;line-height:1.7;color:var(--text-dim)">${info}</div></details><div class="pp-nav">${nav}</div>` + body;
   } catch (e) {

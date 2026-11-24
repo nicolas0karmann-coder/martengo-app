@@ -3455,7 +3455,7 @@ let safePlatCharge = false;
 
 // ============================================================
 // PLAT+++ — grille de sélection « Plat handicap » (document : Grille de sélection – Plat handicap)
-// Étape 0 : filtres d'exclusion · Étape 1 : catégorie (lignes 1 à 6) · Étiquettes : forme, hippo (vert), distance (vert), classe ↓↑, rentrée, course rapprochée, poids, peu de courses, jockey/entraîneur
+// Étape 0 : filtres d'exclusion · Étape 1 : catégorie (lignes 1 à 6) · Étiquettes : forme, hippo (vert), distance (vert), classe ↓↑, rentrée, course rapprochée, peu de courses, jockey/entraîneur
 // Les seuils marqués « à préciser » dans le document sont fixés ici (objet PP) : à ajuster après test sur courses passées.
 // ============================================================
 let platPlusCharge = false;
@@ -3480,7 +3480,6 @@ const PP = {
   FORME_VERTE_RANG: 3,    // étiquette « forme » verte : la dernière course (de moins de 6 mois) est dans le top 3
   RAPPROCHEE_J: 14,       // étiquette « course rapprochée » : la dernière course date de 14 jours ou moins
   PEU_COURSES: 2,         // étiquette « peu de courses » : 2 courses ou moins dans l'historique
-  POIDS_VAR: 2.0,         // étiquette « poids » : écart ≥ 2 kg avec le poids porté à la dernière course
   CLASSE_SUR: 3,          // étiquettes « classe » : médiane des dotations des CLASSE_SUR dernières courses (de moins de 6 mois) comparée à celle du jour ; seuils = DOT_SUP / DOT_INF
   DIST_TOL: 200           // même distance ± 200 m
 };
@@ -3627,12 +3626,6 @@ function platPlusEvaluer(data) {
     if (h.jours_derniere != null && h.jours_derniere <= PP.RAPPROCHEE_J) r.marq.push({ t: `course rapprochée (${h.jours_derniere} j depuis la dernière)`, court: 'rapprochée', cls: 'pp-q' });
     // peu de courses : au plus PEU_COURSES courses dans l'historique (étiquette neutre)
     if (perfs.length <= PP.PEU_COURSES) r.marq.push({ t: `peu de courses : ${perfs.length} dans l'historique`, court: 'peu de courses', cls: 'pp-q' });
-    // poids : écart avec le poids porté à la dernière course (hausse = rouge, baisse = vert)
-    { const d0 = ev[0];
-      if (d0 && !d0.vieille && d0.dp != null) {
-        if (d0.dp >= PP.POIDS_VAR) r.marq.push({ t: `− poids +${String(d0.dp).replace('.', ',')} kg par rapport à la dernière course`, court: 'poids', cls: 'pp-ko' });
-        else if (d0.dp <= -PP.POIDS_VAR) r.marq.push({ t: `＋ poids −${String(-d0.dp).replace('.', ',')} kg par rapport à la dernière course`, court: 'poids', cls: 'pp-ok' });
-      } }
     // classe : dotation du jour inférieure (↓, vert) ou supérieure (↑, rouge) à celle des courses précédentes ; rien si elles sont proches
     { const rs = ev.slice(0, PP.CLASSE_SUR).filter(e => !e.vieille && e.ratio != null).map(e => e.ratio).sort((a, b) => a - b);
       if (rs.length) {
@@ -3801,7 +3794,6 @@ async function chargerPlatPlus() {
         <span class="pp-ko">[rentrée]</span> plus de ${PP.REPOS_MAX_J / 30} mois sans courir (badge seul, le cheval reste classé).${PP.NB_COURSES_MIN > 0 ? ` Filtre : ≥ ${PP.NB_COURSES_MIN} courses/12 mois.` : ''} « Bonne perf » = top ${PP.BONNE_RANG}.<br>
         <span class="pp-ok">[forme]</span> la dernière course est dans le top ${PP.FORME_VERTE_RANG} (sans effet sur la catégorie) · <span class="pp-ko">[forme]</span> au moins ${PP.MAUV_APRES} courses au-delà de la ${PP.MAUV_RANG}e place depuis la perf retenue : le cheval descend d'une catégorie.<br>
         <span class="pp-ok">[hippo]</span> bonne perf (top ${PP.BONNE_RANG}) sur cet hippodrome · <span class="pp-ok">[distance]</span> bonne perf à cette distance (± ${PP.DIST_TOL} m) · <span class="pp-ok">[jockey] [entr.]</span> dans les 25 % meilleurs.<br>
-        <span class="pp-ko">[poids]</span> hausse d'au moins ${PP.POIDS_VAR} kg par rapport à la dernière course · <span class="pp-ok">[poids]</span> baisse d'au moins ${PP.POIDS_VAR} kg.<br>
         <span class="pp-ok">[classe ↓]</span> la dotation du jour est inférieure à celle des ${PP.CLASSE_SUR} dernières courses (médiane ≥ ${Math.round(PP.DOT_SUP * 100)} % de celle du jour) · <span class="pp-ko">[classe ↑]</span> elle est supérieure (médiane &lt; ${Math.round(PP.DOT_INF * 100)} %) · rien si elles sont proches.<br>
         <span class="pp-q">[rapprochée]</span> dernière course il y a ${PP.RAPPROCHEE_J} jours ou moins · <span class="pp-q">[peu de courses]</span> ${PP.PEU_COURSES} courses ou moins dans l'historique · <span class="pp-q">[1re sortie]</span> aucune performance connue (cheval non classé). Étiquettes neutres : elles informent, sans changer la catégorie.<br>
         Outsider (léger) : dotation 60-85 % · (fort) : &lt; 60 %. Le terrain, la corde et le contexte n'influencent plus la catégorie. Seule la forme rouge fait descendre d'un cran.<br>
